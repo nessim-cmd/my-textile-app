@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String
+  address   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Fournisseur {
+  id     String @id @default(uuid())
+  name   String
+  email  String
+  phone  String
+  adress String
+
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  date        DateTime
+}
+
+model User {
+  id                String @id @default(uuid())
+  name              String
+  email             String @unique 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  clerkUserId       String? @unique
+  invoices          Invoice[] @relation("UserInvoices")
+  livraisons          Livraison[] @relation("UserLivraison")
+}
+
+
+
+model Invoice {
+  id            String        @id
+  name          String
+  issuerName    String        @default("")
+  issuerAddress String        @default("")
+  clientName    String        @default("")
+  clientAddress String        @default("")
+  invoiceDate   String        @default("")
+  dueDate       String        @default("")
+  vatActive     Boolean       @default(false)
+  vatRate       Float         @default(20)
+  status        Int           @default(1)
+  poidsBrut     String
+  poidsNet      String
+  nbrColis      String
+  volume        String
+  modePaiment   Int           @default(1)
+  origineTessuto String
+  lines         InvoiceLine[] @relation("InvoiceLines")
+  userId        String
+  createdById   User          @relation("UserInvoices", fields: [userId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model InvoiceLine {
+  id          String   @id @default(uuid())
+  reference   String
+  description String   @default("")
+  quantity    Int      @default(0)
+  unitPrice   Float    @default(0)
+  invoiceId   String?
+  invoice     Invoice? @relation("InvoiceLines", fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+
+
+
+model Livraison {
+  id            String        @id
+  name          String
+  issuerName    String        @default("")
+  issuerAddress String        @default("")
+  clientName    String        @default("")
+  clientAddress String        @default("")
+  livraisonDate   String        @default("")
+  soumission    String   @default("")
+  soumissionValable  String   @default("")
+  lines           LivraisonLine[] @relation("LivraisonLines")
+  userId        String
+  createdById     User          @relation("UserLivraison", fields: [userId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model LivraisonLine {
+  id          String   @id @default(uuid())
+  modele      String
+  commande    String   @default("")
+  description  String  @default("")
+  quantity   Int @default(0)
+  livraisonId   String?
+  Livraison   Livraison[] @relation("LivraisonLines")
+}

@@ -46,7 +46,12 @@ export async function PUT(
         poidsNet: invoiceData.poidsNet,
         nbrColis: invoiceData.nbrColis,
         modePaiment: invoiceData.modePaiment,
-        volume: invoiceData.volume
+        volume: invoiceData.volume,
+        origineTessuto:invoiceData.origineTessuto,
+        gmailclient: invoiceData.gmailclient,
+        gmailemetteur: invoiceData.gmailemetteur,
+        phoneclient: invoiceData.phoneclient,
+        phoneemetteur: invoiceData.phoneemetteur
       }
     })
 

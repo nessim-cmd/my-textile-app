@@ -70,6 +70,10 @@ model Invoice {
   volume        String
   modePaiment   Int           @default(1)
   origineTessuto String
+  gmailemetteur  String
+  phoneemetteur  String
+  gmailclient    String
+  phoneclient     String
   lines         InvoiceLine[] @relation("InvoiceLines")
   userId        String
   createdById   User          @relation("UserInvoices", fields: [userId], references: [id])

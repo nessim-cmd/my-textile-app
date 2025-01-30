@@ -26,16 +26,35 @@ const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice }) => {
                     required
                     onChange={(e) => handleInputChange(e , 'issuerName')}
                 />
-
-                <textarea
+                <h2 className='badge badge-accent'>Adresse Émetteur</h2>
+                <input
+                    type="text"
                     value={invoice?.issuerAddress}
-                    placeholder="Adresse de l'entreprise émettrice"
-                    className='textarea textarea-bordered w-full resize-none h-40'
-                    aria-rowcount={5}
+                    placeholder="Adresse de l'émettrice"
+                    className='input input-bordered w-full resize-none'
                     required
                     onChange={(e) => handleInputChange(e , 'issuerAddress')}
-                >
-                </textarea>
+                />
+                <h2 className='badge badge-accent'>Télephone </h2>
+                <input
+                    type="text"
+                    value={invoice?.phoneemetteur}
+                    placeholder="Numéro Télephone d'émettrice"
+                    className='input input-bordered w-full resize-none'
+                    required
+                    onChange={(e) => handleInputChange(e , 'phoneemetteur')}
+                />
+                <h2 className='badge badge-accent'>Email Émetteur </h2>
+                <input
+                    type="text"
+                    value={invoice?.gmailemetteur}
+                    placeholder="Email de l'émettrice"
+                    className='input input-bordered w-full resize-none'
+                    required
+                    onChange={(e) => handleInputChange(e , 'gmailemetteur')}
+                />
+
+                
 
                 <h2 className='badge badge-accent'>Client</h2>
                 <input
@@ -47,16 +66,38 @@ const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice }) => {
                     onChange={(e) => handleInputChange(e , 'clientName')}
                     
                 />
-
-                <textarea
+                <h2 className='badge badge-accent'>Adresse de Client </h2>
+                <input
+                    type="text"
                     value={invoice?.clientAddress}
-                    placeholder="Adresse de l'entreprise cliente"
-                    className='textarea textarea-bordered w-full resize-none h-40'
-                    aria-rowcount={5}
+                    placeholder="Adresse de Client"
+                    className='input input-bordered w-full resize-none'
                     required
                     onChange={(e) => handleInputChange(e , 'clientAddress')}
-                >
-                </textarea>
+                    
+                />
+                <h2 className='badge badge-accent'>Télephone de Client</h2>
+                <input
+                    type="text"
+                    value={invoice?.phoneclient}
+                    placeholder="Numéro Télephone de Client"
+                    className='input input-bordered w-full resize-none'
+                    required
+                    onChange={(e) => handleInputChange(e , 'phoneclient')}
+                    
+                />
+                <h2 className='badge badge-accent'>Email de Client</h2>
+                <input
+                    type="text"
+                    value={invoice?.gmailclient}
+                    placeholder="Email de Client"
+                    className='input input-bordered w-full resize-none'
+                    required
+                    onChange={(e) => handleInputChange(e , 'gmailclient')}
+                    
+                />
+
+               
 
                 <h2 className='badge badge-accent'>Date de la Facture</h2>
                 <input
@@ -76,7 +117,7 @@ const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice }) => {
                     onChange={(e) => handleInputChange(e , 'dueDate')}
                 />
 
-<h2 className='badge badge-accent'>Poids Brut</h2>
+                <h2 className='badge badge-accent'>Poids Brut</h2>
                 <input
                     type="text"
                     value={invoice?.poidsBrut}
@@ -85,7 +126,7 @@ const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice }) => {
                     onChange={(e) => handleInputChange(e , 'poidsBrut')}
                 />
 
-<h2 className='badge badge-accent'>Poids Net </h2>
+                <h2 className='badge badge-accent'>Poids Net </h2>
                 <input
                     type="text"
                     value={invoice?.poidsNet}

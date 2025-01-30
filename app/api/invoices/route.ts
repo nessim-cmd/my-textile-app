@@ -79,7 +79,11 @@ export async function POST(request: NextRequest) {
         poidsNet: "",
         nbrColis: "",
         volume: "",
-        origineTessuto: ""
+        origineTessuto: "",
+        gmailclient:"",
+        phoneclient:"",
+        gmailemetteur: "",
+        phoneemetteur: ""
       }
     })
 

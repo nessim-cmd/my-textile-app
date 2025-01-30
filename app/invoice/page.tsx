@@ -1,14 +1,12 @@
 "use client";
 
-import { Layers } from "lucide-react";
+import { Layers, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { Invoice } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import InvoiceComponent from "@/components/InvoiceComponent";
-
-
 
 export default function Home() {
   const { user } = useUser();
@@ -18,6 +16,7 @@ export default function Home() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchInvoices = async () => {
     if (!email) return;
@@ -42,6 +41,12 @@ export default function Home() {
   useEffect(() => {
     if (email) fetchInvoices();
   }, [email]);
+
+  const filteredInvoices = invoices.filter(invoice =>
+    invoice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    invoice.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
 
   const handleCreateInvoice = async () => {
     if (!email || !invoiceName.trim()) return;
@@ -82,7 +87,21 @@ export default function Home() {
   return (
     <Wrapper>
       <div className="flex flex-col space-y-4">
-        <h1 className="text-lg font-bold">Mes factures</h1>
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            placeholder="Search by name facture"
+            className="rounded-xl p-2 bg-gray-100 w-[600px]"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <button className="flex p-2 rounded-xl bg-blue-300">
+           <span className="font-bold px-2">Search</span>
+            <Search className="w-5 h-5 mt-0.5" />
+          </button>
+        </div>
+
+        <h1 className="text-3xl font-bold">Mes factures</h1>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div
@@ -103,8 +122,8 @@ export default function Home() {
             <div className="col-span-3 alert alert-error">
               {error}
             </div>
-          ) : invoices.length > 0 ? (
-            invoices.map((invoice) => (
+          ) : filteredInvoices.length > 0 ? (
+            filteredInvoices.map((invoice) => (
               <InvoiceComponent key={invoice.id} invoice={invoice} index={0} />
             ))
           ) : (

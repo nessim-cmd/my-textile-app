@@ -121,7 +121,7 @@ export default function InvoicePage() {
               value={invoice.modePaiment}
               onChange={handleModePaiment}
             >
-              <option value={1}>Virement au Comptant</option>
+              <option value={1}>Virement bancaire</option>
               <option value={2}>Chéque</option>
               <option value={3}>Espéce</option>
               

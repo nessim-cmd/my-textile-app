@@ -81,6 +81,23 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
             }
         }
     }
+    {
+        const invoiceData = [];
+        if (invoice.origineTessuto) invoiceData.push({ label: 'Origine TessuTo', value: invoice.origineTessuto });
+        if (invoice.poidsBrut) invoiceData.push({ label: 'Poids Brut', value: invoice.poidsBrut });
+        if (invoice.poidsNet) invoiceData.push({ label: 'Poids Net', value: invoice.poidsNet });
+        if (invoice.nbrColis) invoiceData.push({ label: 'Nombre de Colis', value: invoice.nbrColis });
+        if (invoice.volume) invoiceData.push({ label: 'Volume', value: `${invoice.volume} m³` });
+        invoiceData.push({ label: 'Mode de Paiement', value: invoice.modePaiment === 1 ? 'Virement bancaire' : invoice.modePaiment === 2 ? 'Chèque' : invoice.modePaiment === 3 ? 'Espèce' : 'Non défini' });
+        invoiceData.push({ label: 'Banque', value: 'Amen Bank Agence Korba' });
+        invoiceData.push({ label: 'RIB', value: '07 304 0056146070418 84' });
+        invoiceData.push({ label: 'IBAN', value: 'TN59 07304005614607041884' });
+        invoiceData.push({ label: 'SWIFT', value: 'CFCTTNTT' });
+      
+        const columns = [[], [], []];
+        invoiceData.forEach((item, index) => {
+          columns[index % 3].push(item);
+        });
 
     return (
         <div className='mt-4 hidden lg:block'>
@@ -125,20 +142,24 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
 
                     </div>
 
-                    <div className='my-6 flex justify-between'>
+                    <div className='my-4 flex justify-between'>
                         <div>
-                            <p className='badge badge-ghost mb-2'>Émetteur</p>
+                            <p className='badge badge-ghost mb-1'>Émetteur</p>
                             <p className='text-sm font-bold italic'>{invoice.issuerName.toUpperCase()}</p>
                             <p className='text-sm text-gray-500 w-52 break-words'>{invoice.issuerAddress}</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.phoneemetteur}</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.gmailemetteur}</p>
                         </div>
                         <div className='text-right'>
-                            <p className='badge badge-ghost mb-2'>Client</p>
+                            <p className='badge badge-ghost mb-1'>Client</p>
                             <p className='text-sm font-bold italic'>{invoice.clientName.toUpperCase()}</p>
                             <p className='text-sm text-gray-500 w-52 break-words'>{invoice.clientAddress}</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.phoneclient}</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.gmailclient}</p>
                         </div>
                     </div>
 
-                    <div className='overflow-x-auto'>
+                    <div className='scrollable'>
                         <table className='table table-zebra'>
                             <thead>
                                 <tr>
@@ -165,7 +186,7 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                         </table>
                     </div>
 
-                    <div className='mt-6 space-y-2 text-md'>
+                    <div className='mt-4 space-y-2 text-md'>
                         <div className='flex justify-between'>
                             <div className='font-bold'>
                                 Total Hors Taxes
@@ -196,8 +217,8 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                         </div>
                     </div>
 
-                    <div className="mt-3 border border-gray-300 rounded-lg w-full"> {/* Key change: w-full */}
-                        <div className="px-4 py-2"> {/* Added padding for better appearance */}
+                    <div className="mt-2 border border-gray-300 rounded-lg w-full"> {/* Key change: w-full */}
+                        <div className="px-4 py-1"> {/* Added padding for better appearance */}
                             <h2 className="text-sm font-semibold mb-2 text-gray-600">Montant en lettres:</h2>
                             <p className="text-xs font-bold uppercase tracking-wide break-words"> {/* Added break-words */}
                                 {convertToFrenchCurrency(totals.totalTTC)}
@@ -205,70 +226,25 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                         </div>
                     </div>
 
-                    <hr className="border-t-2 border-gray-400 my-4" />
+                    <hr className="border-t-2 border-gray-400 my-2" />
 
-                    {invoice.origineTessuto && (
-                        <div className='flex justify-between'>
-                            <div>
-                                <span className='font-bold'>Origine TessuTo : </span>  {invoice.origineTessuto}
+                    <div className="grid grid-cols-3 gap-4 p-2 border border-gray-300 rounded-lg shadow-md text-sm">
+                    {columns.map((column, colIndex) => (
+                        <div key={colIndex} className="flex flex-col space-y-1">
+                        {column.map((item, index) => (
+                            <div key={index} className="flex justify-between">
+                            <span className='font-bold'>{item.label} :</span> <span>{item.value}</span>
                             </div>
+                        ))}
                         </div>
-                    )}
+                    ))}
+                    </div>
 
-                    {invoice.poidsBrut && (
-                        <div className='flex justify-between'>
-                            <div>
-                                <span className='font-bold'>Poids Brut : </span>  {invoice.poidsBrut}
-                            </div>
-                        </div>
-                    )}
-                    {invoice.poidsNet && (
-                        <div className='flex justify-between'>
-                            <div>
-                                <span className='font-bold'>Poids Net : </span>  {invoice.poidsNet}
-                            </div>
-                        </div>
-                    )}
-                    {invoice.nbrColis && (
-                        <div className='flex justify-between'>
-                            <div>
-                                <span className='font-bold'>Nombre de Colis : </span>  {invoice.nbrColis}
-                            </div>
-                        </div>
-                    )}
-                    {invoice.volume && (
-                        <div className='flex justify-between'>
-                            <div>
-                                <span className='font-bold'>Volume : </span>  {invoice.volume} m³
-                            </div>
-                        </div>
-                    )}
-                    <div>
-                        <span className='font-bold'>Mode de Paiement : </span>
-                        {invoice.modePaiment === 1
-                            ? 'Virement au compte'
-                            : invoice.modePaiment === 2
-                            ? 'Chèque'
-                            : invoice.modePaiment === 3
-                            ? 'Espèce'
-                            : 'Non défini'}
-                    </div>
-                    <div>
-                        <span className='font-bold'>Banque : </span>{"Amen Bank Agence Korba "}
-                    </div>
-                    <div>
-                        <span className='font-bold'>RIB : </span>{"07 304 0056146070418 84 "}
-                    </div>
-                    <div>
-                        <span className='font-bold'>IBAN : </span>{"TN59 07304005614607041884 "}
-                    </div>
-                    <div>
-                        <span className='font-bold'>SWIFT : </span>{"CFCTTNTT "}
-                    </div>
                 </div>
             </div>
         </div>
     )
+}
 }
 
 export default InvoicePDF

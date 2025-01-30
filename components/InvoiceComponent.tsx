@@ -62,7 +62,7 @@ const getModePaiment = (paiment: number) => {
             return (
                 <div className='badge badge-lg flex items-center gap-2'>
                     <FileText className='w-4' />
-                    Virement au comptant
+                    Virement bancaire
                 </div>
             )
         case 2:

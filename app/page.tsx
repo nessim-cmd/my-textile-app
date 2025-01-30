@@ -1,16 +1,25 @@
 
-import PageDashboard from "./dashboard/page";
+import { currentUser } from "@clerk/nextjs/server";
+import Wrapper from "./components/Wrapper";
 
-export default function Home() {
- 
+import { addUserToDatabase } from "@/services/userService";
+
+
+export default async function Home() {
+  const user = await currentUser()
+
+  if(user){
+      const fullName = `${user.firstName} ${user.lastName}` || ""
+      const email = user.emailAddresses[0].emailAddress || ""
+      await addUserToDatabase(user.id,fullName,email  )
+  }
   
 
   return (
-    <section  className="w-full h-screen flex items-center justify-center flex-col">
- 
-
-      <PageDashboard/>
     
-    </section>
+    <Wrapper>
+      kks
+      
+    </Wrapper>
   );
 }

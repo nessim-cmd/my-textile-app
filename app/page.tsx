@@ -1,6 +1,6 @@
 
 import { currentUser } from "@clerk/nextjs/server";
-import Wrapper from "./components/Wrapper";
+import Wrapper from "../components/Wrapper";
 
 import { addUserToDatabase } from "@/services/userService";
 

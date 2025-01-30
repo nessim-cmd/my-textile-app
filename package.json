@@ -11,14 +11,21 @@
   "dependencies": {
     "@clerk/nextjs": "^6.10.3",
     "@prisma/client": "^6.3.0",
+    "canvas-confetti": "^1.9.3",
+    "html2canvas-pro": "^1.5.8",
+    "jspdf": "^2.5.2",
     "lucide-react": "^0.474.0",
+    "n2words": "^1.21.0",
     "next": "15.1.6",
+    "number-to-words": "^1.2.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
+    "@types/number-to-words": "^1.2.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "daisyui": "^4.12.23",

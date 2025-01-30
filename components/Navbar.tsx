@@ -13,7 +13,7 @@ const Navbar = () => {
     const pathname = usePathname()
     const navLinks = [
         {
-            href:"/",
+            href:"/invoice",
             label:"Factures"
         }
     ]

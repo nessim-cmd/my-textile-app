@@ -111,12 +111,13 @@ model Livraison {
   updatedAt         DateTime @updatedAt
 }
 
+// schema.prisma
 model LivraisonLine {
   id          String   @id @default(uuid())
   modele      String
   commande    String   @default("")
-  description  String  @default("")
-  quantity   Int @default(0)
-  livraisonId   String?
-  Livraison   Livraison[] @relation("LivraisonLines")
+  description String   @default("")
+  quantity    Int      @default(0)
+  livraisonId String?
+  livraison   Livraison? @relation("LivraisonLines", fields: [livraisonId], references: [id]) // Relation corrigée
 }

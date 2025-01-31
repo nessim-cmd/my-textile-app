@@ -88,7 +88,7 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
         if (invoice.poidsNet) invoiceData.push({ label: 'Poids Net', value: invoice.poidsNet });
         if (invoice.nbrColis) invoiceData.push({ label: 'Nombre de Colis', value: invoice.nbrColis });
         if (invoice.volume) invoiceData.push({ label: 'Volume', value: `${invoice.volume} m³` });
-        invoiceData.push({ label: 'Mode de Paiement', value: invoice.modePaiment === 1 ? 'Virement bancaire' : invoice.modePaiment === 2 ? 'Chèque' : invoice.modePaiment === 3 ? 'Espèce' : 'Non défini' });
+        invoiceData.push({ label: 'Mode Paiement', value: invoice.modePaiment === 1 ? 'Virement bancaire' : invoice.modePaiment === 2 ? 'Chèque' : invoice.modePaiment === 3 ? 'Espèce' : 'Non défini' });
         invoiceData.push({ label: 'Banque', value: 'Amen Bank Agence Korba' });
         invoiceData.push({ label: 'RIB', value: '07 304 0056146070418 84' });
         invoiceData.push({ label: 'IBAN', value: 'TN59 07304005614607041884' });

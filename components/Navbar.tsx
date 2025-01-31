@@ -15,6 +15,10 @@ const Navbar = () => {
         {
             href:"/invoice",
             label:"Factures"
+        },
+        {
+            href:"/livraison",
+            label:"Livraisons"
         }
     ]
 

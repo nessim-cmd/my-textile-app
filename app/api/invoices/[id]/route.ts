@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from "@/lib/db"
+import { Invoice } from '@/type'
 
 export async function GET(
   request: NextRequest,
@@ -60,7 +61,7 @@ export async function PUT(
     })
 
     const linesToDelete = existingLines.filter(el => 
-      !invoiceData.lines.some((l: any) => l.id === el.id)
+      !invoiceData.lines.some((l: Invoice) => l.id === el.id)
     )
     
     if (linesToDelete.length > 0) {

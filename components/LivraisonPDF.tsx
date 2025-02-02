@@ -117,7 +117,7 @@ const LivraisonPDF: React.FC<{ livraison: Livraison }> = ({ livraison }) => {
                             
                             <div className="flex justify-between">
                                 <span className='font-bold'>Soumission:</span> 
-                                <span>{formatDate(livraison.soumission)}</span>
+                                <span>{livraison.soumission}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className='font-bold'>Soumission Valable:</span> 

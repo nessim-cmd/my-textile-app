@@ -10,8 +10,17 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.10.3",
+    "@fullcalendar/core": "^6.1.15",
+    "@fullcalendar/daygrid": "^6.1.15",
+    "@fullcalendar/interaction": "^6.1.15",
+    "@fullcalendar/react": "^6.1.15",
+    "@fullcalendar/timegrid": "^6.1.15",
     "@prisma/client": "^6.3.0",
+    "@radix-ui/react-dialog": "^1.1.5",
+    "@radix-ui/react-slot": "^1.1.1",
     "canvas-confetti": "^1.9.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "html2canvas-pro": "^1.5.8",
     "jspdf": "^2.5.2",
     "lucide-react": "^0.474.0",
@@ -19,7 +28,9 @@
     "next": "15.1.6",
     "number-to-words": "^1.2.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

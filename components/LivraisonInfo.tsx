@@ -65,7 +65,7 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison }) => {
 
                 <h2 className='badge badge-accent'>Soumission</h2>
                 <input
-                    type="date"
+                    type="text"
                     value={livraison.soumission}
                     className='input input-bordered w-full resize-none'
                     onChange={(e) => handleInputChange(e, 'soumission')}

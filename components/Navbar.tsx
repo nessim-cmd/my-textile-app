@@ -19,6 +19,18 @@ const Navbar = () => {
         {
             href:"/livraison",
             label:"Livraisons"
+        },
+        {
+            href:"/client",
+            label:"Clients"
+        },
+        {
+            href:"/fournisseur",
+            label:"fournisseur"
+        },
+        {
+            href:"/calendar",
+            label:"Calendar"
         }
     ]
 

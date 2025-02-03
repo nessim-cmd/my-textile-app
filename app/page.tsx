@@ -18,7 +18,9 @@ export default async function Home() {
   return (
     
     <Wrapper>
-      kks
+      <div>
+        <span className="text-7xl mt-10 flex justify-center items-center">Welcome in page home</span>
+      </div>
       
     </Wrapper>
   );

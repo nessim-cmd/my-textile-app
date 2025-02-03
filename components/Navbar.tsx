@@ -21,6 +21,10 @@ const Navbar = () => {
             label:"Livraisons"
         },
         {
+            href:"/commande",
+            label:"Commandes"
+        },
+        {
             href:"/client",
             label:"Clients"
         },
@@ -32,6 +36,7 @@ const Navbar = () => {
             href:"/calendar",
             label:"Calendar"
         }
+        
     ]
 
 

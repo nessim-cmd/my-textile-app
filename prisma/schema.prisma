@@ -49,6 +49,7 @@ model User {
   clerkUserId       String? @unique
   invoices          Invoice[] @relation("UserInvoices")
   livraisons          Livraison[] @relation("UserLivraison")
+  commandes         Commande[] @relation("UserCommande")
 }
 
 
@@ -121,4 +122,33 @@ model LivraisonLine {
   quantity    Int      @default(0)
   livraisonId String?
   livraison   Livraison? @relation("LivraisonLines", fields: [livraisonId], references: [id]) // Relation corrigée
+}
+
+
+
+
+
+model Commande {
+  id            String        @id
+  name          String
+  issuerName    String        @default("")
+  issuerAddress String        @default("")
+  clientName    String        @default("")
+  clientAddress String        @default("")
+  commandeDate   String        @default("")
+  lines           CommandeLine[] @relation("CommandeLines")
+  userId        String
+  createdById     User          @relation("UserCommande", fields: [userId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// schema.prisma
+model CommandeLine {
+  id          String   @id @default(uuid())
+  reference      String
+  description String   @default("")
+  quantity    Int      @default(0)
+  commandeId String?
+  commande   Commande? @relation("CommandeLines", fields: [commandeId], references: [id]) // Relation corrigée
 }

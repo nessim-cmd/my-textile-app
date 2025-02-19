@@ -3,10 +3,13 @@
 import { Layers, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import confetti from "canvas-confetti";
+
 import { Invoice } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import InvoiceComponent from "@/components/InvoiceComponent";
+import ExportComponent from "@/components/ExportComponent";
+import { DeclarationExport } from "@/type";
+import confetti from "canvas-confetti";
 
 export default function Home() {
   const { user } = useUser();
@@ -14,6 +17,7 @@ export default function Home() {
   const [isNameValid, setIsNameValid] = useState(true);
   const email = user?.primaryEmailAddress?.emailAddress;
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [exports, setExports] = useState<DeclarationExport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,23 +34,49 @@ export default function Home() {
       
       const data = await response.json();
       setInvoices(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.error("Error loading invoices:", err);
-      setError(err.message || "Failed to load invoices");
+    } catch (error) {
+      console.error("Error loading invoices:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExports = async () => {
+    if (!email) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/exporte?email=${encodeURIComponent(email)}`);
+      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+      
+      const data = await response.json();
+      setExports(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error loading exports:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (email) fetchInvoices();
+    if (email) {
+      fetchInvoices();
+      fetchExports();
+    }
   }, [email]);
 
+  // Filter both invoices and exports using one search term
   const filteredInvoices = invoices.filter(invoice =>
     invoice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     invoice.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
+  const filteredExports = exports.filter(exp =>
+    exp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    exp.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleCreateInvoice = async () => {
     if (!email || !invoiceName.trim()) return;
@@ -78,11 +108,13 @@ export default function Home() {
         origin: { y: 0.6 },
         zIndex: 9999,
       });
-    } catch (err: any) {
-      console.error("Error creating invoice:", err);
-      alert(err.message || "Failed to create invoice");
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      
     }
   };
+
+ 
 
   return (
     <Wrapper>
@@ -90,18 +122,18 @@ export default function Home() {
         <div className="flex items-center space-x-2">
           <input
             type="text"
-            placeholder="Search by name facture"
+            placeholder="Search by name or ID (Invoices/Exports)"
             className="rounded-xl p-2 bg-gray-100 w-[600px]"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button className="flex p-2 rounded-xl bg-blue-300">
-           <span className="font-bold px-2">Search</span>
+            <span className="font-bold px-2">Search</span>
             <Search className="w-5 h-5 mt-0.5" />
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold">Mes factures</h1>
+        <h1 className="text-3xl font-bold">Mes factures et Exports</h1>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div
@@ -122,16 +154,32 @@ export default function Home() {
             <div className="col-span-3 alert alert-error">
               {error}
             </div>
-          ) : filteredInvoices.length > 0 ? (
-            filteredInvoices.map((invoice) => (
-              <InvoiceComponent key={invoice.id} invoice={invoice} index={0} />
-            ))
           ) : (
-            <div className="col-span-3 text-center">
-              Aucune facture trouvée
-            </div>
+            <>
+              {filteredInvoices.map((invoice) => (
+                <InvoiceComponent key={invoice.id} invoice={invoice} index={0} />
+              ))}
+              {filteredExports.map((exp) => (
+                <ExportComponent key={exp.id} exporte={exp} index={0} />
+              ))}
+              {filteredInvoices.length === 0 && filteredExports.length === 0 && (
+                <div className="col-span-3 text-center">
+                  Aucune facture ou export trouvé
+                </div>
+              )}
+            </>
           )}
         </div>
+
+
+
+
+
+
+
+
+
+
 
         <dialog id="invoice_modal" className="modal">
           <div className="modal-box">

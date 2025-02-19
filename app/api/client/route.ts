@@ -17,8 +17,14 @@ export async function POST(request: Request) {
       data: {
         name: body.name,
         email: body.email,
-        phone: body.phone,
+        phone1: body.phone1,
+        phone2: body.phone2,
+        fix: body.fix,
         address: body.address,
+        matriculeFiscale: body.matriculeFiscale,
+        soumission: body.soumission,
+        dateDebutSoumission : body.dateDebutSoumission,
+        dateFinSoumission : body.dateFinSoumission
       },
     });
     return NextResponse.json(newClient, { status: 201 });
@@ -39,8 +45,14 @@ export async function PUT(request: Request) {
       data: {
         name: body.name,
         email: body.email,
-        phone: body.phone,
+        phone1: body.phone1,
+        phone2: body.phone2,
+        fix: body.fix,
         address: body.address,
+        matriculeFiscale: body.matriculeFiscale,
+        soumission: body.soumission,
+        dateDebutSoumission : body.dateDebutSoumission,
+        dateFinSoumission : body.dateFinSoumission
       },
     });
     return NextResponse.json(updatedClient);
@@ -56,7 +68,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { id } = await request.json();
-    await prisma.client.delete({
+    await prisma.clientModel.delete({
       where: { id },
     });
     return NextResponse.json({ success: true });

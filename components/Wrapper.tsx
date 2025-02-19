@@ -1,5 +1,8 @@
 import React from 'react'
 import Navbar from './Navbar'
+import { SidebarProvider } from './ui/sidebar'
+import { AppSidebar } from './app-sidebar'
+import { CustomTrigger } from './CustomTrigger'
 
 type WrapperProps = {
     children : React.ReactNode
@@ -7,12 +10,22 @@ type WrapperProps = {
 
 const Wrapper = ({children}: WrapperProps) => {
   return (
-   <div>
+    <SidebarProvider>
+      <AppSidebar />
+      
+   <div className='w-full'>
+   
     <Navbar/>
-     <div className='px-5 md:px-[10%] mt-8 mb-10'>
+    <CustomTrigger/>
+     <div className='px-3 md:px-[1%] mt-8 mb-10'>
+     
         {children}
+        
     </div>
+    
    </div>
+   
+   </SidebarProvider>
   )
 }
 

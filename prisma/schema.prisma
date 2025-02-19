@@ -1,9 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,25 +8,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Make all fields required in your schema:
 model Client {
+  id                 String   @id @default(uuid())
+  name               String?
+  email              String?   @unique
+  phone1             String?
+  phone2             String?
+  fix                String?
+  address            String?
+  matriculeFiscale   String?
+  soumission         String?
+  dateDebutSoumission String?
+  dateFinSoumission   String?
+  clientModels       ClientModel[]
+  livraisonEntrees   LivraisonEntree[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model ClientModel {
+  id          String      @id @default(uuid())
+  name        String?
+  description String?
+  clientId    String?
+  client      Client?     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  commandes   String?
+  lotto       String?
+  ordine      String?
+  puht          Float?
+  variants    Variant[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Variant {
+  id            String      @id @default(uuid())
+  name          String?
+  clientModelId String?
+  qte_variante Int?
+  
+  modelId      String?
+  model        ModelPlan? @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  clientModel   ClientModel? @relation(fields: [clientModelId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Fournisseur {
   id        String   @id @default(uuid())
   name      String
-  email     String   @unique
+  email     String
   phone     String
   address   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-model Fournisseur {
-  id     String @id @default(uuid())
-  name   String
-  email  String
-  phone  String
-  address String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
 }
 
 model Event {
@@ -41,46 +72,49 @@ model Event {
 }
 
 model User {
-  id                String @id @default(uuid())
-  name              String
-  email             String @unique 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  clerkUserId       String? @unique
-  invoices          Invoice[] @relation("UserInvoices")
-  livraisons          Livraison[] @relation("UserLivraison")
-  commandes         Commande[] @relation("UserCommande")
+  id           String             @id @default(uuid())
+  name         String
+  email        String             @unique
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  clerkUserId  String?            @unique
+  invoices     Invoice[]          @relation("UserInvoices")
+  livraisons   Livraison[]        @relation("UserLivraison")
+  livraisonsEntry   LivraisonEntree[]        @relation("UserLivraisonEntry")
+  commandes    Commande[]         @relation("UserCommande")
+  declarations DeclarationImport[] @relation("UserDeclarations")
+  suiviProductions SuiviProduction[] @relation("UserSuiviProductions")
+  plannings Planning[] @relation("UserPlannings")
+  exporte DeclarationExport[] @relation("UserExport")
 }
 
-
-
 model Invoice {
-  id            String        @id
-  name          String
-  issuerName    String        @default("")
-  issuerAddress String        @default("")
-  clientName    String        @default("")
-  clientAddress String        @default("")
-  invoiceDate   String        @default("")
-  dueDate       String        @default("")
-  vatActive     Boolean       @default(false)
-  vatRate       Float         @default(20)
-  status        Int           @default(1)
-  poidsBrut     String
-  poidsNet      String
-  nbrColis      String
-  volume        String
-  modePaiment   Int           @default(1)
-  origineTessuto String
-  gmailemetteur  String
-  phoneemetteur  String
-  gmailclient    String
+  id              String        @id
+  name            String
+  issuerName      String        @default("")
+  issuerAddress   String        @default("")
+  clientName      String        @default("")
+  clientAddress   String        @default("")
+  invoiceDate     String        @default("")
+  dueDate         String        @default("")
+  vatActive       Boolean       @default(false)
+  vatRate         Float         @default(20)
+  status          Int           @default(1)
+  poidsBrut       String
+  poidsNet        String
+  nbrColis        String
+  volume          String
+  modePaiment     Int           @default(1)
+  origineTessuto  String
+  gmailemetteur   String
+  phoneemetteur   String
+  gmailclient     String
   phoneclient     String
-  lines         InvoiceLine[] @relation("InvoiceLines")
-  userId        String
-  createdById   User          @relation("UserInvoices", fields: [userId], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  lines           InvoiceLine[] @relation("InvoiceLines")
+  userId          String
+  createdById     User          @relation("UserInvoices", fields: [userId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
 
 model InvoiceLine {
@@ -93,62 +127,218 @@ model InvoiceLine {
   invoice     Invoice? @relation("InvoiceLines", fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
-
-
-
 model Livraison {
-  id            String        @id
-  name          String
-  issuerName    String        @default("")
-  issuerAddress String        @default("")
-  clientName    String        @default("")
-  clientAddress String        @default("")
-  livraisonDate   String        @default("")
-  soumission    String   @default("")
-  soumissionValable  String   @default("")
-  lines           LivraisonLine[] @relation("LivraisonLines")
-  userId        String
-  createdById     User          @relation("UserLivraison", fields: [userId], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String          @id
+  name             String
+  issuerName       String          @default("")
+  issuerAddress    String          @default("")
+  clientName       String          @default("")
+  clientAddress    String          @default("")
+  livraisonDate    String          @default("")
+  soumission       String          @default("")
+  soumissionValable String         @default("")
+  lines            LivraisonLine[] @relation("LivraisonLines")
+  userId           String
+  createdById      User            @relation("UserLivraison", fields: [userId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 }
 
-// schema.prisma
 model LivraisonLine {
-  id          String   @id @default(uuid())
-  modele      String
-  commande    String   @default("")
-  description String   @default("")
-  quantity    Int      @default(0)
-  livraisonId String?
-  livraison   Livraison? @relation("LivraisonLines", fields: [livraisonId], references: [id]) // Relation corrigée
+  id           String     @id @default(uuid())
+  modele       String
+  commande     String     @default("")
+  description  String     @default("")
+  quantity     Int        @default(0)
+  livraisonId  String?
+  livraison    Livraison? @relation("LivraisonLines", fields: [livraisonId], references: [id])
 }
 
+model LivraisonEntree {
+  id              String                 @id 
+  name            String?
+  clientId        String?
+  client          Client?                 @relation(fields: [clientId], references: [id])
+  clientName      String?
+  livraisonDate   String?
+  lines           LivraisonEntreeLine[]
+  userId          String?
+  createdById     User?          @relation("UserLivraisonEntry", fields: [userId], references: [id])
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
 
-
+model LivraisonEntreeLine {
+  id                  String            @id @default(uuid())
+  modele              String
+  commande            String
+  description         String
+  quantityReçu        Int
+  quantityTrouvee     Int
+  livraisonEntreeId   String
+  livraisonEntree     LivraisonEntree   @relation(fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
 
 
 model Commande {
-  id            String        @id
+  id            String         @id
   name          String
-  issuerName    String        @default("")
-  issuerAddress String        @default("")
-  clientName    String        @default("")
-  clientAddress String        @default("")
-  commandeDate   String        @default("")
-  lines           CommandeLine[] @relation("CommandeLines")
+  issuerName    String         @default("")
+  issuerAddress String         @default("")
+  clientName    String         @default("")
+  clientAddress String         @default("")
+  commandeDate  String         @default("")
+  lines         CommandeLine[] @relation("CommandeLines")
   userId        String
-  createdById     User          @relation("UserCommande", fields: [userId], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdById   User           @relation("UserCommande", fields: [userId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+model CommandeLine {
+  id          String    @id @default(uuid())
+  reference   String
+  description String    @default("")
+  quantity    Int       @default(0)
+  commandeId  String?
+  commande    Commande? @relation("CommandeLines", fields: [commandeId], references: [id])
 }
 
+
+
+model DeclarationImport {
+  id         String      @id @default(uuid())
+  num_dec    String
+  date_import DateTime
+  client     String
+  valeur     Float
+  userId     String
+  models     Model[]     
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  user       User        @relation("UserDeclarations", fields: [userId], references: [id])
+}
+
+model Model {
+  id          String      @id @default(uuid())
+  name        String
+  accessories Accessoire[] 
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  declarationImportId String
+  declarationImport DeclarationImport @relation(fields: [declarationImportId], references: [id], onDelete: Cascade)
+}
+
+model Accessoire {
+  id                  String  @id @default(uuid())
+  reference_accessoire String
+  quantity_reçu       Int
+  quantity_trouve     Int
+  quantity_manque     Int
+  modelId             String
+  model               Model   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+}
+
+
+model SuiviProduction {
+  id          String      @id @default(uuid())
+  model_name  String
+  qte_total   Int
+  client      String
+  lines       SuiviProductionLine[]
+  userId      String
+  createdById     User          @relation("UserSuiviProductions", fields: [userId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model SuiviProductionLine {
+  id              String      @id @default(uuid())
+  commande        String
+  qte_livree      Int
+  qte_reparation  Int
+  numero_livraison String
+  date_export     DateTime
+  suiviId         String?
+  suivi           SuiviProduction? @relation(fields: [suiviId], references: [id])
+}
+
+
+
+
 // schema.prisma
-model CommandeLine {
-  id          String   @id @default(uuid())
-  reference      String
-  description String   @default("")
-  quantity    Int      @default(0)
-  commandeId String?
-  commande   Commande? @relation("CommandeLines", fields: [commandeId], references: [id]) // Relation corrigée
+model Planning {
+  id          String      @id @default(uuid())
+  name        String
+  status      Status      @default(EN_COURS)
+  models      ModelPlan[]
+  userId      String
+  createdById User        @relation("UserPlannings", fields: [userId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model ModelPlan {
+  id                  String      @id @default(uuid())
+  name                String
+  lotto               String
+  commande            String
+  ordine              String
+  faconner            String
+  designation         String
+  date_import         DateTime
+  date_export         DateTime
+  date_entre_coupe    DateTime
+  date_sortie_coupe   DateTime
+  date_entre_chaine   DateTime
+  date_sortie_chaine  DateTime
+  variantes           Variant[]
+  planningId          String
+  planning            Planning    @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+
+
+enum Status {
+  EN_COURS
+  EN_PAUSE
+  EN_ATTENTE
+  FINI
+}
+
+/// declaration export 
+model DeclarationExport{
+  id String @id
+  name String  
+  clientName String  @default("")
+  exportDate String  @default("")
+  dueDate String  @default("")
+  vatActive Boolean @default(false)
+  vatRate Float @default(20)
+  status Int @default(1)
+  poidsBrut String
+  poidsNet String
+  nbrColis String
+  volume String
+  modePaiment Int @default(1)
+  origineTessuto String
+  lines           ExportLine[] @relation("ExportLines")
+  userId String
+  createdByUser User @relation("UserExport",fields: [userId],references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ExportLine {
+  id String @id  @default(uuid())
+  commande String
+  modele String
+  description String @default("")
+  quantity Int  @default(0)
+  unitPrice Float @default(0)
+  exportId String
+  exporte     DeclarationExport? @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
 }

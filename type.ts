@@ -1,19 +1,41 @@
-import { Invoice as PrismaInvoice } from "@prisma/client";
-import { Livraison as PrismaLivraison } from "@prisma/client";
-import { Commande as PrismaCommande } from "@prisma/client";
-import { InvoiceLine } from "@prisma/client";
-import { LivraisonLine } from "@prisma/client";
-import { CommandeLine } from "@prisma/client";
+import { 
+  Invoice as PrismaInvoice,
+  Livraison as PrismaLivraison,
+  Commande as PrismaCommande,
+  InvoiceLine,
+  LivraisonLine,
+  CommandeLine,
+  DeclarationImport as PrismaDeclarationImport,
+  Model as PrismaModel,
+  Accessoire as PrismaAccessoire,
+  SuiviProduction as PrismaSuiviProduction,
+  SuiviProductionLine as PrismaSuiviProductionLine,
+  Planning as PrismaPlanning,
+  ModelPlan as PrismaModelPlan,
+  Variant as PrismaVariante,
+  DeclarationExport as PrismaDeclarationExport,
+  ExportLine,
+  LivraisonEntree as PrismaLivraisonEntry,
+  LivraisonEntreeLine,
+  
+} from "@prisma/client";
+
+
 
 export interface Invoice extends PrismaInvoice {
   lines: InvoiceLine[];
 }
 
-export interface Livraison extends PrismaLivraison{
+export interface Livraison extends PrismaLivraison {
   lines: LivraisonLine[];
 }
+export interface LivraisonEntree extends PrismaLivraisonEntry {
+  lines: LivraisonEntreeLine[];
+}
 
-export interface Commande extends PrismaCommande{
+
+
+export interface Commande extends PrismaCommande {
   lines: CommandeLine[];
 }
 
@@ -22,3 +44,43 @@ export interface Totals {
   totalVAT: number;
   totalTTC: number;
 }
+
+export interface TotalsExport {
+  totalHT: number;
+  totalVAT: number;
+  totalTTC: number;
+}
+
+export interface DeclarationImport extends PrismaDeclarationImport {
+  models: Model[];
+}
+
+export interface Model extends PrismaModel {
+  accessories: Accessoire[];
+}
+
+export type Accessoire = PrismaAccessoire;
+
+export interface SuiviProduction extends PrismaSuiviProduction {
+  lines: SuiviProductionLine[];
+}
+
+export type SuiviProductionLine = PrismaSuiviProductionLine;
+
+
+
+
+export interface Planning extends PrismaPlanning {
+  models: ModelPlan[];
+}
+
+export interface ModelPlan extends PrismaModelPlan {
+  variantes: Variante[];
+}
+
+export type Variante = PrismaVariante;
+
+export interface DeclarationExport extends PrismaDeclarationExport {
+  lines: ExportLine[];
+}
+

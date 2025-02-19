@@ -77,7 +77,7 @@ const LivraisonPDF: React.FC<{ livraison: Livraison }> = ({ livraison }) => {
                     <div className='my-4 flex justify-between'>
                         <div>
                             <p className='badge badge-ghost mb-1'>Émetteur</p>
-                            <p className='text-sm font-bold italic'>{livraison.issuerName.toUpperCase()}</p>
+                            <p className='text-sm font-bold italic uppercase'>MS Tailors</p>
                             <p className='text-sm text-gray-500 w-52 break-words'>{livraison.issuerAddress}</p>
                         </div>
                         <div className='text-right'>

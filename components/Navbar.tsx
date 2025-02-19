@@ -2,54 +2,11 @@
 
 import { UserButton } from '@clerk/nextjs'
 
-import { Layers } from 'lucide-react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { Bell, Layers } from 'lucide-react'
+
 import React from 'react'
 
 const Navbar = () => {
-
-        
-    const pathname = usePathname()
-    const navLinks = [
-        {
-            href:"/invoice",
-            label:"Factures"
-        },
-        {
-            href:"/livraison",
-            label:"Livraisons"
-        },
-        {
-            href:"/commande",
-            label:"Commandes"
-        },
-        {
-            href:"/client",
-            label:"Clients"
-        },
-        {
-            href:"/fournisseur",
-            label:"fournisseur"
-        },
-        {
-            href:"/calendar",
-            label:"Calendar"
-        }
-        
-    ]
-
-
-    const isActiveLink = (href:string)=>
-        pathname.replace(/\/$/,"") === href.replace(/\/$/,"")
-
-    const renderLinks = (classNames : string)=>
-        navLinks.map(({href, label})=>{
-            return <Link href={href} key={href} className={`btn-sm ${classNames} ${isActiveLink(href) ? 'btn-accent' : ""}`}>
-                {label}
-            </Link>
-        })
-    
 
   return (
     <div className='border-b border-base-300 px-5 md:px-[10%] py-4 '>
@@ -63,7 +20,7 @@ const Navbar = () => {
             </span>
       </div>
         <div className='flex space-x-4 items-center'>
-            {renderLinks('btn')}
+        <Bell className='mr-6'/>
             <UserButton/>
         </div>
       </div>

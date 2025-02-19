@@ -30,9 +30,9 @@ export default function Home() {
       
       const data = await response.json();
       setLivraisons(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.error("Error loading livraisons:", err);
-      setError(err.message || "Failed to load livraisons");
+    } catch (error) {
+      console.error("Error loading livraisons:", error);
+      
     } finally {
       setLoading(false);
     }
@@ -76,9 +76,9 @@ export default function Home() {
         origin: { y: 0.6 },
         zIndex: 9999,
       });
-    } catch (err: any) {
-      console.error("Error creating livraison:", err);
-      alert(err.message || "Failed to create livraison");
+    } catch (error) {
+      console.error("Error creating livraison:", error);
+      
     }
   };
 

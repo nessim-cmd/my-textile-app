@@ -8,18 +8,36 @@ import { DeclarationImport } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import ImportComponent from "@/components/ImportComponent";
 
+// Add Client interface
+interface Client {
+  id: string;
+  name: string;
+}
+
 export default function ImportPage() {
   const { user } = useUser();
   const [numDec, setNumDec] = useState("");
   const [dateImport, setDateImport] = useState("");
   const [client, setClient] = useState("");
   const [valeur, setValeur] = useState("");
-  const [isFormValid, setIsFormValid] = useState(true);
+  const [clients, setClients] = useState<Client[]>([]); // Add clients state
+
   const email = user?.primaryEmailAddress?.emailAddress;
   const [declarations, setDeclarations] = useState<DeclarationImport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Add client fetching function
+  const fetchClients = async () => {
+    try {
+      const res = await fetch('/api/client');
+      const data = await res.json();
+      setClients(data);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    }
+  };
 
   const fetchDeclarations = async () => {
     if (!email) return;
@@ -33,9 +51,8 @@ export default function ImportPage() {
       
       const data = await response.json();
       setDeclarations(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.error("Error loading declarations:", err);
-      setError(err.message || "Failed to load declarations");
+    } catch (error) {
+      console.error("Error loading declarations:", error);
     } finally {
       setLoading(false);
     }
@@ -43,6 +60,7 @@ export default function ImportPage() {
 
   useEffect(() => {
     if (email) fetchDeclarations();
+    fetchClients(); // Fetch clients on mount
   }, [email]);
 
   const filteredDeclarations = declarations.filter(declaration =>
@@ -85,9 +103,8 @@ export default function ImportPage() {
         origin: { y: 0.6 },
         zIndex: 9999,
       });
-    } catch (err: any) {
-      console.error("Error creating declaration:", err);
-      alert(err.message || "Failed to create declaration");
+    } catch (error) {
+      console.error("Error creating declaration:", error);
     }
   };
 
@@ -103,12 +120,12 @@ export default function ImportPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button className="flex p-2 rounded-xl bg-blue-300">
-           <span className="font-bold px-2">Rechercher</span>
+            <span className="font-bold px-2">Rechercher</span>
             <Search className="w-5 h-5 mt-0.5" />
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold">Déclarations d'Import</h1>
+        <h1 className="text-3xl font-bold">{"Déclarations d'Import"}</h1>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div
@@ -166,13 +183,20 @@ export default function ImportPage() {
                 onChange={(e) => setDateImport(e.target.value)}
               />
               
-              <input
-                type="text"
-                placeholder="Client"
-                className="input input-bordered w-full"
+              {/* Replace input with select */}
+              <select
+                className="select select-bordered w-full"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
-              />
+                required
+              >
+                <option value="">Select Client</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.name}>
+                    {client.name}
+                  </option>
+                ))}
+              </select>
               
               <input
                 type="number"

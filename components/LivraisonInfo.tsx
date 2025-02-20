@@ -1,86 +1,104 @@
-import { Livraison } from '@/type'
-import React from 'react'
+// components/LivraisonInfo.tsx
+import { Livraison } from "@/type";
+import { useUser } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 
 interface Props {
-    livraison: Livraison 
-    setLivraison: (livraison: Livraison) => void
+  livraison: Livraison;
+  setLivraison: (livraison: Livraison) => void;
+  onModelsChange?: (models: ClientModel[]) => void; // Callback to pass models
 }
 
-const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison }) => {
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: string) => {
-        setLivraison({ ...livraison, [field]: e.target.value })
-    }
-
-    return (
-        <div className='flex flex-col h-fit bg-base-200 p-5 rounded-xl mb-4 md:mb-0'>
-            <div className='space-y-4'>
-                <h2 className='badge badge-accent'>Émetteur</h2>
-                <input
-                    type="text"
-                    value={livraison.issuerName}
-                    placeholder="Nom de l'entreprise émettrice"
-                    className='input input-bordered w-full resize-none'
-                    required
-                    onChange={(e) => handleInputChange(e, 'issuerName')}
-                />
-                
-                <h2 className='badge badge-accent'>Adresse Émetteur</h2>
-                <input
-                    type="text"
-                    value={livraison.issuerAddress}
-                    placeholder="Adresse de l'émettrice"
-                    className='input input-bordered w-full resize-none'
-                    required
-                    onChange={(e) => handleInputChange(e, 'issuerAddress')}
-                />
-
-                <h2 className='badge badge-accent'>Client</h2>
-                <input
-                    type="text"
-                    value={livraison.clientName}
-                    placeholder="Nom de l'entreprise cliente"
-                    className='input input-bordered w-full resize-none'
-                    required
-                    onChange={(e) => handleInputChange(e, 'clientName')}
-                />
-                
-                <h2 className='badge badge-accent'>Adresse Client</h2>
-                <input
-                    type="text"
-                    value={livraison.clientAddress}
-                    placeholder="Adresse de Client"
-                    className='input input-bordered w-full resize-none'
-                    required
-                    onChange={(e) => handleInputChange(e, 'clientAddress')}
-                />
-
-                <h2 className='badge badge-accent'>Date de Livraison</h2>
-                <input
-                    type="date"
-                    value={livraison.livraisonDate}
-                    className='input input-bordered w-full resize-none'
-                    required
-                    onChange={(e) => handleInputChange(e, 'livraisonDate')}
-                />
-
-                <h2 className='badge badge-accent'>Soumission</h2>
-                <input
-                    type="text"
-                    value={livraison.soumission}
-                    className='input input-bordered w-full resize-none'
-                    onChange={(e) => handleInputChange(e, 'soumission')}
-                />
-
-                <h2 className='badge badge-accent'>Soumission Valable</h2>
-                <input
-                    type="date"
-                    value={livraison.soumissionValable}
-                    className='input input-bordered w-full resize-none'
-                    onChange={(e) => handleInputChange(e, 'soumissionValable')}
-                />
-            </div>
-        </div>
-    )
+interface Client {
+  id: string;
+  name: string;
 }
 
-export default LivraisonInfo
+interface ClientModel {
+  id: string;
+  name: string;
+  clientId: string;
+}
+
+const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChange }) => {
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientModels, setClientModels] = useState<ClientModel[]>([]);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch("/api/client");
+        const data = await response.json();
+        setClients(data);
+      } catch (error) {
+        console.error("Error fetching clients:", error);
+      }
+    };
+    fetchClients();
+  }, []);
+
+  useEffect(() => {
+    const fetchClientModels = async () => {
+      if (livraison.clientName && email) {
+        try {
+          const response = await fetch(
+            `/api/client-model?email=${encodeURIComponent(email)}&client=${encodeURIComponent(livraison.clientName)}`
+          );
+          if (!response.ok) throw new Error("Failed to fetch models");
+          const data = await response.json();
+          setClientModels(data);
+          onModelsChange?.(data); // Pass models to parent
+        } catch (error) {
+          console.error("Error fetching client models:", error);
+          setClientModels([]);
+          onModelsChange?.([]);
+        }
+      } else {
+        setClientModels([]);
+        onModelsChange?.([]);
+      }
+    };
+    fetchClientModels();
+  }, [livraison.clientName, email, onModelsChange]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    setLivraison({ ...livraison, [field]: e.target.value });
+  };
+
+  const handleClientChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setLivraison({ ...livraison, clientName: e.target.value });
+  };
+
+  return (
+    <div className="flex flex-col h-fit bg-base-200 p-5 rounded-xl mb-4 md:mb-0">
+      <div className="space-y-4">
+        <h2 className="badge badge-accent">Client</h2>
+        <select
+          value={livraison.clientName}
+          onChange={handleClientChange}
+          className="select select-bordered w-full"
+        >
+          <option value="">Sélectionner un client</option>
+          {clients.map((client) => (
+            <option key={client.id} value={client.name}>
+              {client.name}
+            </option>
+          ))}
+        </select>
+
+        <h2 className="badge badge-accent">Date de livraison</h2>
+        <input
+          type="date"
+          value={livraison.livraisonDate}
+          className="input input-bordered w-full resize-none"
+          required
+          onChange={(e) => handleInputChange(e, "livraisonDate")}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default LivraisonInfo;

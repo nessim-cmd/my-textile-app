@@ -1,7 +1,6 @@
+// app/api/client/route.ts
 import prisma from '@/lib/db';
 import { NextResponse } from 'next/server';
-
-
 
 export async function GET() {
   const clients = await prisma.client.findMany({
@@ -23,13 +22,13 @@ export async function POST(request: Request) {
         address: body.address,
         matriculeFiscale: body.matriculeFiscale,
         soumission: body.soumission,
-        dateDebutSoumission : body.dateDebutSoumission,
-        dateFinSoumission : body.dateFinSoumission
+        dateDebutSoumission: body.dateDebutSoumission,
+        dateFinSoumission: body.dateFinSoumission,
       },
     });
     return NextResponse.json(newClient, { status: 201 });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return NextResponse.json(
       { error: 'Failed to create client' },
       { status: 500 }
@@ -51,13 +50,13 @@ export async function PUT(request: Request) {
         address: body.address,
         matriculeFiscale: body.matriculeFiscale,
         soumission: body.soumission,
-        dateDebutSoumission : body.dateDebutSoumission,
-        dateFinSoumission : body.dateFinSoumission
+        dateDebutSoumission: body.dateDebutSoumission,
+        dateFinSoumission: body.dateFinSoumission,
       },
     });
     return NextResponse.json(updatedClient);
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return NextResponse.json(
       { error: 'Failed to update client' },
       { status: 500 }
@@ -73,7 +72,7 @@ export async function DELETE(request: Request) {
     });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log(error)
+    console.log(error);
     return NextResponse.json(
       { error: 'Failed to delete client' },
       { status: 500 }

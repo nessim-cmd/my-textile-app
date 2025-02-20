@@ -1,82 +1,83 @@
-"use client"
+// app/exporte/page.tsx
+"use client";
 
-import { Layers, Search } from "lucide-react"
-import { useEffect, useState } from "react"
-import { useUser } from "@clerk/nextjs"
-import confetti from "canvas-confetti"
-import { DeclarationExport } from "@/type"
-import Wrapper from "@/components/Wrapper"
-import ExportComponent from "@/components/ExportComponent"
+import { Layers, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import confetti from "canvas-confetti";
+import { DeclarationExport } from "@/type";
+import Wrapper from "@/components/Wrapper";
+import ExportComponent from "@/components/ExportComponent";
 
 export default function ExportPage() {
-  const { user } = useUser()
-  const [exportName, setExportName] = useState("")
-  const [isNameValid, setIsNameValid] = useState(true)
-  const email = user?.primaryEmailAddress?.emailAddress
-  const [exports, setExports] = useState<DeclarationExport[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
+  const { user } = useUser();
+  const [exportName, setExportName] = useState("");
+  const [isNameValid, setIsNameValid] = useState(true);
+  const email = user?.primaryEmailAddress?.emailAddress;
+  const [exports, setExports] = useState<DeclarationExport[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchExports = async () => {
-    if (!email) return
+    if (!email) return;
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
-      const response = await fetch(`/api/exporte?email=${encodeURIComponent(email)}`)
-      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`)
+      const response = await fetch(`/api/exporte?email=${encodeURIComponent(email)}`);
+      if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
-      const data = await response.json()
-      setExports(Array.isArray(data) ? data : [])
+      const data = await response.json();
+      setExports(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error loading exports:", error)
-      setError("Failed to load exports")
+      console.error("Error loading exports:", error);
+      setError("Failed to load exports");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (email) fetchExports()
-  }, [email])
+    if (email) fetchExports();
+  }, [email]);
 
-  const filteredExports = exports.filter(exp =>
+  const filteredExports = exports.filter((exp) =>
     exp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exp.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    exp.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleCreateExport = async () => {
-    if (!email || !exportName.trim()) return
+    if (!email || !exportName.trim()) return;
 
     try {
       const response = await fetch("/api/exporte", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name: exportName.trim() })
-      })
+        body: JSON.stringify({ email, name: exportName.trim() }),
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to create export")
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create export");
       }
 
-      await fetchExports()
-      setExportName("")
-      ;(document.getElementById("export_modal") as HTMLDialogElement)?.close()
+      await fetchExports();
+      setExportName("");
+      (document.getElementById("export_modal") as HTMLDialogElement)?.close();
 
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
         zIndex: 9999,
-      })
+      });
     } catch (error) {
-      console.error("Error creating export:", error)
-      setError("Failed to create export")
+      console.error("Error creating export:", error);
+      setError("Failed to create export");
     }
-  }
+  };
 
   return (
     <Wrapper>
@@ -113,17 +114,13 @@ export default function ExportPage() {
               <span className="loading loading-dots loading-lg"></span>
             </div>
           ) : error ? (
-            <div className="col-span-3 alert alert-error">
-              {error}
-            </div>
+            <div className="col-span-3 alert alert-error">{error}</div>
           ) : filteredExports.length > 0 ? (
             filteredExports.map((exp) => (
               <ExportComponent key={exp.id} exporte={exp} index={0} />
             ))
           ) : (
-            <div className="col-span-3 text-center">
-              Aucun export trouvé
-            </div>
+            <div className="col-span-3 text-center">Aucun export trouvé</div>
           )}
         </div>
 
@@ -142,8 +139,8 @@ export default function ExportPage() {
                 className="input input-bordered w-full"
                 value={exportName}
                 onChange={(e) => {
-                  setExportName(e.target.value)
-                  setIsNameValid(e.target.value.length <= 60)
+                  setExportName(e.target.value);
+                  setIsNameValid(e.target.value.length <= 60);
                 }}
                 maxLength={60}
               />
@@ -164,5 +161,5 @@ export default function ExportPage() {
         </dialog>
       </div>
     </Wrapper>
-  )
+  );
 }

@@ -6,11 +6,17 @@ import { Save, Trash, Plus, AlertTriangle } from 'lucide-react'
 import { DeclarationImport, Model, Accessoire } from '@/type'
 import Wrapper from '@/components/Wrapper'
 
+interface Client {
+  id: string
+  name: string
+}
+
 export default function ImportDetailsPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const [declaration, setDeclaration] = useState<DeclarationImport | null>(null)
   const [initialDeclaration, setInitialDeclaration] = useState<DeclarationImport | null>(null)
+  const [clients, setClients] = useState<Client[]>([]) // Add clients state
   const [isSaveDisabled, setIsSaveDisabled] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -26,8 +32,15 @@ export default function ImportDetailsPage() {
     }
   }
 
+  const fetchClients = async () => {
+    const res = await fetch('/api/client')
+    const data = await res.json()
+    setClients(data)
+  }
+
   useEffect(() => {
     if (params.id) fetchDeclaration()
+      fetchClients()
   }, [params.id])
 
   useEffect(() => {
@@ -206,12 +219,19 @@ export default function ImportDetailsPage() {
                   <label className='label'>
                     <span className='label-text'>Client</span>
                   </label>
-                  <input
-                    type="text"
-                    className='input input-bordered'
+                  <select
+                    className='select select-bordered w-full'
                     value={declaration.client}
                     onChange={(e) => setDeclaration({...declaration, client: e.target.value})}
-                  />
+                    required
+                  >
+                    <option value=''>Select Client</option>
+                    {clients.map(client => (
+                      <option key={client.id} value={client.name}>
+                        {client.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 
                 <div className='form-control'>

@@ -3,115 +3,114 @@ import { LivraisonEntree } from "@/type";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-    request: NextRequest,
-    {params}: {params : {id : string}}
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    try {
-        const livraisonEntree = await prisma.livraisonEntree.findUnique({
-            where :{id : params.id},
-            include: {
-                client: true,
-                lines: true
-            }
-        })
-
-        return livraisonEntree
-            ? NextResponse.json(livraisonEntree)
-            : NextResponse.json({error: 'LivraisonEntree Not Found '}, {status: 404})
-
-    } catch (error) {
-        console.log(error)
-        return NextResponse.json(
-            {
-                error: "Failed to fetch LivraisonEntree."
-            },
-            {
-                status : 500
-            }
-        )
-    }
+  try {
+    const livraisonEntree = await prisma.livraisonEntree.findUnique({
+      where: { id: params.id },
+      include: { client: true, lines: true },
+    });
+    return livraisonEntree
+      ? NextResponse.json(livraisonEntree)
+      : NextResponse.json({ error: "LivraisonEntree Not Found" }, { status: 404 });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json({ error: "Failed to fetch LivraisonEntree." }, { status: 500 });
+  }
 }
-
 
 export async function PUT(
-    request: NextRequest,
-    {params}: {params : {id: string}}
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    try {
-        const livraisonEntreeData = await request.json()
+  try {
+    const livraisonEntreeData = await request.json();
 
-        await prisma.livraisonEntree.update({
-            where: {id: params.id},
-            data:{
-                name: livraisonEntreeData.name,
-                clientId: livraisonEntreeData.clientId,
-                clientName: livraisonEntreeData.clientName,
-                livraisonDate: livraisonEntreeData.livraisonDate
-            }
-        })
+    await prisma.livraisonEntree.update({
+      where: { id: params.id },
+      data: {
+        name: livraisonEntreeData.name,
+        clientId: livraisonEntreeData.clientId,
+        clientName: livraisonEntreeData.clientName,
+        livraisonDate: livraisonEntreeData.livraisonDate,
+      },
+    });
 
-        const existingLines = await prisma.livraisonEntreeLine.findMany({
-            where:{livraisonEntreeId: params.id}
-        })
+    const existingLines = await prisma.livraisonEntreeLine.findMany({
+      where: { livraisonEntreeId: params.id },
+    });
 
-        const linesToDelete = existingLines.filter(el => 
-            !livraisonEntreeData.lines.some((l:LivraisonEntree)=> l.id === el.id)
-        )
+    const linesToDelete = existingLines.filter(
+      (el) => !livraisonEntreeData.lines.some((l: LivraisonEntree["lines"][0]) => l.id === el.id)
+    );
 
-        if(linesToDelete.length > 0) {
-            await prisma.livraisonEntreeLine.deleteMany({
-                where:{id: {in:linesToDelete.map(l => l.id)}}
-            })
-        }
-
-
-        for (const line of livraisonEntreeData.lines) {
-            if (existingLines.some(el => el.id === line.id)) {
-                await prisma.livraisonEntreeLine.update({
-                    where : {id: line.id},
-                    data: {
-                        modele: line.modele,
-                        commande: line.commande,
-                        description: line.description,
-                        quantityReçu: line.quantityReçu,
-                        quantityTrouvee: line.quantityTrouvee
-                    }
-                })
-            }else{
-                await prisma.livraisonEntreeLine.create({
-                    data:{
-                        ...line,
-                        livraisonEntreeId: params.id
-                    }
-                })
-            }
-        }
-
-        return NextResponse.json({success : true})
-    } catch (error) {
-        console.log(error)
-        return NextResponse.json(
-            {error: 'Failed to update LivraisonEntree.'},
-            {status:500}
-        )
+    if (linesToDelete.length > 0) {
+      await prisma.livraisonEntreeLine.deleteMany({
+        where: { id: { in: linesToDelete.map((l) => l.id) } },
+      });
     }
+
+    for (const line of livraisonEntreeData.lines) {
+      if (existingLines.some((el) => el.id === line.id)) {
+        await prisma.livraisonEntreeLine.update({
+          where: { id: line.id },
+          data: {
+            modele: line.modele,
+            commande: line.commande,
+            description: line.description,
+            quantityReçu: line.quantityReçu,
+            quantityTrouvee: line.quantityTrouvee,
+          },
+        });
+      } else {
+        await prisma.livraisonEntreeLine.create({
+          data: {
+            ...line,
+            livraisonEntreeId: params.id,
+          },
+        });
+
+        // Automatically create ClientModel entry
+        if (livraisonEntreeData.clientId && line.modele) {
+          await prisma.clientModel.upsert({
+            where: {
+              clientId_name: {
+                clientId: livraisonEntreeData.clientId,
+                name: line.modele,
+              },
+            },
+            update: {
+              commandes: line.commande || "",
+            },
+            create: {
+              clientId: livraisonEntreeData.clientId,
+              name: line.modele,
+              commandes: line.commande || "",
+            },
+          });
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json({ error: "Failed to update LivraisonEntree." }, { status: 500 });
+  }
 }
 
-
 export async function DELETE(
-    request :NextRequest,
-    {params}: {params : {id: string}}
+  request: NextRequest,
+  { params }: { params: { id: string } }
 ) {
-    try {
-        await prisma.livraisonEntree.delete({
-            where: {id: params.id}
-        })
-        return NextResponse.json({success : true})
-    } catch (error) {
-        console.log(error)
-        return NextResponse.json(
-            {error:"Failed to delete LivraisonEntree."},
-            {status: 500}
-        )
-    }
+  try {
+    await prisma.livraisonEntree.delete({
+      where: { id: params.id },
+    });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json({ error: "Failed to delete LivraisonEntree." }, { status: 500 });
+  }
 }

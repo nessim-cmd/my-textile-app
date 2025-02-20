@@ -145,10 +145,10 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                     <div className='my-4 flex justify-between'>
                         <div>
                             <p className='badge badge-ghost mb-1'>Émetteur</p>
-                            <p className='text-sm font-bold italic'>{invoice.issuerName.toUpperCase()}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.issuerAddress}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.phoneemetteur}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.gmailemetteur}</p>
+                            <p className='text-sm font-bold italic'>MS Tailors</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>{"Rue de l'envoronnenment El mida ,8044"}</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>72217400</p>
+                            <p className='text-sm text-gray-500 w-52 break-words'>mariemms360@gmail.com</p>
                         </div>
                         <div className='text-right'>
                             <p className='badge badge-ghost mb-1'>Client</p>

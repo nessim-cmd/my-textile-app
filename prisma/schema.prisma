@@ -29,17 +29,19 @@ model Client {
 
 model ClientModel {
   id          String      @id @default(uuid())
-  name        String?
+  name        String?     // Model name from livraisonEntree or declarationImport
   description String?
-  clientId    String?
-  client      Client?     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId    String      // Changed from String? to String (required)
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   commandes   String?
   lotto       String?
   ordine      String?
-  puht          Float?
+  puht        Float?
   variants    Variant[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@unique([clientId, name]) // Added to ensure unique client-model combinations
 }
 
 model Variant {

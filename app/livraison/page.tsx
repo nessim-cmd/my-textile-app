@@ -1,3 +1,4 @@
+// app/livraison/page.tsx
 "use client";
 
 import { Layers, Search } from "lucide-react";
@@ -8,7 +9,7 @@ import { Livraison } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import LivraisonComponent from "@/components/LivraisonComponent";
 
-export default function Home() {
+export default function LivraisonPage() {
   const { user } = useUser();
   const [livraisonName, setLivraisonName] = useState("");
   const [isNameValid, setIsNameValid] = useState(true);
@@ -32,7 +33,7 @@ export default function Home() {
       setLivraisons(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading livraisons:", error);
-      
+      setError("Failed to load livraisons");
     } finally {
       setLoading(false);
     }
@@ -42,9 +43,9 @@ export default function Home() {
     if (email) fetchLivraisons();
   }, [email]);
 
-  const filteredLivraisons = livraisons.filter(livraison =>
+  const filteredLivraisons = livraisons.filter((livraison) =>
     livraison.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    livraison.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    livraison.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleCreateLivraison = async () => {
@@ -67,7 +68,6 @@ export default function Home() {
 
       await fetchLivraisons();
       setLivraisonName("");
-
       (document.getElementById("livraison_modal") as HTMLDialogElement)?.close();
 
       confetti({
@@ -78,7 +78,7 @@ export default function Home() {
       });
     } catch (error) {
       console.error("Error creating livraison:", error);
-      
+      setError("Failed to create livraison");
     }
   };
 
@@ -94,7 +94,7 @@ export default function Home() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button className="flex p-2 rounded-xl bg-blue-300">
-           <span className="font-bold px-2">Search</span>
+            <span className="font-bold px-2">Search</span>
             <Search className="w-5 h-5 mt-0.5" />
           </button>
         </div>
@@ -117,17 +117,13 @@ export default function Home() {
               <span className="loading loading-dots loading-lg"></span>
             </div>
           ) : error ? (
-            <div className="col-span-3 alert alert-error">
-              {error}
-            </div>
+            <div className="col-span-3 alert alert-error">{error}</div>
           ) : filteredLivraisons.length > 0 ? (
             filteredLivraisons.map((livraison) => (
               <LivraisonComponent key={livraison.id} livraison={livraison} index={0} />
             ))
           ) : (
-            <div className="col-span-3 text-center">
-              Aucune livraison trouvée
-            </div>
+            <div className="col-span-3 text-center">Aucune livraison trouvée</div>
           )}
         </div>
 

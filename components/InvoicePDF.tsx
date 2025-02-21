@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti'
 import html2canvas from 'html2canvas-pro'
 import jsPDF from 'jspdf'
 import { ArrowDownFromLine, Layers } from 'lucide-react'
-import React, { useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import n2words from 'n2words'
 
@@ -11,6 +11,13 @@ interface FacturePDFProps {
     invoice: Invoice
     totals: Totals
 }
+interface Client {
+    id: string;
+    name: string;
+    address?: string | null;
+    phone1?: string | null;
+    email?: string | null;
+  }
 
 function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -46,9 +53,29 @@ function convertToFrenchCurrency(amount: number): string {
 
 
 const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
-
+    const [client, setClient] = useState<Client | null>(null);
     const factureRef = useRef<HTMLDivElement>(null)
 
+    // Fetch client details based on exporte.clientName
+      useEffect(() => {
+        const fetchClientDetails = async () => {
+          if (invoice.clientName) {
+            try {
+              const response = await fetch('/api/client');
+              const clients: Client[] = await response.json();
+              const matchedClient = clients.find((c) => c.name === invoice.clientName);
+              setClient(matchedClient || null);
+            } catch (error) {
+              console.error('Error fetching client details:', error);
+              setClient(null);
+            }
+          } else {
+            setClient(null);
+          }
+        };
+        fetchClientDetails();
+      }, [invoice.clientName]);
+      
     const handleDownloadPdf = async () => {
         const element = factureRef.current
         if (element) {
@@ -146,17 +173,21 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                         <div>
                             <p className='badge badge-ghost mb-1'>Émetteur</p>
                             <p className='text-sm font-bold italic'>MS Tailors</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{"Rue de l'envoronnenment El mida ,8044"}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>72217400</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>mariemms360@gmail.com</p>
+                            <p className='text-sm text-gray-500 w-60 break-words'>{"Rue de l'envoronnenment El mida ,8044"}</p>
+                            <p className='text-sm text-gray-500 w-60 break-words'>72217400</p>
+                            <p className='text-sm text-gray-500 w-60 break-words'>mariemms360@gmail.com</p>
                         </div>
-                        <div className='text-right'>
-                            <p className='badge badge-ghost mb-1'>Client</p>
-                            <p className='text-sm font-bold italic'>{invoice.clientName.toUpperCase()}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.clientAddress}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.phoneclient}</p>
-                            <p className='text-sm text-gray-500 w-52 break-words'>{invoice.gmailclient}</p>
-                        </div>
+                        <div>
+                    <p className="badge badge-ghost mb-1">Client</p>
+                    <p className="text-sm font-bold italic">{invoice.clientName.toUpperCase()}</p>
+                    {client && (
+                        <>
+                        {client.address && <p className="text-sm  text-gray-500 w-60">{client.address}</p>}
+                        {client.phone1 && <p className="text-sm  text-gray-500 w-60">Tél: {client.phone1}</p>}
+                        {client.email && <p className="text-sm  text-gray-500 w-60">Email: {client.email}</p>}
+                        </>
+                    )}
+                    </div>
                     </div>
 
                     <div className='scrollable'>
@@ -164,7 +195,8 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                             <thead>
                                 <tr>
                                     <th></th>
-                                    <th>Réference</th>
+                                    <th>Commande</th>
+                                    <th>Modéle</th>
                                     <th>Description</th>
                                     <th>Quantité</th>
                                     <th>Prix Unitaire</th>
@@ -175,7 +207,8 @@ const InvoicePDF: React.FC<FacturePDFProps> = ({ invoice, totals }) => {
                                 {invoice.lines.map((ligne, index) => (
                                     <tr key={index + 1}>
                                         <td>{index + 1}</td>
-                                        <td>{ligne.reference}</td>
+                                        <td>{ligne.commande}</td>
+                                        <td>{ligne.modele}</td>
                                         <td>{ligne.description}</td>
                                         <td>{ligne.quantity}</td>
                                         <td>{ligne.unitPrice.toFixed(2)} €</td>

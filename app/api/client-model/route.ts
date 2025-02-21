@@ -1,3 +1,4 @@
+// app/api/client-model/route.ts (unchanged)
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -8,9 +9,11 @@ export async function GET(request: NextRequest) {
     const dateDebut = searchParams.get('dateDebut');
     const dateFin = searchParams.get('dateFin');
     const searchTerm = searchParams.get('search');
-    const client = searchParams.get('client'); // Filter by client name
+    const client = searchParams.get('client');
 
-    if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 });
+    console.log('GET /api/client-model params:', { email, dateDebut, dateFin, client });
+
+    if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -37,9 +40,10 @@ export async function GET(request: NextRequest) {
     if (client) {
       const clientRecord = await prisma.client.findFirst({ where: { name: client } });
       if (clientRecord) {
-        where.clientId = clientRecord.id; // Filter by clientId
+        where.clientId = clientRecord.id;
       } else {
-        return NextResponse.json([]); // Return empty array if client not found
+        console.log(`Client "${client}" not found`);
+        return NextResponse.json([]);
       }
     }
 
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(models);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching client models:', error);
     return NextResponse.json({ error: 'Failed to fetch client models' }, { status: 500 });
   }
 }
@@ -62,24 +66,30 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const { email, ...modelData } = body;
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
     const newModel = await prisma.clientModel.create({
       data: {
-        name: body.name,
-        description: body.description,
-        commandes: body.commandes,
-        lotto: body.lotto,
-        ordine: body.ordine,
-        puht: parseFloat(body.puht) || 0,
-        clientId: body.clientId,
+        name: modelData.name || null,
+        description: modelData.description || null,
+        commandes: modelData.commandes || null,
+        lotto: modelData.lotto || null,
+        ordine: modelData.ordine || null,
+        puht: modelData.puht ? parseFloat(modelData.puht) : null,
+        clientId: modelData.clientId,
         variants: {
-          create: body.variants.map((v: any) => ({
-            name: v.name,
-            qte_variante: parseInt(v.qte_variante) || 0,
+          create: (modelData.variants || []).map((v: any) => ({
+            name: v.name || null,
+            qte_variante: v.qte_variante ? parseInt(v.qte_variante) : null,
           })),
         },
       },
       include: { variants: true, client: true },
     });
+
     return NextResponse.json(newModel, { status: 201 });
   } catch (error) {
     console.error('Error creating client model:', error);
@@ -91,25 +101,27 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     await prisma.variant.deleteMany({ where: { clientModelId: body.id } });
+
     const updatedModel = await prisma.clientModel.update({
       where: { id: body.id },
       data: {
-        name: body.name,
-        description: body.description,
-        commandes: body.commandes,
-        lotto: body.lotto,
-        ordine: body.ordine,
-        puht: parseFloat(body.puht) || 0,
+        name: body.name || null,
+        description: body.description || null,
+        commandes: body.commandes || null,
+        lotto: body.lotto || null,
+        ordine: body.ordine || null,
+        puht: body.puht ? parseFloat(body.puht) : null,
         clientId: body.clientId,
         variants: {
-          create: body.variants.map((v: any) => ({
-            name: v.name,
-            qte_variante: parseInt(v.qte_variante) || 0,
+          create: (body.variants || []).map((v: any) => ({
+            name: v.name || null,
+            qte_variante: v.qte_variante ? parseInt(v.qte_variante) : null,
           })),
         },
       },
       include: { variants: true, client: true },
     });
+
     return NextResponse.json(updatedModel);
   } catch (error) {
     console.error('Error updating client model:', error);

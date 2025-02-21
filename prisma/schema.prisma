@@ -121,7 +121,8 @@ model Invoice {
 
 model InvoiceLine {
   id          String   @id @default(uuid())
-  reference   String
+  commande   String @default("")
+  modele String @default("")
   description String   @default("")
   quantity    Int      @default(0)
   unitPrice   Float    @default(0)

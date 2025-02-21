@@ -75,7 +75,8 @@ export async function PUT(
         await prisma.invoiceLine.update({
           where: { id: line.id },
           data: {
-            reference: line.reference,
+            commande: line.reference,
+            modele: line.modele,
             description: line.description,
             quantity: line.quantity,
             unitPrice: line.unitPrice

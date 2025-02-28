@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import prisma from "@/lib/db"
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const email = searchParams.get('email')
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
     
-    if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 })
+    if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -22,23 +22,25 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: 'desc' }
         }
       }
-    })
+    });
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    return NextResponse.json(user.declarations)
+    console.log("GET /api/import - Declarations fetched:", user.declarations);
+    return NextResponse.json(user.declarations, { status: 200 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: "Failed to fetch declarations" }, { status: 500 })
+    console.error("GET /api/import Error:", error);
+    
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, num_dec, date_import, client, valeur } = await request.json()
+    console.log("POST /api/import - Request received"); // Debug log
+    const { email, num_dec, date_import, client, valeur } = await request.json();
     
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 })
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const newDeclaration = await prisma.declarationImport.create({
       data: {
@@ -54,14 +56,12 @@ export async function POST(request: NextRequest) {
       include: {
         models: true
       }
-    })
+    });
 
-    return NextResponse.json(newDeclaration)
+    console.log("POST /api/import - New declaration created:", newDeclaration);
+    return NextResponse.json(newDeclaration, { status: 201 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to create declaration" },
-      { status: 500 }
-    )
+    console.error("POST /api/import Error:", error);
+    
   }
 }

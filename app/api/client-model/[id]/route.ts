@@ -1,32 +1,52 @@
-// app/api/client-model/[id]/route.ts (unchanged)
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
     const data = await request.json();
+    
+    // Delete existing variants and update the model with new data
     const updated = await prisma.clientModel.update({
-      where: { id: params.id },
+      where: { id },
       data: {
+        name: data.name || null,
+        description: data.description || null,
         commandes: data.commandes || null,
         lotto: data.lotto || null,
         ordine: data.ordine || null,
         puht: data.puht ? parseFloat(data.puht) : null,
+        variants: {
+          deleteMany: {}, // Remove all existing variants
+          create: (data.variants || []).map((v: any) => ({
+            name: v.name || null,
+            qte_variante: v.qte_variante ? parseInt(v.qte_variante) : null,
+          })),
+        },
       },
+      include: { variants: true, client: true }, // Return updated data with variants
     });
-    return NextResponse.json(updated);
+    
+    return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('Error updating client model:', error);
-    return NextResponse.json({ error: 'Failed to update client model' }, { status: 500 });
+    
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    await prisma.clientModel.delete({ where: { id: params.id } });
-    return NextResponse.json({ success: true });
+    const { id } = await params;
+    await prisma.clientModel.delete({ where: { id } });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Error deleting client model:', error);
-    return NextResponse.json({ error: 'Failed to delete client model' }, { status: 500 });
+    
   }
 }

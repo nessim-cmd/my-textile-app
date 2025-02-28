@@ -1,4 +1,3 @@
-// app/livraison/[id]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -23,7 +22,7 @@ export default function LivraisonPage() {
   const [initialLivraison, setInitialLivraison] = useState<Livraison | null>(null);
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [clientModels, setClientModels] = useState<ClientModel[]>([]); // State for client models
+  const [clientModels, setClientModels] = useState<ClientModel[]>([]);
 
   const fetchLivraison = async () => {
     try {
@@ -124,7 +123,7 @@ export default function LivraisonPage() {
             <LivraisonInfo 
               livraison={livraison} 
               setLivraison={setLivraison} 
-              onModelsChange={setClientModels} // Pass models to parent
+              onModelsChange={setClientModels}
             />
           </div>
 
@@ -132,7 +131,7 @@ export default function LivraisonPage() {
             <LivraisonLines 
               livraison={livraison} 
               setLivraison={setLivraison} 
-              clientModels={clientModels} // Pass models to lines
+              clientModels={clientModels}
             />
             <LivraisonPDF livraison={livraison} />
           </div>

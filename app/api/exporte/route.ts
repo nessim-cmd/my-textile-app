@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// app/api/export/route.ts (modified POST)
 export async function POST(request: NextRequest) {
   try {
     const { email, name } = await request.json();
@@ -98,9 +99,9 @@ export async function POST(request: NextRequest) {
         poidsNet: "",
         nbrColis: "",
         volume: "",
-        origineTessuto: "",
         modePaiment: 1,
         status: 1,
+        origineTessuto: "",
       },
     });
 

@@ -14,6 +14,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
+  commandes: string | null; // Add commandes from ClientModel
+  description: string | null; // Add description from ClientModel
 }
 
 const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] }) => {
@@ -41,7 +43,13 @@ const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] 
 
   const handleModeleChange = (index: number, value: string) => {
     const updatedLines = [...invoice.lines];
-    updatedLines[index].modele = value;
+    const [modeleName, commande] = value.split('|'); // Split the value (e.g., "Razor|3195")
+    const selectedModel = clientModels.find(
+      (model) => model.name === modeleName && model.commandes === commande
+    );
+    updatedLines[index].modele = modeleName;
+    updatedLines[index].commande = selectedModel?.commandes || '';
+    updatedLines[index].description = selectedModel?.description || '';
     setInvoice({ ...invoice, lines: updatedLines });
   };
 
@@ -102,15 +110,15 @@ const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] 
                 </td>
                 <td>
                   <select
-                    value={line.modele}
+                    value={line.modele && line.commande ? `${line.modele}|${line.commande}` : ''}
                     onChange={(e) => handleModeleChange(index, e.target.value)}
-                    className="select select-sm select-bordered w-full max-h-select  "
+                    className="select select-sm select-bordered w-full max-h-select"
                     disabled={!invoice.clientName || clientModels.length === 0}
                   >
                     <option value="">Sélectionner un modèle</option>
                     {clientModels.map((model) => (
-                      <option key={model.id} value={model.name || ''}>
-                        {model.name || 'Unnamed Model'}
+                      <option key={model.id} value={`${model.name || ''}|${model.commandes || ''}`}>
+                        {model.name || 'Unnamed Model'} ({model.commandes || 'N/A'})
                       </option>
                     ))}
                   </select>
@@ -156,8 +164,6 @@ const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] 
           </tbody>
         </table>
       </div>
-
-    
     </div>
   );
 };

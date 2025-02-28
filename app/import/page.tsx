@@ -2,13 +2,12 @@
 
 import { Layers, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs"; // Add useAuth
 import confetti from "canvas-confetti";
 import { DeclarationImport } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import ImportComponent from "@/components/ImportComponent";
 
-// Add Client interface
 interface Client {
   id: string;
   name: string;
@@ -16,11 +15,13 @@ interface Client {
 
 export default function ImportPage() {
   const { user } = useUser();
+  const { getToken } = useAuth(); // Get Clerk auth token
   const [numDec, setNumDec] = useState("");
   const [dateImport, setDateImport] = useState("");
   const [client, setClient] = useState("");
   const [valeur, setValeur] = useState("");
-  const [clients, setClients] = useState<Client[]>([]); // Add clients state
+  const [clients, setClients] = useState<Client[]>([]);
+  const [modalError, setModalError] = useState<string | null>(null); // Add error state for modal
 
   const email = user?.primaryEmailAddress?.emailAddress;
   const [declarations, setDeclarations] = useState<DeclarationImport[]>([]);
@@ -28,10 +29,13 @@ export default function ImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Add client fetching function
   const fetchClients = async () => {
     try {
-      const res = await fetch('/api/client');
+      const token = await getToken(); // Get fresh token
+      const res = await fetch('/api/client', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       setClients(data);
     } catch (error) {
@@ -46,13 +50,17 @@ export default function ImportPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/import?email=${encodeURIComponent(email)}`);
+      const token = await getToken(); // Get fresh token
+      const response = await fetch(`/api/import?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
       setDeclarations(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading declarations:", error);
+      setError("Failed to load declarations");
     } finally {
       setLoading(false);
     }
@@ -60,7 +68,7 @@ export default function ImportPage() {
 
   useEffect(() => {
     if (email) fetchDeclarations();
-    fetchClients(); // Fetch clients on mount
+    fetchClients();
   }, [email]);
 
   const filteredDeclarations = declarations.filter(declaration =>
@@ -71,10 +79,16 @@ export default function ImportPage() {
   const handleCreateDeclaration = async () => {
     if (!email || !numDec.trim() || !dateImport || !client.trim() || !valeur.trim()) return;
 
+    setModalError(null); // Reset modal error
+
     try {
+      const token = await getToken(); // Get fresh token
       const response = await fetch("/api/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` // Add auth header
+        },
         body: JSON.stringify({ 
           email,
           num_dec: numDec.trim(),
@@ -82,6 +96,7 @@ export default function ImportPage() {
           client: client.trim(),
           valeur: parseFloat(valeur)
         }),
+        signal: AbortSignal.timeout(30000) // 30-second timeout
       });
 
       if (!response.ok) {
@@ -94,7 +109,6 @@ export default function ImportPage() {
       setDateImport("");
       setClient("");
       setValeur("");
-
       (document.getElementById("declaration_modal") as HTMLDialogElement)?.close();
 
       confetti({
@@ -105,6 +119,7 @@ export default function ImportPage() {
       });
     } catch (error) {
       console.error("Error creating declaration:", error);
+      
     }
   };
 
@@ -167,6 +182,12 @@ export default function ImportPage() {
 
             <h3 className="font-bold text-lg mb-4">Nouvelle Déclaration</h3>
 
+            {modalError && (
+              <div className="alert alert-error mb-4">
+                {modalError}
+              </div>
+            )}
+
             <div className="form-control space-y-4">
               <input
                 type="text"
@@ -183,7 +204,6 @@ export default function ImportPage() {
                 onChange={(e) => setDateImport(e.target.value)}
               />
               
-              {/* Replace input with select */}
               <select
                 className="select select-bordered w-full"
                 value={client}

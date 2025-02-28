@@ -47,12 +47,12 @@ const LivraisonEntreeLines: React.FC<Props> = ({livraisonEntree, setLivraisonEnt
 
     const handleQuantityReçuChange = (index: number, value: string) => {
         const updatedLines = [...livraisonEntree.lines]
-        updatedLines[index].quantityReçu = value === "" ? 0 : parseInt(value)
+        updatedLines[index].quantityReçu = value === "" ? 0 : parseFloat(value)
         setLivraisonEntree({ ...livraisonEntree, lines: updatedLines })
     }
     const handleQuantityTrouveeChange = (index: number, value: string) => {
         const updatedLines = [...livraisonEntree.lines]
-        updatedLines[index].quantityTrouvee = value === "" ? 0 : parseInt(value)
+        updatedLines[index].quantityTrouvee = value === "" ? 0 : parseFloat(value)
         setLivraisonEntree({ ...livraisonEntree, lines: updatedLines })
     }
 
@@ -132,7 +132,7 @@ const LivraisonEntreeLines: React.FC<Props> = ({livraisonEntree, setLivraisonEnt
                                     />
                                 </td>
                                 <td className="flex items-center justify-center bg-gray-100 rounded-xl h-8 mt-3 text-red-500 font-bold ">
-                                {line.quantityTrouvee - line.quantityReçu }
+                                {(line.quantityTrouvee - line.quantityReçu).toFixed(2) }
                                 </td>
                                 <td>
                                     <button

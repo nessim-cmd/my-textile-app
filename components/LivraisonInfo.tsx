@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 interface Props {
   livraison: Livraison;
   setLivraison: (livraison: Livraison) => void;
-  onModelsChange?: (models: ClientModel[]) => void; // Callback to pass models
+  onModelsChange?: (models: ClientModel[]) => void;
 }
 
 interface Client {
@@ -18,6 +18,8 @@ interface ClientModel {
   id: string;
   name: string;
   clientId: string;
+  commandes: string | null; // Add commandes
+  description: string | null; // Add description
 }
 
 const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChange }) => {
@@ -49,7 +51,7 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChang
           if (!response.ok) throw new Error("Failed to fetch models");
           const data = await response.json();
           setClientModels(data);
-          onModelsChange?.(data); // Pass models to parent
+          onModelsChange?.(data);
         } catch (error) {
           console.error("Error fetching client models:", error);
           setClientModels([]);

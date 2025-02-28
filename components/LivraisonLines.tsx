@@ -1,27 +1,29 @@
-// components/LivraisonLines.tsx
-import { Livraison } from "@/type";
-import { LivraisonLine } from "@prisma/client";
-import { Plus, Trash } from "lucide-react";
+import { Livraison } from '@/type';
+import { LivraisonLine } from '@prisma/client';
+import { Plus, Trash } from 'lucide-react';
+import React from 'react';
 
 interface Props {
   livraison: Livraison;
   setLivraison: (livraison: Livraison) => void;
-  clientModels?: ClientModel[]; // Models passed from parent
+  clientModels?: ClientModel[];
 }
 
 interface ClientModel {
   id: string;
-  name: string;
+  name: string | null;
   clientId: string;
+  commandes: string | null;
+  description: string | null;
 }
 
 const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels = [] }) => {
   const handleAddLine = () => {
     const newLine: LivraisonLine = {
       id: `${Date.now()}`,
-      modele: "",
-      commande: "",
-      description: "",
+      commande: '',
+      modele: '',
+      description: '',
       quantity: 1,
       livraisonId: livraison.id,
     };
@@ -39,13 +41,19 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
 
   const handleModeleChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].modele = value;
+    const [modeleName, commande] = value.split('|');
+    const selectedModel = clientModels.find(
+      (model) => model.name === modeleName && model.commandes === commande
+    );
+    updatedLines[index].modele = modeleName;
+    updatedLines[index].commande = selectedModel?.commandes || '';
+    updatedLines[index].description = selectedModel?.description || '';
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleQuantityChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].quantity = value === "" ? 0 : parseInt(value);
+    updatedLines[index].quantity = value === '' ? 0 : parseFloat(value);
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
@@ -68,15 +76,14 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
           <Plus className="w-4" />
         </button>
       </div>
-
       <div className="scrollable">
         <table className="table w-full">
           <thead className="uppercase">
             <tr>
               <th>Commande</th>
               <th>Modèle</th>
-              <th>Description</th>
               <th>Quantité</th>
+              <th>Description</th>
               <th></th>
             </tr>
           </thead>
@@ -86,33 +93,25 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                 <td>
                   <input
                     type="text"
-                    value={line.commande}
+                    value={line.commande || ''}
                     className="input input-sm input-bordered w-full"
                     onChange={(e) => handleCommandeChange(index, e.target.value)}
                   />
                 </td>
                 <td>
                   <select
-                    value={line.modele}
+                    value={line.modele && line.commande ? `${line.modele}|${line.commande}` : ''}
                     onChange={(e) => handleModeleChange(index, e.target.value)}
-                    className="select select-sm select-bordered w-full"
+                    className="select select-sm select-bordered w-full max-h-select"
                     disabled={!livraison.clientName || clientModels.length === 0}
                   >
                     <option value="">Sélectionner un modèle</option>
                     {clientModels.map((model) => (
-                      <option key={model.id} value={model.name}>
-                        {model.name}
+                      <option key={model.id} value={`${model.name || ''}|${model.commandes || ''}`}>
+                        {model.name || 'Unnamed Model'} ({model.commandes || 'N/A'})
                       </option>
                     ))}
                   </select>
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={line.description}
-                    className="input input-sm input-bordered w-full"
-                    onChange={(e) => handleDescriptionChange(index, e.target.value)}
-                  />
                 </td>
                 <td>
                   <input
@@ -121,6 +120,14 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                     className="input input-sm input-bordered w-full"
                     min={0}
                     onChange={(e) => handleQuantityChange(index, e.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
+                    type="text"
+                    value={line.description || ''}
+                    className="input input-sm input-bordered w-full"
+                    onChange={(e) => handleDescriptionChange(index, e.target.value)}
                   />
                 </td>
                 <td>

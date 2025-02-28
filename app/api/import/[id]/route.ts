@@ -3,11 +3,12 @@ import prisma from "@/lib/db";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const declaration = await prisma.declarationImport.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { 
         models: {
           include: { accessories: true }
@@ -18,20 +19,21 @@ export async function GET(
       ? NextResponse.json(declaration)
       : NextResponse.json({ error: "Declaration not found" }, { status: 404 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to fetch declaration" }, { status: 500 });
+    console.error("GET /api/import/[id] Error:", error);
+    
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const declarationData = await request.json();
     
     await prisma.declarationImport.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         num_dec: declarationData.num_dec,
         date_import: new Date(declarationData.date_import),
@@ -41,7 +43,7 @@ export async function PUT(
     });
 
     const existingModels = await prisma.model.findMany({
-      where: { declarationImportId: params.id },
+      where: { declarationImportId: id },
       include: { accessories: true }
     });
 
@@ -71,10 +73,10 @@ export async function PUT(
           }
         });
       } else {
-        await prisma.model.create({
+        const newModel = await prisma.model.create({
           data: {
             name: model.name,
-            declarationImportId: params.id,
+            declarationImportId: id,
             accessories: {
               create: model.accessories.map((acc: any) => ({
                 reference_accessoire: acc.reference_accessoire,
@@ -86,42 +88,68 @@ export async function PUT(
           }
         });
 
-        // Automatically create ClientModel entry
         const client = await prisma.client.findFirst({ where: { name: declarationData.client } });
         if (client && model.name) {
-          await prisma.clientModel.upsert({
+          const clientModel = await prisma.clientModel.upsert({
             where: {
               clientId_name: {
                 clientId: client.id,
                 name: model.name,
               },
             },
-            update: {},
+            update: {
+              updatedAt: new Date(),
+            },
             create: {
               clientId: client.id,
               name: model.name,
+              description: null,
+              commandes: null,
+              lotto: null,
+              ordine: null,
+              puht: null,
             },
+            include: { variants: true }
           });
+
+          const quantityTotal = clientModel.variants.reduce((sum, variant) => sum + (variant.qte_variante || 0), 0);
+          await prisma.etatImportExport.upsert({
+            where: { modelId: clientModel.id },
+            update: {
+              dateImport: new Date(declarationData.date_import),
+              quantityTotal,
+              updatedAt: new Date()
+            },
+            create: {
+              modelId: clientModel.id,
+              dateImport: new Date(declarationData.date_import),
+              quantityTotal,
+              quantityLivree: 0
+            }
+          });
+        } else {
+          console.error(`Client not found for name: ${declarationData.client} or model name missing: ${model.name}`);
         }
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to update declaration" }, { status: 500 });
+    console.error("PUT /api/import/[id] Error:", error);
+   
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await prisma.declarationImport.delete({ where: { id: params.id } });
-    return NextResponse.json({ success: true });
+    const { id } = await params;
+    await prisma.declarationImport.delete({ where: { id } });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to delete declaration" }, { status: 500 });
+    console.error("DELETE /api/import/[id] Error:", error);
+   
   }
 }

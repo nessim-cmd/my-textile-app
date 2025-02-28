@@ -1,60 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server'
-import prisma from "@/lib/db"
-import { Commande } from '@/type'
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from "@/lib/db";
+import { Commande } from '@/type';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
+    const { id } = await params; // Await params to resolve the id
     const commande = await prisma.commande.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { lines: true }
-    })
+    });
     
     return commande
       ? NextResponse.json(commande)
-      : NextResponse.json({ error: "Commande not found" }, { status: 404 })
+      : NextResponse.json({ error: "Commande not found" }, { status: 404 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to fetch commande" },
-      { status: 500 }
-    )
+    console.error("GET /api/commande/[id] Error:", error);
+    
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
-    const commandeData = await request.json()
+    const { id } = await params; // Await params to resolve the id
+    const commandeData = await request.json();
     
     await prisma.commande.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         issuerName: commandeData.issuerName,
         issuerAddress: commandeData.issuerAddress,
         clientName: commandeData.clientName,
         clientAddress: commandeData.clientAddress,
         commandeDate: commandeData.commandeDate
-        
       }
-    })
+    });
 
     const existingLines = await prisma.commandeLine.findMany({
-      where: { commandeId: params.id }
-    })
+      where: { commandeId: id }
+    });
 
     const linesToDelete = existingLines.filter(el => 
       !commandeData.lines.some((l: Commande) => l.id === el.id)
-    )
+    );
     
     if (linesToDelete.length > 0) {
       await prisma.commandeLine.deleteMany({
         where: { id: { in: linesToDelete.map(l => l.id) } }
-      })
+      });
     }
 
     for (const line of commandeData.lines) {
@@ -66,39 +64,34 @@ export async function PUT(
             description: line.description,
             quantity: line.quantity
           }
-        })
+        });
       } else {
         await prisma.commandeLine.create({
           data: {
             ...line,
-            commandeId: params.id
+            commandeId: id
           }
-        })
+        });
       }
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to update commande" },
-      { status: 500 }
-    )
+    console.error("PUT /api/commande/[id] Error:", error);
+    
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
-    await prisma.commande.delete({ where: { id: params.id } })
-    return NextResponse.json({ success: true })
+    const { id } = await params; // Await params to resolve the id
+    await prisma.commande.delete({ where: { id } });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to delete commande" },
-      { status: 500 }
-    )
+    console.error("DELETE /api/commande/[id] Error:", error);
+    
   }
 }

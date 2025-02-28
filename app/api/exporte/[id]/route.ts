@@ -1,14 +1,14 @@
-// app/api/export/[id]/route.ts
 import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
+    const { id } = await params; // Await params to resolve the id
     const exporte = await prisma.declarationExport.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { lines: true },
     });
 
@@ -18,23 +18,21 @@ export async function GET(
 
     return NextResponse.json(exporte, { status: 200 });
   } catch (error) {
-    console.error("GET Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("GET /api/exporte/[id] Error:", error);
+    
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
+    const { id } = await params; // Await params to resolve the id
     const exportData = await request.json();
 
     await prisma.declarationExport.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         clientName: exportData.clientName,
         exportDate: exportData.exportDate,
@@ -52,7 +50,7 @@ export async function PUT(
     });
 
     const existingLines = await prisma.exportLine.findMany({
-      where: { exportId: params.id },
+      where: { exportId: id },
     });
 
     const linesToDelete = existingLines.filter(
@@ -81,7 +79,7 @@ export async function PUT(
         await prisma.exportLine.create({
           data: {
             ...line,
-            exportId: params.id,
+            exportId: id,
           },
         });
       }
@@ -89,26 +87,21 @@ export async function PUT(
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("PUT Error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("PUT /api/exporte/[id] Error:", error);
+    
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
-    await prisma.declarationExport.delete({ where: { id: params.id } });
+    const { id } = await params; // Await params to resolve the id
+    await prisma.declarationExport.delete({ where: { id } });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("DELETE Error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete export" },
-      { status: 500 }
-    );
+    console.error("DELETE /api/exporte/[id] Error:", error);
+    
   }
 }

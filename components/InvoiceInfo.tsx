@@ -20,6 +20,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
+  commandes: string | null; // Ensure commandes is included
+  description: string | null; // Ensure description is included
 }
 
 const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice, dateDebut, dateFin, onModelsChange }) => {

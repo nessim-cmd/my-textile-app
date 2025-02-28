@@ -1,6 +1,17 @@
-// app/api/client-model/route.ts (unchanged)
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Define interfaces at the top for TypeScript
+interface Variant {
+  id?: string;
+  name: string;
+  qte_variante: number;
+}
+
+interface Commande {
+  value: string;
+  variants: Variant[];
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,6 +67,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
+    console.log("ClientModels:", models);
     return NextResponse.json(models);
   } catch (error) {
     console.error('Error fetching client models:', error);
@@ -66,24 +78,35 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, ...modelData } = body;
+    const { email, commandesWithVariants, variants, ...modelData } = body;
+
+    console.log('POST /api/client-model request body:', body);
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const combinedCommandes = Array.isArray(commandesWithVariants)
+      ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
+      : '';
+
+    const combinedVariants = Array.isArray(commandesWithVariants)
+      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
+      : (Array.isArray(variants) ? variants : []);
 
     const newModel = await prisma.clientModel.create({
       data: {
         name: modelData.name || null,
         description: modelData.description || null,
-        commandes: modelData.commandes || null,
+        commandes: combinedCommandes || null,
+        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : [],
         lotto: modelData.lotto || null,
         ordine: modelData.ordine || null,
         puht: modelData.puht ? parseFloat(modelData.puht) : null,
         clientId: modelData.clientId,
         variants: {
-          create: (modelData.variants || []).map((v: any) => ({
+          create: combinedVariants.map((v: Variant) => ({
             name: v.name || null,
-            qte_variante: v.qte_variante ? parseInt(v.qte_variante) : null,
+            qte_variante: v.qte_variante ? parseInt(v.qte_variante.toString()) : null,
           })),
         },
       },
@@ -100,28 +123,49 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    await prisma.variant.deleteMany({ where: { clientModelId: body.id } });
+    const { id, commandesWithVariants, variants, ...modelData } = body;
+
+    console.log('PUT /api/client-model request body:', body);
+
+    const existingModel = await prisma.clientModel.findUnique({
+      where: { id },
+      select: { clientId: true, name: true },
+    });
+    if (!existingModel) return NextResponse.json({ error: 'ClientModel not found' }, { status: 404 });
+
+    const combinedCommandes = Array.isArray(commandesWithVariants)
+      ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
+      : '';
+
+    const combinedVariants = Array.isArray(commandesWithVariants)
+      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
+      : (Array.isArray(variants) ? variants : []);
 
     const updatedModel = await prisma.clientModel.update({
-      where: { id: body.id },
+      where: { id },
       data: {
-        name: body.name || null,
-        description: body.description || null,
-        commandes: body.commandes || null,
-        lotto: body.lotto || null,
-        ordine: body.ordine || null,
-        puht: body.puht ? parseFloat(body.puht) : null,
-        clientId: body.clientId,
-        variants: {
-          create: (body.variants || []).map((v: any) => ({
-            name: v.name || null,
-            qte_variante: v.qte_variante ? parseInt(v.qte_variante) : null,
-          })),
-        },
+        name: modelData.name !== undefined ? modelData.name : existingModel.name,
+        description: modelData.description !== undefined ? modelData.description : null,
+        commandes: combinedCommandes || null,
+        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : [],
+        lotto: modelData.lotto !== undefined ? modelData.lotto : null,
+        ordine: modelData.ordine !== undefined ? modelData.ordine : null,
+        puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
+        clientId: existingModel.clientId,
+        ...(combinedVariants.length > 0 && {
+          variants: {
+            deleteMany: {},
+            create: combinedVariants.map((v: Variant) => ({
+              name: v.name || null,
+              qte_variante: v.qte_variante ? parseInt(v.qte_variante.toString()) : null,
+            })),
+          },
+        }),
       },
       include: { variants: true, client: true },
     });
 
+    console.log(`Updated ClientModel: ${id}, clientId: ${updatedModel.clientId}, name: ${updatedModel.name}, description: ${modelData.description}, commandes: ${combinedCommandes}, variants: ${JSON.stringify(combinedVariants)}`);
     return NextResponse.json(updatedModel);
   } catch (error) {
     console.error('Error updating client model:', error);
@@ -131,7 +175,9 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { id } = await request.json();
+    const body = await request.json();
+    const { id } = body;
+
     await prisma.clientModel.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {

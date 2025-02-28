@@ -1,4 +1,3 @@
-// app/exporte/[id]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -10,6 +9,7 @@ import VATControlExport from "@/components/VATControleExport";
 import ExportInfo from "@/components/ExportInfo";
 import ExportLines from "@/components/ExportLines";
 import ExportPDF from "@/components/ExportPDF";
+import { useAuth } from "@clerk/nextjs"; // Add Clerk auth hook
 
 interface ClientModel {
   id: string;
@@ -20,16 +20,21 @@ interface ClientModel {
 export default function ExportDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const { getToken } = useAuth(); // Get Clerk auth token
   const [exporte, setExporte] = useState<DeclarationExport | null>(null);
   const [initialExport, setInitialExport] = useState<DeclarationExport | null>(null);
   const [totals, setTotals] = useState<TotalsExport | null>(null);
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [clientModels, setClientModels] = useState<ClientModel[]>([]); // State for client models
+  const [clientModels, setClientModels] = useState<ClientModel[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null); // Add error state
 
   const fetchExport = async () => {
     try {
-      const response = await fetch(`/api/exporte/${params.id}`);
+      const token = await getToken(); // Get fresh token
+      const response = await fetch(`/api/exporte/${params.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!response.ok) throw new Error("Failed to fetch export");
       const data = await response.json();
       setExporte(data);
@@ -75,22 +80,29 @@ export default function ExportDetailPage() {
   const handleSave = async () => {
     if (!exporte) return;
     setIsLoading(true);
+    setErrorMessage(null);
 
     try {
+      const token = await getToken(); // Get fresh token for each request
       const response = await fetch(`/api/exporte/${exporte.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` // Add auth header
+        },
         body: JSON.stringify(exporte),
+        signal: AbortSignal.timeout(30000) // 30-second timeout
       });
 
-      if (!response.ok) throw new Error("Failed to update export");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update export");
+      }
 
-      const updatedResponse = await fetch(`/api/exporte/${exporte.id}`);
-      const updatedExport = await updatedResponse.json();
-      setExporte(updatedExport);
-      setInitialExport(updatedExport);
+      await fetchExport(); // Refresh data after save
     } catch (error) {
       console.error("Error saving export:", error);
+      
     } finally {
       setIsLoading(false);
     }
@@ -100,10 +112,15 @@ export default function ExportDetailPage() {
     const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cet export ?");
     if (confirmed && exporte?.id) {
       try {
-        await fetch(`/api/exporte/${exporte.id}`, { method: "DELETE" });
+        const token = await getToken();
+        await fetch(`/api/exporte/${exporte.id}`, { 
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
         router.push("/exporte");
       } catch (error) {
         console.error("Error deleting export:", error);
+        setErrorMessage("Failed to delete export. Please try again.");
       }
     }
   };
@@ -168,6 +185,12 @@ export default function ExportDetailPage() {
           </div>
         </div>
 
+        {errorMessage && (
+          <div className="alert alert-error mb-4">
+            {errorMessage}
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row w-full">
           <div className="flex w-full md:w-1/3 flex-col">
             <div className="mb-4 bg-base-200 rounded-xl p-5">
@@ -197,7 +220,7 @@ export default function ExportDetailPage() {
             <ExportInfo 
               exporte={exporte} 
               setExports={setExporte}
-              onModelsChange={setClientModels} // Pass models to parent
+              onModelsChange={setClientModels}
             />
           </div>
 
@@ -205,7 +228,7 @@ export default function ExportDetailPage() {
             <ExportLines 
               exporte={exporte} 
               setExports={setExporte} 
-              clientModels={clientModels} // Pass models to lines
+              clientModels={clientModels}
             />
             <ExportPDF exporte={exporte} totalsExport={totals} />
           </div>

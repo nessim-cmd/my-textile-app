@@ -1,15 +1,19 @@
-// app/api/client/route.ts
 import prisma from '@/lib/db';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
-  const clients = await prisma.client.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
-  return NextResponse.json(clients);
+export async function GET(request: NextRequest) {
+  try {
+    const clients = await prisma.client.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return NextResponse.json(clients, { status: 200 });
+  } catch (error) {
+    console.error("GET /api/client Error:", error);
+    
+  }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const newClient = await prisma.client.create({
@@ -28,15 +32,12 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(newClient, { status: 201 });
   } catch (error) {
-    console.log(error);
-    return NextResponse.json(
-      { error: 'Failed to create client' },
-      { status: 500 }
-    );
+    console.error("POST /api/client Error:", error);
+    
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const updatedClient = await prisma.client.update({
@@ -54,28 +55,20 @@ export async function PUT(request: Request) {
         dateFinSoumission: body.dateFinSoumission,
       },
     });
-    return NextResponse.json(updatedClient);
+    return NextResponse.json(updatedClient, { status: 200 });
   } catch (error) {
-    console.log(error);
-    return NextResponse.json(
-      { error: 'Failed to update client' },
-      { status: 500 }
-    );
+    console.error("PUT /api/client Error:", error);
+    
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
     const { id } = await request.json();
-    await prisma.clientModel.delete({
-      where: { id },
-    });
-    return NextResponse.json({ success: true });
+    await prisma.client.delete({ where: { id } }); // Fixed to delete from 'client' table, not 'clientModel'
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.log(error);
-    return NextResponse.json(
-      { error: 'Failed to delete client' },
-      { status: 500 }
-    );
+    console.error("DELETE /api/client Error:", error);
+   
   }
 }

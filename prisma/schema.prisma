@@ -28,20 +28,21 @@ model Client {
 }
 
 model ClientModel {
-  id          String      @id @default(uuid())
-  name        String?     // Model name from livraisonEntree or declarationImport
-  description String?
-  clientId    String      // Changed from String? to String (required)
-  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  commandes   String?
-  lotto       String?
-  ordine      String?
-  puht        Float?
-  variants    Variant[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                  String      @id @default(uuid())
+  name                String?     // Model name from livraisonEntree or declarationImport
+  description         String?
+  clientId            String      // Changed from String? to String (required)
+  client              Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  commandes           String?
+  commandesWithVariants Json?    // New field to store JSON structure of commandes and variants
+  lotto               String?
+  ordine              String?
+  puht                Float?
+  variants            Variant[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
-  @@unique([clientId, name]) // Added to ensure unique client-model combinations
+  @@unique([clientId, name, commandes]) // Added to ensure unique client-model combinations
 }
 
 model Variant {
@@ -147,14 +148,18 @@ model Livraison {
   updatedAt        DateTime        @updatedAt
 }
 
+
 model LivraisonLine {
-  id           String     @id @default(uuid())
-  modele       String
-  commande     String     @default("")
-  description  String     @default("")
-  quantity     Int        @default(0)
-  livraisonId  String?
-  livraison    Livraison? @relation("LivraisonLines", fields: [livraisonId], references: [id])
+  id                String   @id @default(uuid())
+  commande          String?
+  modele            String
+  description       String?
+  quantity          Float?
+  livraisonId       String
+  livraison         Livraison @relation("LivraisonLines",fields: [livraisonId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  isExcluded        Boolean  @default(false)
 }
 
 model LivraisonEntree {
@@ -176,8 +181,8 @@ model LivraisonEntreeLine {
   modele              String
   commande            String
   description         String
-  quantityReçu        Int
-  quantityTrouvee     Int
+  quantityReçu        Float
+  quantityTrouvee     Float
   livraisonEntreeId   String
   livraisonEntree     LivraisonEntree   @relation(fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
   createdAt           DateTime          @default(now())
@@ -345,3 +350,4 @@ model ExportLine {
   exportId String
   exporte     DeclarationExport? @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
 }
+

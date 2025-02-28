@@ -1,38 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server'
-import prisma from "@/lib/db"
-import { Invoice } from '@/type'
+import { NextRequest, NextResponse } from 'next/server';
+import prisma from "@/lib/db";
+import { Invoice } from '@/type';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
+    const { id } = await params; // Await params to resolve the id
     const invoice = await prisma.invoice.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { lines: true }
-    })
+    });
     
     return invoice 
       ? NextResponse.json(invoice)
-      : NextResponse.json({ error: "Invoice not found" }, { status: 404 })
+      : NextResponse.json({ error: "Invoice not found" }, { status: 404 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to fetch invoice" },
-      { status: 500 }
-    )
+    console.error("GET /api/invoice/[id] Error:", error);
+    
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
-    const invoiceData = await request.json()
+    const { id } = await params; // Await params to resolve the id
+    const invoiceData = await request.json();
     
     await prisma.invoice.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         issuerName: invoiceData.issuerName,
         issuerAddress: invoiceData.issuerAddress,
@@ -48,26 +47,26 @@ export async function PUT(
         nbrColis: invoiceData.nbrColis,
         modePaiment: invoiceData.modePaiment,
         volume: invoiceData.volume,
-        origineTessuto:invoiceData.origineTessuto,
+        origineTessuto: invoiceData.origineTessuto,
         gmailclient: invoiceData.gmailclient,
         gmailemetteur: invoiceData.gmailemetteur,
         phoneclient: invoiceData.phoneclient,
         phoneemetteur: invoiceData.phoneemetteur
       }
-    })
+    });
 
     const existingLines = await prisma.invoiceLine.findMany({
-      where: { invoiceId: params.id }
-    })
+      where: { invoiceId: id }
+    });
 
     const linesToDelete = existingLines.filter(el => 
       !invoiceData.lines.some((l: Invoice) => l.id === el.id)
-    )
+    );
     
     if (linesToDelete.length > 0) {
       await prisma.invoiceLine.deleteMany({
         where: { id: { in: linesToDelete.map(l => l.id) } }
-      })
+      });
     }
 
     for (const line of invoiceData.lines) {
@@ -81,39 +80,34 @@ export async function PUT(
             quantity: line.quantity,
             unitPrice: line.unitPrice
           }
-        })
+        });
       } else {
         await prisma.invoiceLine.create({
           data: {
             ...line,
-            invoiceId: params.id
+            invoiceId: id
           }
-        })
+        });
       }
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to update invoice" },
-      { status: 500 }
-    )
+    console.error("PUT /api/invoice/[id] Error:", error);
+    
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
 ) {
   try {
-    await prisma.invoice.delete({ where: { id: params.id } })
-    return NextResponse.json({ success: true })
+    const { id } = await params; // Await params to resolve the id
+    await prisma.invoice.delete({ where: { id } });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error(error)
-    return NextResponse.json(
-      { error: "Failed to delete invoice" },
-      { status: 500 }
-    )
+    console.error("DELETE /api/invoice/[id] Error:", error);
+    
   }
 }

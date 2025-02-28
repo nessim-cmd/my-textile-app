@@ -26,6 +26,7 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
       description: '',
       quantity: 1,
       livraisonId: livraison.id,
+      isExcluded: false,
     };
     setLivraison({
       ...livraison,
@@ -63,6 +64,12 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
+  const handleIsExcludedChange = (index: number, checked: boolean) => {
+    const updatedLines = [...livraison.lines];
+    updatedLines[index].isExcluded = checked;
+    setLivraison({ ...livraison, lines: updatedLines });
+  };
+
   const handleRemoveLine = (index: number) => {
     const updatedLines = livraison.lines.filter((_, i) => i !== index);
     setLivraison({ ...livraison, lines: updatedLines });
@@ -79,17 +86,18 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
       <div className="scrollable">
         <table className="table w-full">
           <thead className="uppercase">
-            <tr>
-              <th>Commande</th>
-              <th>Modèle</th>
-              <th>Quantité</th>
-              <th>Description</th>
-              <th></th>
-            </tr>
+            <tr><th></th><th>Commande</th><th>Modèle</th><th>Quantité</th><th>Description</th><th></th></tr>
           </thead>
           <tbody>
             {livraison.lines.map((line, index) => (
               <tr key={line.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={line.isExcluded || false}
+                    onChange={(e) => handleIsExcludedChange(index, e.target.checked)}
+                  />
+                </td>
                 <td>
                   <input
                     type="text"

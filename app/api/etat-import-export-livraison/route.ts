@@ -1,6 +1,5 @@
 import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 
 // Define interfaces for the response
 interface EtatLivraisonData {
@@ -29,6 +28,7 @@ interface ExportEntry {
   commande: string;
   description: string;
   quantityDelivered: number;
+  isExcluded: boolean; // Added field for checkbox state
 }
 
 interface ModelEntry {
@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
         commande: line.commande || "",
         description: line.description || "",
         quantityDelivered: line.quantity || 0,
+        isExcluded: line.isExcluded || false, // Include isExcluded from LivraisonLine
       }))
     );
 
@@ -139,6 +140,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error("GET /api/etat-import-export-livraison Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }

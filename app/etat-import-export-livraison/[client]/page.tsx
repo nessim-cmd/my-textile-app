@@ -34,6 +34,7 @@ interface ExportEntry {
   commande: string;
   description: string;
   quantityDelivered: number;
+  isExcluded: boolean;
 }
 
 interface ModelEntry {
@@ -55,6 +56,12 @@ interface GroupedImportEntry {
   dateEntree: string | null;
   numLivraisonEntree: string;
   lines: ImportEntry[];
+}
+
+interface GroupedExportEntry {
+  dateSortie: string | null;
+  numLivraisonSortie: string;
+  lines: ExportEntry[];
 }
 
 export default function ClientEtatImportExportLivraisonPage() {
@@ -101,6 +108,7 @@ export default function ClientEtatImportExportLivraisonPage() {
     const matchesClient = item.clientEntree === clientName;
     const matchesSearch =
       item.commande.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.modele.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesModel = selectedModel ? item.modele === selectedModel : true;
     const dateEntree = item.dateEntree ? new Date(item.dateEntree) : null;
@@ -154,6 +162,22 @@ export default function ClientEtatImportExportLivraisonPage() {
 
   const groupedImportsArray = Object.values(groupedImports);
 
+  // Group exports by numLivraisonSortie and dateSortie
+  const groupedExports = filteredExports.reduce((acc, item) => {
+    const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
+    if (!acc[key]) {
+      acc[key] = {
+        dateSortie: item.dateSortie,
+        numLivraisonSortie: item.numLivraisonSortie,
+        lines: [],
+      };
+    }
+    acc[key].lines.push(item);
+    return acc;
+  }, {} as Record<string, GroupedExportEntry>);
+
+  const groupedExportsArray = Object.values(groupedExports);
+
   const allModels = Array.from(
     new Set(
       etatData?.models
@@ -169,7 +193,7 @@ export default function ClientEtatImportExportLivraisonPage() {
     .flatMap((model) => {
       const modelImports = filteredImports.filter((item) => item.modele === model.name);
       const modelExports = filteredExports.filter(
-        (item) => item.modele === model.name
+        (item) => item.modele === model.name && !item.isExcluded
       );
 
       return (model.commandesWithVariants || []).map((cmd) => {
@@ -194,36 +218,38 @@ export default function ClientEtatImportExportLivraisonPage() {
   console.log("Commande Summaries:", commandeSummaries);
 
   const totalQuantity = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityTotal, 0);
-  const totalDelivered = filteredExports.reduce((sum, item) => sum + item.quantityDelivered, 0);
+  const totalDelivered = filteredExports
+    .filter((item) => !item.isExcluded)
+    .reduce((sum, item) => sum + item.quantityDelivered, 0);
 
   const handleDownloadPDF = () => {
     const pdf = new jsPDF("p", "mm", "a4");
     let yOffset = 10;
 
     // Add title with increased font size
-    pdf.setFontSize(20); // Increased from 16 to 20
+    pdf.setFontSize(20);
     pdf.text(`État des Livraisons pour ${clientName}`, 10, yOffset);
-    yOffset += 12; // Adjusted for larger font
+    yOffset += 12;
 
     // Add Summary Section with increased font size
-    pdf.setFontSize(14); // Increased from 12 to 14
+    pdf.setFontSize(14);
     pdf.text("Résumé", 10, yOffset);
-    yOffset += 6; // Adjusted for larger font
+    yOffset += 6;
 
     if (commandeSummaries.length > 0) {
       commandeSummaries.forEach((cmd, index) => {
         if (index === 0 || cmd.model !== commandeSummaries[index - 1].model) {
-          pdf.setFontSize(12); // Increased from 10 to 12
+          pdf.setFontSize(12);
           pdf.text(`Modèle: ${cmd.model}`, 10, yOffset);
-          yOffset += 6; // Adjusted for larger font
+          yOffset += 6;
         }
-        pdf.setFontSize(11); // Increased from 9 to 11
+        pdf.setFontSize(11);
         pdf.text(
           `Commande ${cmd.commande || "N/A"}: Total ${cmd.quantityTotal} / Livré ${cmd.quantityDelivered} / Reçu ${cmd.quantityReçu}`,
           10,
           yOffset
         );
-        yOffset += 6; // Adjusted for larger font
+        yOffset += 6;
 
         // Check for page break
         if (yOffset > 270) {
@@ -232,15 +258,15 @@ export default function ClientEtatImportExportLivraisonPage() {
         }
       });
     } else {
-      pdf.setFontSize(11); // Increased from 9 to 11
+      pdf.setFontSize(11);
       pdf.text("Aucune commande trouvée pour ce client.", 10, yOffset);
-      yOffset += 6; // Adjusted for larger font
+      yOffset += 6;
     }
 
     // Add Total with increased font size
-    pdf.setFontSize(12); // Increased from 10 to 12
+    pdf.setFontSize(12);
     pdf.text(`Total: ${totalQuantity} / Livré: ${totalDelivered}`, 10, yOffset);
-    yOffset += 12; // Adjusted for larger font
+    yOffset += 12;
 
     // Check for page break
     if (yOffset > 270) {
@@ -249,9 +275,9 @@ export default function ClientEtatImportExportLivraisonPage() {
     }
 
     // Add Importations Section with increased font size
-    pdf.setFontSize(14); // Increased from 12 to 14
+    pdf.setFontSize(14);
     pdf.text("Importations", 10, yOffset);
-    yOffset += 6; // Adjusted for larger font
+    yOffset += 6;
 
     if (groupedImportsArray.length > 0) {
       autoTable(pdf, {
@@ -266,14 +292,14 @@ export default function ClientEtatImportExportLivraisonPage() {
           group.lines.map((line) => line.quantityReçu.toString()).join("\n"),
         ]),
         theme: "striped",
-        styles: { fontSize: 10 }, // Increased from 8 to 10
+        styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
       });
-      yOffset = (pdf as any).lastAutoTable.finalY + 12; // Adjusted for larger font
+      yOffset = (pdf as any).lastAutoTable.finalY + 12;
     } else {
-      pdf.setFontSize(11); // Increased from 9 to 11
+      pdf.setFontSize(11);
       pdf.text("Aucune importation trouvée.", 10, yOffset);
-      yOffset += 6; // Adjusted for larger font
+      yOffset += 6;
     }
 
     // Check for page break
@@ -283,28 +309,29 @@ export default function ClientEtatImportExportLivraisonPage() {
     }
 
     // Add Exportations Section with increased font size
-    pdf.setFontSize(14); // Increased from 12 to 14
+    pdf.setFontSize(14);
     pdf.text("Exportations", 10, yOffset);
-    yOffset += 6; // Adjusted for larger font
+    yOffset += 6;
 
-    if (filteredExports.length > 0) {
+    if (groupedExportsArray.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Date Export", "N° Livraison", "Modèle", "Commande", "Description", "Qté Livrée"]],
-        body: filteredExports.map((item) => [
-          item.dateSortie ? new Date(item.dateSortie).toLocaleDateString() : "N/A",
-          item.numLivraisonSortie || "N/A",
-          item.modele,
-          item.commande || "N/A",
-          item.description || "N/A",
-          item.quantityDelivered.toString(),
+        head: [["Réparation", "Date Export", "N° Livraison", "Modèle", "Commande", "Description", "Qté Livrée"]],
+        body: groupedExportsArray.map((group) => [
+          group.lines.map((line) => (line.isExcluded ? "Oui" : "Non")).join("\n"),
+          group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A",
+          group.numLivraisonSortie || "N/A",
+          group.lines.map((line) => line.modele).join("\n"),
+          group.lines.map((line) => line.commande || "N/A").join("\n"),
+          group.lines.map((line) => line.description || "N/A").join("\n"),
+          group.lines.map((line) => line.quantityDelivered.toString()).join("\n"),
         ]),
         theme: "striped",
-        styles: { fontSize: 10 }, // Increased from 8 to 10
+        styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
       });
     } else {
-      pdf.setFontSize(11); // Increased from 9 to 11
+      pdf.setFontSize(11);
       pdf.text("Aucune exportation trouvée.", 10, yOffset);
     }
 
@@ -430,14 +457,7 @@ export default function ClientEtatImportExportLivraisonPage() {
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr>
-                      <th className="p-4 text-left">Date Import</th>
-                      <th className="p-4 text-left">N° Livraison</th>
-                      <th className="p-4 text-left">Modèle</th>
-                      <th className="p-4 text-left">Commande</th>
-                      <th className="p-4 text-left">Description</th>
-                      <th className="p-4 text-left">Qté Reçu</th>
-                    </tr>
+                    <tr><th className="p-4 text-left">Date Import</th><th className="p-4 text-left">N° Livraison</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Description</th><th className="p-4 text-left">Qté Reçu</th></tr>
                   </thead>
                   <tbody>
                     {groupedImportsArray.map((group, groupIndex) => (
@@ -487,24 +507,54 @@ export default function ClientEtatImportExportLivraisonPage() {
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr>
-                      <th className="p-4 text-left">Date Export</th>
-                      <th className="p-4 text-left">N° Livraison</th>
-                      <th className="p-4 text-left">Modèle</th>
-                      <th className="p-4 text-left">Commande</th>
-                      <th className="p-4 text-left">Description</th>
-                      <th className="p-4 text-left">Qté Livrée</th>
-                    </tr>
+                    <tr><th className="p-4 text-left"></th><th className="p-4 text-left">Date Export</th><th className="p-4 text-left">N° Livraison</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Description</th><th className="p-4 text-left">Qté Livrée</th></tr>
                   </thead>
                   <tbody>
-                    {filteredExports.map((item) => (
-                      <tr key={item.id} className="hover:bg-blue-100 transition-colors">
-                        <td className="p-4">{item.dateSortie ? new Date(item.dateSortie).toLocaleDateString() : "N/A"}</td>
-                        <td className="p-4">{item.numLivraisonSortie || "N/A"}</td>
-                        <td className="p-4">{item.modele}</td>
-                        <td className="p-4">{item.commande || "N/A"}</td>
-                        <td className="p-4">{item.description || "N/A"}</td>
-                        <td className="p-4">{item.quantityDelivered}</td>
+                    {groupedExportsArray.map((group, groupIndex) => (
+                      <tr key={group.numLivraisonSortie + groupIndex} className="hover:bg-blue-100 transition-colors">
+                        <td className="p-4">
+                          {group.lines.map((line, lineIndex) => (
+                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                              <input
+                                type="checkbox"
+                                checked={line.isExcluded}
+                                disabled
+                              />
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-4">
+                          {group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A"}
+                        </td>
+                        <td className="p-4">{group.numLivraisonSortie || "N/A"}</td>
+                        <td className="p-4">
+                          {group.lines.map((line, lineIndex) => (
+                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                              {line.modele}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-4">
+                          {group.lines.map((line, lineIndex) => (
+                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                              {line.commande || "N/A"}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-4">
+                          {group.lines.map((line, lineIndex) => (
+                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                              {line.description || "N/A"}
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-4">
+                          {group.lines.map((line, lineIndex) => (
+                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                              {line.quantityDelivered}
+                            </div>
+                          ))}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

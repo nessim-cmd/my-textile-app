@@ -26,8 +26,21 @@ export interface Invoice extends PrismaInvoice {
 export interface Livraison extends PrismaLivraison {
   lines: LivraisonLine[];
 }
+
 export interface LivraisonEntree extends PrismaLivraisonEntry {
   lines: LivraisonEntreeLine[];
+}
+
+export interface LivraisonLine {
+  id: string;
+  commande?: string;
+  modele: string;
+  description?: string;
+  quantity: number;
+  livraisonId: string;
+  isExcluded: boolean; // Added field for checkbox state
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Commande extends PrismaCommande {
@@ -93,7 +106,6 @@ export interface EtatImportExport {
   updatedAt: Date;
 }
 
-// type.ts (partial)
 export interface EtatDeclaration {
   id: string;
   dateImport: Date;
@@ -111,7 +123,6 @@ export interface EtatDeclaration {
   quantityTotal: number;
 }
 
-// type.ts (partial)
 export interface EtatLivraisonDeclaration {
   id: string;
   dateEntree: Date | null;

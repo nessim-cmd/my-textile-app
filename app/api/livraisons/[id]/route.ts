@@ -6,7 +6,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   try {
     const livraison = await prisma.livraison.findUnique({
       where: { id: params.id },
-      include: { lines: true },
+      include: { lines: true }, // Ensure lines include isExcluded
     });
 
     return livraison
@@ -58,6 +58,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             commande: line.commande,
             description: line.description,
             quantity: line.quantity,
+            isExcluded: line.isExcluded || false, // Ensure isExcluded is saved
           },
         });
       } else {
@@ -65,6 +66,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           data: {
             ...line,
             livraisonId: params.id,
+            isExcluded: line.isExcluded || false, // Ensure isExcluded is saved
           },
         });
       }

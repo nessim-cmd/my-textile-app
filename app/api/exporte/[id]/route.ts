@@ -1,51 +1,66 @@
-import prisma from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Await params to resolve the id
-    const exporte = await prisma.declarationExport.findUnique({
+    const { id } = await params;
+    const declaration = await prisma.declarationExport.findUnique({
       where: { id },
       include: { lines: true },
     });
-
-    if (!exporte) {
-      return NextResponse.json({ error: "Export not found" }, { status: 404 });
+    
+    if (!declaration) {
+      return NextResponse.json({ error: "Declaration not found" }, { status: 404 });
     }
 
-    return NextResponse.json(exporte, { status: 200 });
+    const transformedDeclaration = {
+      ...declaration,
+      createdAt: declaration.createdAt.toISOString(),
+      updatedAt: declaration.updatedAt.toISOString(),
+      exportDate: declaration.exportDate ? new Date(declaration.exportDate).toISOString() : "",
+      lines: declaration.lines.map(line => ({
+        ...line,
+      })),
+    };
+
+    return NextResponse.json(transformedDeclaration, { status: 200 });
   } catch (error) {
     console.error("GET /api/exporte/[id] Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Await params to resolve the id
-    const exportData = await request.json();
-
+    const { id } = await params;
+    const declarationData = await request.json();
+    
     await prisma.declarationExport.update({
       where: { id },
       data: {
-        clientName: exportData.clientName,
-        exportDate: exportData.exportDate,
-        dueDate: exportData.dueDate,
-        vatActive: exportData.vatActive,
-        vatRate: exportData.vatRate,
-        status: exportData.status,
-        poidsBrut: exportData.poidsBrut,
-        poidsNet: exportData.poidsNet,
-        nbrColis: exportData.nbrColis,
-        modePaiment: exportData.modePaiment,
-        volume: exportData.volume,
-        origineTessuto: exportData.origineTessuto,
+        num_dec: declarationData.num_dec,
+        exportDate: declarationData.exportDate,
+        clientName: declarationData.clientName,
+        valeur: declarationData.valeur,
+        dueDate: declarationData.dueDate,
+        vatActive: declarationData.vatActive,
+        vatRate: declarationData.vatRate,
+        status: declarationData.status,
+        poidsBrut: declarationData.poidsBrut,
+        poidsNet: declarationData.poidsNet,
+        nbrColis: declarationData.nbrColis,
+        modePaiment: declarationData.modePaiment,
+        volume: declarationData.volume,
+        origineTessuto: declarationData.origineTessuto,
       },
     });
 
@@ -54,17 +69,17 @@ export async function PUT(
     });
 
     const linesToDelete = existingLines.filter(
-      (el) => !exportData.lines.some((l: any) => l.id === el.id)
+      (line) => !declarationData.lines.some((l: ExportLine) => l.id === line.id)
     );
 
     if (linesToDelete.length > 0) {
       await prisma.exportLine.deleteMany({
-        where: { id: { in: linesToDelete.map((l) => l.id) } },
+        where: { id: { in: linesToDelete.map(l => l.id) } },
       });
     }
 
-    for (const line of exportData.lines) {
-      if (existingLines.some((el) => el.id === line.id)) {
+    for (const line of declarationData.lines) {
+      if (existingLines.some(el => el.id === line.id)) {
         await prisma.exportLine.update({
           where: { id: line.id },
           data: {
@@ -78,7 +93,12 @@ export async function PUT(
       } else {
         await prisma.exportLine.create({
           data: {
-            ...line,
+            id: line.id,
+            commande: line.commande,
+            modele: line.modele,
+            description: line.description,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
             exportId: id,
           },
         });
@@ -88,20 +108,26 @@ export async function PUT(
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("PUT /api/exporte/[id] Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Type params as a Promise
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params; // Await params to resolve the id
+    const { id } = await params;
     await prisma.declarationExport.delete({ where: { id } });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("DELETE /api/exporte/[id] Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }

@@ -1,26 +1,26 @@
-// app/etat-import-export/page.tsx
 "use client";
 
-import { useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import Wrapper from "@/components/Wrapper";
 import Link from "next/link";
 
 interface EtatDeclaration {
   id: string;
-  dateImport: Date;
+  dateImport: string | null;
   numDecImport: string;
   valeurImport: number;
   clientImport: string;
   modele: string;
   commande: string;
   designation: string;
-  dateExport: Date | null;
+  dateExport: string | null;
   numDecExport: string;
   clientExport: string;
   valeurExport: number;
   quantityDelivered: number;
   quantityTotal: number;
+  isExcluded?: boolean;
 }
 
 const ClientComponent: React.FC<{ clientName: string }> = ({ clientName }) => (
@@ -34,8 +34,9 @@ const ClientComponent: React.FC<{ clientName: string }> = ({ clientName }) => (
 
 export default function EtatDeclarationImportExportPage() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const email = user?.primaryEmailAddress?.emailAddress;
-  const [etatData, setEtatData] = useState<EtatDeclaration[]>([]);
+  const [etatData, setEtatData] = useState<{ imports: EtatDeclaration[]; exports: EtatDeclaration[] }>({ imports: [], exports: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,15 +47,20 @@ export default function EtatDeclarationImportExportPage() {
     setError(null);
 
     try {
+      const token = await getToken();
       const response = await fetch(
-        `/api/etat-import-export?email=${encodeURIComponent(email)}`
+        `/api/etat-import-export?email=${encodeURIComponent(email)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
       if (!response.ok) throw new Error(`Error ${response.status}`);
       const data = await response.json();
-      setEtatData(data);
+      setEtatData({ imports: data.imports || [], exports: data.exports || [] });
     } catch (err) {
       setError("Failed to load import/export status");
       console.error(err);
+      setEtatData({ imports: [], exports: [] });
     } finally {
       setLoading(false);
     }
@@ -66,7 +72,7 @@ export default function EtatDeclarationImportExportPage() {
 
   const clients = Array.from(
     new Set(
-      etatData.map((item) => item.clientExport || item.clientImport || "N/A")
+      etatData.imports.concat(etatData.exports).map((item) => item.clientExport || item.clientImport || "N/A")
     )
   ).filter((client) => client !== "N/A");
 

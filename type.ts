@@ -5,16 +5,11 @@ import {
   InvoiceLine,
   LivraisonLine,
   CommandeLine,
-  DeclarationImport as PrismaDeclarationImport,
-  Model as PrismaModel,
-  Accessoire as PrismaAccessoire,
   SuiviProduction as PrismaSuiviProduction,
   SuiviProductionLine as PrismaSuiviProductionLine,
   Planning as PrismaPlanning,
   ModelPlan as PrismaModelPlan,
   Variant as PrismaVariante,
-  DeclarationExport as PrismaDeclarationExport,
-  ExportLine,
   LivraisonEntree as PrismaLivraisonEntry,
   LivraisonEntreeLine,
 } from "@prisma/client";
@@ -29,18 +24,6 @@ export interface Livraison extends PrismaLivraison {
 
 export interface LivraisonEntree extends PrismaLivraisonEntry {
   lines: LivraisonEntreeLine[];
-}
-
-export interface LivraisonLine {
-  id: string;
-  commande?: string;
-  modele: string;
-  description?: string;
-  quantity: number;
-  livraisonId: string;
-  isExcluded: boolean; // Added field for checkbox state
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface Commande extends PrismaCommande {
@@ -59,15 +42,37 @@ export interface TotalsExport {
   totalTTC: number;
 }
 
-export interface DeclarationImport extends PrismaDeclarationImport {
+export interface DeclarationImport {
+  id: string;
+  num_dec: string;
+  date_import: string;
+  client: string;
+  valeur: number;
+  userId: string;
   models: Model[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface Model extends PrismaModel {
+export interface Model {
+  id: string;
+  name: string;
+  declarationImportId: string;
   accessories: Accessoire[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-export type Accessoire = PrismaAccessoire;
+export interface Accessoire {
+  id: string;
+  reference_accessoire: string;
+  quantity_reçu: number;
+  quantity_trouve: number;
+  quantity_manque: number;
+  modelId: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface SuiviProduction extends PrismaSuiviProduction {
   lines: SuiviProductionLine[];
@@ -85,8 +90,36 @@ export interface ModelPlan extends PrismaModelPlan {
 
 export type Variante = PrismaVariante;
 
-export interface DeclarationExport extends PrismaDeclarationExport {
+export interface DeclarationExport {
+  id: string;
+  num_dec: string;
+  clientName: string;
+  exportDate: string;
+  valeur: number;
+  dueDate: string;
+  vatActive: boolean;
+  vatRate: number;
+  status: number;
+  poidsBrut: string;
+  poidsNet: string;
+  nbrColis: string;
+  volume: string;
+  modePaiment: number;
+  origineTessuto: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
   lines: ExportLine[];
+}
+
+export interface ExportLine {
+  id: string;
+  commande: string;
+  modele: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  exportId: string;
 }
 
 export interface EtatImportExport {

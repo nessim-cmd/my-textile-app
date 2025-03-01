@@ -1,11 +1,10 @@
-// components/ExportComponent.tsx
 import { DeclarationExport } from "@/type";
-import { CheckCircle, Clock, FileText, SquareArrowOutUpRight, XCircle } from "lucide-react";
+import { CheckCircle, Clock, FileText, Shirt, SquareArrowOutUpRight, XCircle } from "lucide-react";
 import Link from "next/link";
+import React from "react";
 
 type ExportComponentProps = {
   exporte: DeclarationExport;
-  index: number;
 };
 
 const getStatusBadge = (status: number) => {
@@ -49,7 +48,7 @@ const getStatusBadge = (status: number) => {
       return (
         <div className="badge badge-lg">
           <XCircle className="w-4" />
-          Indefinis
+          Indéfini
         </div>
       );
   }
@@ -68,34 +67,32 @@ const getModePaiment = (paiment: number) => {
       return (
         <div className="badge badge-lg badge-warning flex items-center gap-2">
           <Clock className="w-4" />
-          Chéque
+          Chèque
         </div>
       );
     case 3:
       return (
         <div className="badge badge-lg badge-success flex items-center gap-2">
           <CheckCircle className="w-4" />
-          Espéce
+          Espèce
         </div>
       );
     default:
       return (
         <div className="badge badge-lg">
           <XCircle className="w-4" />
-          Indefinis
+          Indéfini
         </div>
       );
   }
 };
 
 const ExportComponent: React.FC<ExportComponentProps> = ({ exporte }) => {
-  const calculateTotal = () => {
-    const totalHT = exporte?.lines?.reduce((acc, line) => {
-      const quantity = line.quantity ?? 0;
-      const unitPrice = line.unitPrice ?? 0;
-      return acc + quantity * unitPrice;
-    }, 0);
-
+  const calculateTotalTTC = () => {
+    const totalHT = exporte.lines.reduce(
+      (acc, line) => acc + (line.quantity || 0) * (line.unitPrice || 0),
+      0
+    );
     const totalVAT = exporte.vatActive ? totalHT * (exporte.vatRate / 100) : 0;
     return totalHT + totalVAT;
   };
@@ -103,25 +100,36 @@ const ExportComponent: React.FC<ExportComponentProps> = ({ exporte }) => {
   return (
     <div className="bg-base-200/90 p-5 rounded-xl space-y-2 shadow">
       <div className="flex justify-between items-center w-full">
-        <div>{getStatusBadge(exporte.status)}</div>
-        <div>{getModePaiment(exporte.modePaiment)}</div>
-        <Link className="btn btn-accent btn-sm" href={`/exporte/${exporte.id}`}>
-          Plus
+        <div className="flex items-center gap-2">
+          <div className="badge badge-lg flex items-center gap-2">
+            <Shirt className="w-4" />
+            {exporte.lines.length} Lignes
+          </div>
+        </div>
+        <Link
+          className="btn btn-accent btn-sm"
+          href={`/exporte/${exporte.id}`}
+        >
+          Détails
           <SquareArrowOutUpRight className="w-4" />
         </Link>
       </div>
-
       <div className="w-full">
         <div>
           <div className="stat-title">
-            <div className="uppercase text-sm">
-              <span className="font-bold">Export N°</span> {exporte.id}
-            </div>
+            <div className="uppercase text-sm">{exporte.num_dec}</div>
           </div>
-          <div>
-            <div className="stat-value">{calculateTotal().toFixed(2)} €</div>
+          <div className="stat-value">{calculateTotalTTC().toFixed(2)} €</div>
+          <div className="stat-desc">{exporte.clientName}</div>
+          <div className="text-xs text-gray-500">
+            {exporte.exportDate
+              ? new Date(exporte.exportDate).toLocaleDateString()
+              : "N/A"}
           </div>
-          <div className="stat-desc">{exporte.name}</div>
+          <div className="flex items-center gap-2 mt-2">
+            <div>{getStatusBadge(exporte.status)}</div>
+            <div>{getModePaiment(exporte.modePaiment)}</div>
+          </div>
         </div>
       </div>
     </div>

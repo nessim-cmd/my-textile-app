@@ -2,7 +2,7 @@
 
 import { Layers, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useUser, useAuth } from "@clerk/nextjs"; // Add useAuth
+import { useUser, useAuth } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { DeclarationImport } from "@/type";
 import Wrapper from "@/components/Wrapper";
@@ -15,13 +15,13 @@ interface Client {
 
 export default function ImportPage() {
   const { user } = useUser();
-  const { getToken } = useAuth(); // Get Clerk auth token
+  const { getToken } = useAuth();
   const [numDec, setNumDec] = useState("");
   const [dateImport, setDateImport] = useState("");
   const [client, setClient] = useState("");
   const [valeur, setValeur] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
-  const [modalError, setModalError] = useState<string | null>(null); // Add error state for modal
+  const [modalError, setModalError] = useState<string | null>(null);
 
   const email = user?.primaryEmailAddress?.emailAddress;
   const [declarations, setDeclarations] = useState<DeclarationImport[]>([]);
@@ -31,15 +31,16 @@ export default function ImportPage() {
 
   const fetchClients = async () => {
     try {
-      const token = await getToken(); // Get fresh token
-      const res = await fetch('/api/client', {
-        headers: { Authorization: `Bearer ${token}` }
+      const token = await getToken();
+      const res = await fetch("/api/client", {
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const data = await res.json();
       setClients(data);
     } catch (error) {
       console.error("Error fetching clients:", error);
+      setError("Failed to fetch clients");
     }
   };
 
@@ -50,9 +51,9 @@ export default function ImportPage() {
     setError(null);
 
     try {
-      const token = await getToken(); // Get fresh token
+      const token = await getToken();
       const response = await fetch(`/api/import?email=${encodeURIComponent(email)}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
@@ -67,8 +68,10 @@ export default function ImportPage() {
   };
 
   useEffect(() => {
-    if (email) fetchDeclarations();
-    fetchClients();
+    if (email) {
+      fetchDeclarations();
+      fetchClients();
+    }
   }, [email]);
 
   const filteredDeclarations = declarations.filter(declaration =>
@@ -77,26 +80,28 @@ export default function ImportPage() {
   );
 
   const handleCreateDeclaration = async () => {
-    if (!email || !numDec.trim() || !dateImport || !client.trim() || !valeur.trim()) return;
+    if (!email || !numDec.trim() || !dateImport || !client.trim() || !valeur.trim()) {
+      setModalError("All fields are required");
+      return;
+    }
 
-    setModalError(null); // Reset modal error
+    setModalError(null);
 
     try {
-      const token = await getToken(); // Get fresh token
+      const token = await getToken();
       const response = await fetch("/api/import", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` // Add auth header
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
           email,
           num_dec: numDec.trim(),
           date_import: dateImport,
           client: client.trim(),
-          valeur: parseFloat(valeur)
+          valeur: parseFloat(valeur),
         }),
-        signal: AbortSignal.timeout(30000) // 30-second timeout
       });
 
       if (!response.ok) {
@@ -119,7 +124,7 @@ export default function ImportPage() {
       });
     } catch (error) {
       console.error("Error creating declaration:", error);
-      
+      setModalError("Failed to create declaration");
     }
   };
 
@@ -140,7 +145,7 @@ export default function ImportPage() {
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold">{"Déclarations d'Import"}</h1>
+        <h1 className="text-3xl font-bold">Déclarations d'Import</h1>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div
@@ -196,28 +201,24 @@ export default function ImportPage() {
                 value={numDec}
                 onChange={(e) => setNumDec(e.target.value)}
               />
-              
               <input
                 type="date"
                 className="input input-bordered w-full"
                 value={dateImport}
                 onChange={(e) => setDateImport(e.target.value)}
               />
-              
               <select
                 className="select select-bordered w-full"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
-                required
               >
-                <option value="">Select Client</option>
+                <option value="">Sélectionner un client</option>
                 {clients.map((client) => (
                   <option key={client.id} value={client.name}>
                     {client.name}
                   </option>
                 ))}
               </select>
-              
               <input
                 type="number"
                 placeholder="Valeur"

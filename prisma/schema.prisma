@@ -216,24 +216,24 @@ model CommandeLine {
 
 
 model DeclarationImport {
-  id         String      @id @default(uuid())
-  num_dec    String
+  id          String      @id @default(uuid())
+  num_dec     String
   date_import DateTime
-  client     String
-  valeur     Float
-  userId     String
-  models     Model[]     
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  user       User        @relation("UserDeclarations", fields: [userId], references: [id])
+  client      String
+  valeur      Float
+  userId      String
+  models      Model[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation("UserDeclarations", fields: [userId], references: [id])
 }
 
 model Model {
-  id          String      @id @default(uuid())
-  name        String
-  accessories Accessoire[] 
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id                String      @id @default(uuid())
+  name              String
+  accessories       Accessoire[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
   declarationImportId String
   declarationImport DeclarationImport @relation(fields: [declarationImportId], references: [id], onDelete: Cascade)
 }
@@ -241,13 +241,12 @@ model Model {
 model Accessoire {
   id                  String  @id @default(uuid())
   reference_accessoire String
-  quantity_reçu       Int
-  quantity_trouve     Int
-  quantity_manque     Int
+  quantity_reçu       Float   // Changed from Int to Float
+  quantity_trouve     Float   // Changed from Int to Float
+  quantity_manque     Float   // Changed to Float for consistency
   modelId             String
   model               Model   @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
-
 
 model SuiviProduction {
   id          String      @id @default(uuid())
@@ -318,36 +317,36 @@ enum Status {
 }
 
 /// declaration export 
-model DeclarationExport{
-  id String @id
-  name String  
-  clientName String  @default("")
-  exportDate String  @default("")
-  dueDate String  @default("")
-  vatActive Boolean @default(false)
-  vatRate Float @default(20)
-  status Int @default(1)
-  poidsBrut String
-  poidsNet String
-  nbrColis String
-  volume String
-  modePaiment Int @default(1)
+model DeclarationExport {
+  id          String       @id @default(uuid())
+  num_dec     String       // Changed from name to num_dec
+  clientName  String
+  exportDate  String
+  valeur      Float        // Added valeur field
+  dueDate     String       @default("")
+  vatActive   Boolean      @default(false)
+  vatRate     Float        @default(20)
+  status      Int          @default(1)
+  poidsBrut   String
+  poidsNet    String
+  nbrColis    String
+  volume      String
+  modePaiment Int          @default(1)
   origineTessuto String
-  lines           ExportLine[] @relation("ExportLines")
-  userId String
-  createdByUser User @relation("UserExport",fields: [userId],references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  lines       ExportLine[] @relation("ExportLines")
+  userId      String
+  createdByUser User     @relation("UserExport", fields: [userId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 }
 
 model ExportLine {
-  id String @id  @default(uuid())
-  commande String
-  modele String
-  description String @default("")
-  quantity Int  @default(0)
-  unitPrice Float @default(0)
-  exportId String
+  id          String            @id @default(uuid())
+  commande    String
+  modele      String
+  description String            @default("")
+  quantity    Int               @default(0)
+  unitPrice   Float             @default(0)
+  exportId    String
   exporte     DeclarationExport? @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
 }
-

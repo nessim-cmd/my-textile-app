@@ -1,21 +1,22 @@
-// components/ExportLines.tsx
-import { DeclarationExport } from "@/type";
-import { ExportLine } from "@prisma/client";
+import { DeclarationExport, ExportLine } from "@/type";
 import { Plus, Trash } from "lucide-react";
+import React from "react";
 
 interface Props {
-  exporte: DeclarationExport;
-  setExports: (exporte: DeclarationExport) => void;
-  clientModels?: ClientModel[]; // Models passed from parent
+  declaration: DeclarationExport;
+  setDeclaration: (declaration: DeclarationExport) => void;
+  clientModels?: ClientModel[];
 }
 
 interface ClientModel {
   id: string;
-  name: string;
+  name: string | null;
   clientId: string;
+  commandes: string;
+  description: string;
 }
 
-const ExportLines: React.FC<Props> = ({ exporte, setExports, clientModels = [] }) => {
+const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModels = [] }) => {
   const handleAddLine = () => {
     const newLine: ExportLine = {
       id: `${Date.now()}`,
@@ -24,47 +25,50 @@ const ExportLines: React.FC<Props> = ({ exporte, setExports, clientModels = [] }
       description: "",
       quantity: 1,
       unitPrice: 0,
-      exportId: exporte.id,
+      exportId: declaration.id,
     };
-    setExports({
-      ...exporte,
-      lines: [...exporte.lines, newLine],
+    setDeclaration({
+      ...declaration,
+      lines: [...declaration.lines, newLine],
     });
   };
 
   const handleCommandeChange = (index: number, value: string) => {
-    const updatedLines = [...exporte.lines];
+    const updatedLines = [...declaration.lines];
     updatedLines[index].commande = value;
-    setExports({ ...exporte, lines: updatedLines });
+    setDeclaration({ ...declaration, lines: updatedLines });
   };
 
   const handleModeleChange = (index: number, value: string) => {
-    const updatedLines = [...exporte.lines];
+    const updatedLines = [...declaration.lines];
+    const selectedModel = clientModels.find((model) => model.name === value);
     updatedLines[index].modele = value;
-    setExports({ ...exporte, lines: updatedLines });
+    updatedLines[index].commande = selectedModel ? selectedModel.commandes : "";
+    updatedLines[index].description = selectedModel ? selectedModel.description : "";
+    setDeclaration({ ...declaration, lines: updatedLines });
   };
 
   const handleQuantityChange = (index: number, value: string) => {
-    const updatedLines = [...exporte.lines];
+    const updatedLines = [...declaration.lines];
     updatedLines[index].quantity = value === "" ? 0 : parseInt(value);
-    setExports({ ...exporte, lines: updatedLines });
+    setDeclaration({ ...declaration, lines: updatedLines });
   };
 
   const handleDescriptionChange = (index: number, value: string) => {
-    const updatedLines = [...exporte.lines];
+    const updatedLines = [...declaration.lines];
     updatedLines[index].description = value;
-    setExports({ ...exporte, lines: updatedLines });
+    setDeclaration({ ...declaration, lines: updatedLines });
   };
 
   const handleUnitPriceChange = (index: number, value: string) => {
-    const updatedLines = [...exporte.lines];
+    const updatedLines = [...declaration.lines];
     updatedLines[index].unitPrice = value === "" ? 0 : parseFloat(value);
-    setExports({ ...exporte, lines: updatedLines });
+    setDeclaration({ ...declaration, lines: updatedLines });
   };
 
   const handleRemoveLine = (index: number) => {
-    const updatedLines = exporte.lines.filter((_, i) => i !== index);
-    setExports({ ...exporte, lines: updatedLines });
+    const updatedLines = declaration.lines.filter((_, i) => i !== index);
+    setDeclaration({ ...declaration, lines: updatedLines });
   };
 
   return (
@@ -75,22 +79,21 @@ const ExportLines: React.FC<Props> = ({ exporte, setExports, clientModels = [] }
           <Plus className="w-4" />
         </button>
       </div>
-
       <div className="scrollable">
         <table className="table w-full">
           <thead className="uppercase">
             <tr>
               <th>Commande</th>
               <th>Modèle</th>
-              <th>Description</th>
               <th>Quantité</th>
+              <th>Description</th>
               <th>Prix Unitaire (HT)</th>
               <th>Montant (HT)</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {exporte.lines.map((line, index) => (
+            {declaration.lines.map((line, index) => (
               <tr key={line.id}>
                 <td>
                   <input
@@ -104,24 +107,16 @@ const ExportLines: React.FC<Props> = ({ exporte, setExports, clientModels = [] }
                   <select
                     value={line.modele}
                     onChange={(e) => handleModeleChange(index, e.target.value)}
-                    className="select select-sm select-bordered w-full"
-                    disabled={!exporte.clientName || clientModels.length === 0}
+                    className="select select-sm select-bordered w-full max-h-select"
+                    disabled={!declaration.clientName || clientModels.length === 0}
                   >
                     <option value="">Sélectionner un modèle</option>
                     {clientModels.map((model) => (
-                      <option key={model.id} value={model.name}>
-                        {model.name}
+                      <option key={model.id} value={model.name || ""}>
+                        {model.name || "Unnamed Model"} {model.commandes ? `(${model.commandes})` : ""}
                       </option>
                     ))}
                   </select>
-                </td>
-                <td>
-                  <input
-                    type="text"
-                    value={line.description}
-                    className="input input-sm input-bordered w-full"
-                    onChange={(e) => handleDescriptionChange(index, e.target.value)}
-                  />
                 </td>
                 <td>
                   <input
@@ -134,6 +129,14 @@ const ExportLines: React.FC<Props> = ({ exporte, setExports, clientModels = [] }
                 </td>
                 <td>
                   <input
+                    type="text"
+                    value={line.description}
+                    className="input input-sm input-bordered w-full"
+                    onChange={(e) => handleDescriptionChange(index, e.target.value)}
+                  />
+                </td>
+                <td>
+                  <input
                     type="number"
                     value={line.unitPrice}
                     className="input input-sm input-bordered w-full"
@@ -142,9 +145,7 @@ const ExportLines: React.FC<Props> = ({ exporte, setExports, clientModels = [] }
                     onChange={(e) => handleUnitPriceChange(index, e.target.value)}
                   />
                 </td>
-                <td className="font-bold">
-                  {(line.quantity * line.unitPrice).toFixed(2)} €
-                </td>
+                <td className="font-bold">{(line.quantity * line.unitPrice).toFixed(2)} €</td>
                 <td>
                   <button
                     onClick={() => handleRemoveLine(index)}

@@ -74,7 +74,8 @@ export default function Home() {
   );
 
   const filteredExports = exports.filter(exp =>
-    exp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    exp.num_dec.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    exp.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     exp.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -110,11 +111,8 @@ export default function Home() {
       });
     } catch (error) {
       console.error("Error creating invoice:", error);
-      
     }
   };
-
- 
 
   return (
     <Wrapper>
@@ -170,16 +168,6 @@ export default function Home() {
             </>
           )}
         </div>
-
-
-
-
-
-
-
-
-
-
 
         <dialog id="invoice_modal" className="modal">
           <div className="modal-box">

@@ -307,7 +307,7 @@ export default function ClientEtatImportExportPage() {
     if (groupedExportsArray.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Exclu", "Date Export", "N° Déclaration", "Modèle", "Commande", "Désignation", "Qté Livrée"]],
+        head: [["Réparation", "Date Export", "N° Déclaration", "Modèle", "Commande", "Désignation", "Qté Livrée"]],
         body: groupedExportsArray.map((group) => [
           group.lines.map((line) => (line.isExcluded ? "Oui" : "Non")).join("\n"),
           group.dateExport ? new Date(group.dateExport).toLocaleDateString() : "N/A",

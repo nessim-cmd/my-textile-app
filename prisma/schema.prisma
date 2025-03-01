@@ -347,6 +347,7 @@ model ExportLine {
   description String            @default("")
   quantity    Int               @default(0)
   unitPrice   Float             @default(0)
+  isExcluded  Boolean           @default(false) // New field to track exclusion
   exportId    String
   exporte     DeclarationExport? @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
 }

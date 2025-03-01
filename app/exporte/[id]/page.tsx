@@ -52,10 +52,10 @@ export default function ExportDetailsPage() {
   const email = user?.primaryEmailAddress?.emailAddress;
   const [declaration, setDeclaration] = useState<DeclarationExport | null>(null);
   const [initialDeclaration, setInitialDeclaration] = useState<DeclarationExport | null>(null);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [, setClients] = useState<Client[]>([]);
   const [clientModels, setClientModels] = useState<ClientModel[]>([]);
   const [totals, setTotals] = useState<Totals | null>(null);
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dateDebut, setDateDebut] = useState("");
@@ -265,7 +265,7 @@ export default function ExportDetailsPage() {
             </select>
             <button
               className="btn btn-sm btn-accent ml-4"
-              disabled={isSaveDisabled || isLoading}
+              disabled={ isLoading}
               onClick={handleSave}
             >
               {isLoading ? (

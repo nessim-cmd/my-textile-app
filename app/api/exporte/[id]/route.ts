@@ -23,6 +23,7 @@ export async function GET(
       exportDate: declaration.exportDate ? new Date(declaration.exportDate).toISOString() : "",
       lines: declaration.lines.map(line => ({
         ...line,
+        isExcluded: line.isExcluded, // Ensure isExcluded is included
       })),
     };
 
@@ -88,6 +89,7 @@ export async function PUT(
             description: line.description,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
+            isExcluded: line.isExcluded, // Ensure isExcluded is updated
           },
         });
       } else {
@@ -99,6 +101,7 @@ export async function PUT(
             description: line.description,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
+            isExcluded: line.isExcluded, // Ensure isExcluded is saved
             exportId: id,
           },
         });

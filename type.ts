@@ -119,6 +119,7 @@ export interface ExportLine {
   description: string;
   quantity: number;
   unitPrice: number;
+  isExcluded: boolean; // Added isExcluded field
   exportId: string;
 }
 

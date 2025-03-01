@@ -25,6 +25,7 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
       description: "",
       quantity: 1,
       unitPrice: 0,
+      isExcluded: false, // Default to false (not excluded)
       exportId: declaration.id,
     };
     setDeclaration({
@@ -66,6 +67,12 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
     setDeclaration({ ...declaration, lines: updatedLines });
   };
 
+  const handleExcludeChange = (index: number, checked: boolean) => {
+    const updatedLines = [...declaration.lines];
+    updatedLines[index].isExcluded = checked;
+    setDeclaration({ ...declaration, lines: updatedLines });
+  };
+
   const handleRemoveLine = (index: number) => {
     const updatedLines = declaration.lines.filter((_, i) => i !== index);
     setDeclaration({ ...declaration, lines: updatedLines });
@@ -83,6 +90,7 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
         <table className="table w-full">
           <thead className="uppercase">
             <tr>
+              <th>Exclure</th>
               <th>Commande</th>
               <th>Modèle</th>
               <th>Quantité</th>
@@ -95,6 +103,14 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
           <tbody>
             {declaration.lines.map((line, index) => (
               <tr key={line.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={line.isExcluded}
+                    onChange={(e) => handleExcludeChange(index, e.target.checked)}
+                    className="checkbox checkbox-sm"
+                  />
+                </td>
                 <td>
                   <input
                     type="text"

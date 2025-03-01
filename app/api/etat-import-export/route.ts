@@ -128,9 +128,9 @@ export async function GET(request: NextRequest) {
         dateExport: de.exportDate ? new Date(de.exportDate).toISOString() : null,
         numDecExport: de.num_dec,
         clientExport: de.clientName,
-        valeurExport: de.valeur, // Use valeur from DeclarationExport
-        quantityDelivered: line.quantity,
-        isExcluded: false,
+        valeurExport: de.valeur,
+        quantityDelivered: line.isExcluded ? 0 : line.quantity, // Exclude quantity if isExcluded is true
+        isExcluded: line.isExcluded,
       }))
     );
 

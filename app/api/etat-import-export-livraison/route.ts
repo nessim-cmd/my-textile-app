@@ -38,6 +38,9 @@ interface ModelEntry {
   commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
 }
 
+// Type for the expected structure of commandesWithVariants in the database
+type CommandesWithVariantsDB = { value: string; variants: { name: string; qte_variante: number }[] }[] | null;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -118,17 +121,39 @@ export async function GET(request: NextRequest) {
         commande: line.commande || "",
         description: line.description || "",
         quantityDelivered: line.quantity || 0,
-        isExcluded: line.isExcluded || false, // Include isExcluded from LivraisonLine
+        isExcluded: line.isExcluded || false,
       }))
     );
 
     // Build models array from ClientModel
-    const models: ModelEntry[] = clientModels.map((model) => ({
-      name: model.name || "",
-      client: model.client?.name || "",
-      commandes: model.commandes || "",
-      commandesWithVariants: model.commandesWithVariants || [],
-    }));
+    const models: ModelEntry[] = clientModels.map((model) => {
+      // Safely handle commandesWithVariants JSON field
+      let commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[] = [];
+      
+      if (model.commandesWithVariants) {
+        try {
+          const parsed = model.commandesWithVariants as CommandesWithVariantsDB;
+          if (Array.isArray(parsed)) {
+            commandesWithVariants = parsed.map(item => ({
+              value: item.value || "",
+              variants: Array.isArray(item.variants) ? item.variants.map(v => ({
+                name: v.name || "",
+                qte_variante: typeof v.qte_variante === "number" ? v.qte_variante : 0,
+              })) : [],
+            }));
+          }
+        } catch (e) {
+          console.error(`Error parsing commandesWithVariants for model ${model.id}:`, e);
+        }
+      }
+
+      return {
+        name: model.name || "",
+        client: model.client?.name || "",
+        commandes: model.commandes || "",
+        commandesWithVariants,
+      };
+    });
 
     console.log("LivraisonsEntree:", livraisonsEntree);
     console.log("Livraisons:", livraisons);

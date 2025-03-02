@@ -4,6 +4,7 @@
 import Wrapper from '@/components/Wrapper';
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -114,14 +115,13 @@ export default function ClientModelPage() {
 
     setModalError(null);
 
-    // Combine commandes into a single string for saving
     const combinedCommandes = commandesWithVariants.map(c => c.value).filter(v => v.trim() !== '').join(',');
     const combinedVariants = commandesWithVariants.flatMap((c: Commande) =>
       c.variants
         .filter((v: Variant) => v.name.trim() !== '')
         .map((v: Variant) => ({
           ...v,
-          name: `${c.value}:${v.name}`, // e.g., "OPR3328:defaut"
+          name: `${c.value}:${v.name}`,
         }))
     );
 
@@ -209,7 +209,6 @@ export default function ClientModelPage() {
       clientId: model.clientId || ''
     });
 
-    // Load commandesWithVariants directly from the model's JSON field
     const loadedCommandesWithVariants = model.commandesWithVariants && Array.isArray(model.commandesWithVariants)
       ? model.commandesWithVariants
       : [{ value: '', variants: [{ name: '', qte_variante: 0 }] }];
@@ -227,7 +226,6 @@ export default function ClientModelPage() {
     };
   }, []);
 
-  // Deduplicate client models by clientId and name
   const uniqueModels = Array.from(
     new Map(
       models.map((model) => [
@@ -240,41 +238,43 @@ export default function ClientModelPage() {
   return (
     <Wrapper>
       <div className="flex flex-col gap-4 mb-4">
-        <div className="flex gap-2 items-center justify-between">
+        {/* Mobile-friendly top section */}
+        <div className="flex flex-col gap-4 p-4">
           <button 
-            className="btn btn-primary mb-4"
+            className="btn btn-primary w-full sm:w-auto"
             onClick={() => setIsModalOpen(true)}
           >
             Add Client Model
           </button>
 
-          <div className="flex items-center space-x-2 mb-3.5">
+          <div className="relative flex items-center w-full">
             <input
               type="text"
-              placeholder="Search by client or model name"
-              className="rounded-xl p-2 bg-gray-100 w-[600px] outline"
+              placeholder="Search by client or model"
+              className="input input-bordered w-full rounded-xl pl-10 pr-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            <Search className="absolute left-3 w-5 h-5 text-gray-500" />
           </div>
 
-          <div className="flex gap-2 items-center mb-3.5 mr-24">
+          <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
             <input
               type="date"
-              className="input input-bordered"
+              className="input input-bordered w-full sm:w-auto"
               value={dateDebut}
               onChange={(e) => setDateDebut(e.target.value)}
             />
-            <span>to</span>
+            <span className="text-gray-600">to</span>
             <input
               type="date"
-              className="input input-bordered"
+              className="input input-bordered w-full sm:w-auto"
               value={dateFin}
               onChange={(e) => setDateFin(e.target.value)}
             />
             {(dateDebut || dateFin) && (
               <button 
-                className="btn btn-error"
+                className="btn btn-error w-full sm:w-auto mt-2 sm:mt-0"
                 onClick={() => {
                   setDateDebut('');
                   setDateFin('');
@@ -295,7 +295,7 @@ export default function ClientModelPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         <div className="overflow-x-auto">
-          <table className="table table-zebra">
+          <table className="table table-zebra w-full">
             <thead>
               <tr>
                 <th>Client</th>
@@ -379,8 +379,9 @@ export default function ClientModelPage() {
           </table>
         </div>
 
-        <dialog className="modal" open={isModalOpen}>
-          <div className="modal-box max-w-3xl">
+        {/* Modal with smooth transition */}
+        <dialog className={`modal ${isModalOpen ? 'modal-open' : ''}`} open={isModalOpen}>
+          <div className="modal-box max-w-3xl w-full sm:w-11/12 md:w-3/4 lg:w-2/3 transition-all duration-300 ease-in-out transform translate-y-0">
             <h3 className="font-bold text-lg mb-4">
               {formData.id ? 'Edit' : 'New'} Client Model
             </h3>
@@ -412,25 +413,25 @@ export default function ClientModelPage() {
                 required={!formData.id}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="Lotto"
-                  className="input input-bordered"
+                  className="input input-bordered w-full"
                   value={formData.lotto || ''}
                   onChange={e => setFormData({ ...formData, lotto: e.target.value })}
                 />
                 <input
                   type="text"
                   placeholder="Ordine"
-                  className="input input-bordered"
+                  className="input input-bordered w-full"
                   value={formData.ordine || ''}
                   onChange={e => setFormData({ ...formData, ordine: e.target.value })}
                 />
                 <input
                   type="number"
                   placeholder="PUHT"
-                  className="input input-bordered"
+                  className="input input-bordered w-full"
                   value={formData.puht || 0}
                   onChange={e => setFormData({ ...formData, puht: Number(e.target.value) })}
                   step="0.01"

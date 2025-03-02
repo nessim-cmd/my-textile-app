@@ -24,14 +24,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-    <html lang="en" data-theme="fantasy">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        elements: {
+          footer: {
+            display: "none", // Hides the footer entirely
+          },
+        },
+      }}
+    >
+      <html lang="en" data-theme="fantasy">
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          {children}
+        </body>
+      </html>
     </ClerkProvider>
   );
 }

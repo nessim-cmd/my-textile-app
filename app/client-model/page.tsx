@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Wrapper from '@/components/Wrapper';
 import { useUser, useAuth } from "@clerk/nextjs";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Client {
   id: string;
@@ -60,12 +61,7 @@ export default function ClientModelPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  useEffect(() => {
-    if (email) fetchData();
-    fetchClients();
-  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!email) return;
     setLoading(true);
     setError(null);
@@ -89,9 +85,9 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, dateDebut, dateFin, searchTerm]);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
       const res = await fetch('/api/client', {
@@ -102,7 +98,14 @@ export default function ClientModelPage() {
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  };
+  }, [getToken]);
+
+  useEffect(() => {
+    if (email) {
+      fetchData();
+      fetchClients();
+    }
+  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -345,7 +348,7 @@ export default function ClientModelPage() {
                       ))
                     ) : model.variants && model.variants.length > 0 ? (
                       model.variants.map((v, i) => {
-                        const [_, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name];
+                        const variantName = v.name.includes(':') ? v.name.split(':')[1] : v.name;
                         return (
                           <div key={i} className="mr-1">
                             {variantName} ({v.qte_variante})

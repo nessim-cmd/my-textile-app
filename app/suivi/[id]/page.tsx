@@ -1,74 +1,74 @@
-"use client"
+"use client";
 
-import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { Save, Trash, Plus } from 'lucide-react'
-import { SuiviProduction, SuiviProductionLine } from '@/type'
-import Wrapper from '@/components/Wrapper'
+import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { Save, Trash, Plus } from 'lucide-react';
+import { SuiviProduction, SuiviProductionLine } from '@/type';
+import Wrapper from '@/components/Wrapper';
 
 export default function SuiviDetailsPage() {
-  const router = useRouter()
-  const params = useParams<{ id: string }>()
-  const [suivi, setSuivi] = useState<SuiviProduction | null>(null)
-  const [initialSuivi, setInitialSuivi] = useState<SuiviProduction | null>(null)
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const [suivi, setSuivi] = useState<SuiviProduction | null>(null);
+  const [initialSuivi, setInitialSuivi] = useState<SuiviProduction | null>(null);
+  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fetchSuivi = async () => {
+  const fetchSuivi = useCallback(async () => {
     try {
-      const response = await fetch(`/api/suivi/${params.id}`)
-      if (!response.ok) throw new Error('Failed to fetch suivi')
-      const data = await response.json()
-      setSuivi(data)
-      setInitialSuivi(data)
+      const response = await fetch(`/api/suivi/${params.id}`);
+      if (!response.ok) throw new Error('Failed to fetch suivi');
+      const data = await response.json();
+      setSuivi(data);
+      setInitialSuivi(data);
     } catch (error) {
-      console.error('Error fetching suivi:', error)
+      console.error('Error fetching suivi:', error);
     }
-  }
+  }, [params.id]);
 
   useEffect(() => {
-    if (params.id) fetchSuivi()
-  }, [params.id])
+    if (params.id) fetchSuivi();
+  }, [params.id, fetchSuivi]);
 
   useEffect(() => {
-    setIsSaveDisabled(JSON.stringify(suivi) === JSON.stringify(initialSuivi))
-  }, [suivi, initialSuivi])
+    setIsSaveDisabled(JSON.stringify(suivi) === JSON.stringify(initialSuivi));
+  }, [suivi, initialSuivi]);
 
   const handleSave = async () => {
-    if (!suivi) return
-    setIsLoading(true)
+    if (!suivi) return;
+    setIsLoading(true);
     
     try {
       const response = await fetch(`/api/suivi/${suivi.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(suivi)
-      })
+        body: JSON.stringify(suivi),
+      });
 
-      if (!response.ok) throw new Error('Failed to update suivi')
+      if (!response.ok) throw new Error('Failed to update suivi');
       
-      await fetchSuivi()
+      await fetchSuivi();
     } catch (error) {
-      console.error('Error saving suivi:', error)
+      console.error('Error saving suivi:', error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer ce suivi ?")
+    const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer ce suivi ?");
     if (confirmed && suivi?.id) {
       try {
-        await fetch(`/api/suivi/${suivi.id}`, { method: 'DELETE' })
-        router.push('/suivi')
+        await fetch(`/api/suivi/${suivi.id}`, { method: 'DELETE' });
+        router.push('/suivi');
       } catch (error) {
-        console.error('Error deleting suivi:', error)
+        console.error('Error deleting suivi:', error);
       }
     }
-  }
+  };
 
   const addNewLine = () => {
-    if (!suivi) return
+    if (!suivi) return;
     const newLine: SuiviProductionLine = {
       id: `temp-${Date.now()}`,
       commande: '',
@@ -76,35 +76,35 @@ export default function SuiviDetailsPage() {
       qte_reparation: 0,
       numero_livraison: '',
       date_export: new Date(),
-      suiviId: suivi.id
-    }
+      suiviId: suivi.id,
+    };
     setSuivi({
       ...suivi,
-      lines: [...suivi.lines, newLine]
-    })
-  }
+      lines: [...suivi.lines, newLine],
+    });
+  };
 
-  const updateLine = (lineId: string, field: string, value: any) => {
-    if (!suivi) return
+  const updateLine = (lineId: string, field: keyof SuiviProductionLine, value: string | number | Date) => {
+    if (!suivi) return;
     setSuivi({
       ...suivi,
       lines: suivi.lines.map(line => 
         line.id === lineId ? { ...line, [field]: value } : line
-      )
-    })
-  }
+      ),
+    });
+  };
 
   if (!suivi) return (
     <div className='flex justify-center items-center h-screen w-full'>
       <span className='font-bold'>Chargement du suivi...</span>
     </div>
-  )
+  );
 
   const adjustedTotalLivree = suivi.lines.reduce((sum, line) => 
-    sum + Math.max(0, line.qte_livree - line.qte_reparation), 0)
+    sum + Math.max(0, line.qte_livree - line.qte_reparation), 0);
   const progress = suivi.qte_total > 0 
     ? (adjustedTotalLivree / suivi.qte_total) * 100 
-    : 0
+    : 0;
 
   return (
     <Wrapper>
@@ -114,7 +114,7 @@ export default function SuiviDetailsPage() {
             {suivi.model_name} - {suivi.client}
           </p>
           
-          <div className='flex md:mt-0 mt-4 '>
+          <div className='flex md:mt-0 mt-4'>
             <button
               className='btn btn-sm btn-accent ml-4'
               disabled={isSaveDisabled || isLoading}
@@ -186,15 +186,15 @@ export default function SuiviDetailsPage() {
               <h3 className='font-bold mb-2'>Progression</h3>
               <div className='mt-2'>
                 <div className='flex justify-between mb-1'>
-                    <span>Livraison: {adjustedTotalLivree}/{suivi.qte_total}</span>
-                    <span>{progress.toFixed(1)}%</span>
+                  <span>Livraison: {adjustedTotalLivree}/{suivi.qte_total}</span>
+                  <span>{progress.toFixed(1)}%</span>
                 </div>
                 <progress 
-                    className='progress progress-accent w-full' 
-                    value={adjustedTotalLivree} 
-                    max={suivi.qte_total}
+                  className='progress progress-accent w-full' 
+                  value={adjustedTotalLivree} 
+                  max={suivi.qte_total}
                 />
-                </div>
+              </div>
             </div>
           </div>
 
@@ -237,7 +237,6 @@ export default function SuiviDetailsPage() {
                             onChange={(e) => updateLine(line.id, 'qte_livree', parseInt(e.target.value))}
                           />
                         </td>
-                       
                         <td>
                           <input
                             type="text"
@@ -272,5 +271,5 @@ export default function SuiviDetailsPage() {
         </div>
       </div>
     </Wrapper>
-  )
+  );
 }

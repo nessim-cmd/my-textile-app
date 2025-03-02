@@ -1,6 +1,6 @@
 import { DeclarationExport } from "@/type";
 import { useUser } from "@clerk/nextjs";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 interface Props {
   declaration: DeclarationExport;
@@ -43,33 +43,34 @@ const ExportInfo: React.FC<Props> = ({ declaration, setDeclaration, dateDebut, d
     fetchClients();
   }, []);
 
-  useEffect(() => {
-    const fetchClientModels = async () => {
-      if (!declaration.clientName || !email) {
-        onModelsChange([]);
-        return;
-      }
+  const fetchClientModels = useCallback(async () => {
+    if (!declaration.clientName || !email) {
+      onModelsChange([]);
+      return;
+    }
 
-      try {
-        const params = new URLSearchParams();
-        params.append("email", email);
-        params.append("client", declaration.clientName);
-        if (dateDebut) params.append("dateDebut", dateDebut);
-        if (dateFin) params.append("dateFin", dateFin);
+    try {
+      const params = new URLSearchParams();
+      params.append("email", email);
+      params.append("client", declaration.clientName);
+      if (dateDebut) params.append("dateDebut", dateDebut);
+      if (dateFin) params.append("dateFin", dateFin);
 
-        const response = await fetch(`/api/client-model?${params.toString()}`);
-        if (!response.ok) throw new Error("Failed to fetch models");
-        const data = await response.json();
-        onModelsChange(data);
-        setError(null);
-      } catch (error) {
-        console.error("Error fetching client models:", error);
-        onModelsChange([]);
-        setError("Failed to load models for selected client and dates");
-      }
-    };
-    fetchClientModels();
+      const response = await fetch(`/api/client-model?${params.toString()}`);
+      if (!response.ok) throw new Error("Failed to fetch models");
+      const data = await response.json();
+      onModelsChange(data);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching client models:", error);
+      onModelsChange([]);
+      setError("Failed to load models for selected client and dates");
+    }
   }, [declaration.clientName, email, dateDebut, dateFin, onModelsChange]);
+
+  useEffect(() => {
+    fetchClientModels();
+  }, [fetchClientModels]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: string) => {
     setDeclaration({ ...declaration, [field]: e.target.value });
@@ -105,7 +106,7 @@ const ExportInfo: React.FC<Props> = ({ declaration, setDeclaration, dateDebut, d
           onChange={(e) => handleInputChange(e, "num_dec")}
         />
 
-        <h2 className="badge badge-accent">Date d'Export</h2>
+        <h2 className="badge badge-accent">{"Date d'Export"}</h2>
         <input
           type="date"
           value={declaration.exportDate}
@@ -114,7 +115,7 @@ const ExportInfo: React.FC<Props> = ({ declaration, setDeclaration, dateDebut, d
           onChange={(e) => setDeclaration({...declaration, exportDate: e.target.value})}
         />
 
-        <h2 className="badge badge-accent">Date d'Échéance</h2>
+        <h2 className="badge badge-accent">{"Date d'Échéance"}</h2>
         <input
           type="date"
           value={declaration.dueDate}

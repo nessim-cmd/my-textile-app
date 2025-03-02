@@ -5,6 +5,7 @@ import {
   formatDate,
   DateSelectArg,
   EventClickArg,
+  EventDropArg,
 } from "@fullcalendar/core";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -98,12 +99,12 @@ const Calendar: React.FC = () => {
     }
   };
 
-  const handleEventDrop = async (info: any) => {
+  const handleEventDrop = async (info: EventDropArg) => {
     setIsDragging(true);
     try {
       await handleEventUpdate(
         Number(info.event.id),
-        info.event.start
+        info.event.start!,
       );
     } finally {
       setIsDragging(false);
@@ -197,7 +198,7 @@ const Calendar: React.FC = () => {
                 id: event.id.toString(),
                 start: event.date,
                 description: event.description,
-                className: isDragging ? 'opacity-50' : ''
+                className: isDragging ? 'opacity-50' : '',
               }))}
             />
           </div>

@@ -1,4 +1,4 @@
-import { DeclarationImport, Model, Accessoire } from "@/type";
+import { DeclarationImport,  Accessoire } from "@/type";
 import { Plus, AlertTriangle, Trash } from "lucide-react";
 import React from "react";
 

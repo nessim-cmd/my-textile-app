@@ -2,8 +2,8 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Save, Trash, Plus, AlertTriangle } from "lucide-react";
-import { DeclarationImport, Model, Accessoire } from "@/type";
+import { Save, Trash, Plus } from "lucide-react";
+import { DeclarationImport, Model } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import ImportLines from "@/components/ImportLines";
 import { useAuth } from "@clerk/nextjs";
@@ -211,7 +211,7 @@ export default function ImportDetailsPage() {
                 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Date d'Import</span>
+                    <span className="label-text">Date d&apos;Import</span>
                   </label>
                   <input
                     type="date"

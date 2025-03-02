@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    let where: any = {};
+    const where: any = {};
 
     if (dateDebut && dateFin) {
       const startDate = new Date(dateDebut);

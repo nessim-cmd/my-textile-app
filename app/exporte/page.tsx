@@ -1,7 +1,7 @@
 "use client";
 
 import { Layers, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { DeclarationExport } from "@/type";
@@ -28,7 +28,7 @@ export default function ExportPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
       const res = await fetch("/api/client", {
@@ -41,9 +41,9 @@ export default function ExportPage() {
       console.error("Error fetching clients:", error);
       setError("Failed to fetch clients");
     }
-  };
+  }, [getToken]);
 
-  const fetchDeclarations = async () => {
+  const fetchDeclarations = useCallback(async () => {
     if (!email) return;
 
     setLoading(true);
@@ -64,14 +64,14 @@ export default function ExportPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, getToken]);
 
   useEffect(() => {
     if (email) {
       fetchDeclarations();
       fetchClients();
     }
-  }, [email]);
+  }, [email, fetchClients, fetchDeclarations]);
 
   const filteredDeclarations = declarations.filter(declaration =>
     declaration.num_dec.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,7 +142,7 @@ export default function ExportPage() {
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold">Déclarations d'Export</h1>
+        <h1 className="text-3xl font-bold">Déclarations d&apos;Export</h1>
 
         <div className="grid md:grid-cols-3 gap-4">
           <div

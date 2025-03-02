@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useUser, useAuth } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Wrapper from "@/components/Wrapper";
 import { Search, Printer } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -73,7 +74,7 @@ export default function ClientEtatImportExportPage() {
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
 
-  const fetchEtatData = async () => {
+  const fetchEtatData = useCallback(async () => {
     if (!email) return;
 
     setLoading(true);
@@ -88,7 +89,7 @@ export default function ClientEtatImportExportPage() {
         }
       );
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      const data = await response.json();
+      const data: EtatDeclarationData = await response.json();
       setEtatData({ imports: data.imports || [], exports: data.exports || [], models: data.models || [] });
       console.log("Fetched EtatData:", data);
     } catch (err) {
@@ -98,11 +99,11 @@ export default function ClientEtatImportExportPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, getToken]);
 
   useEffect(() => {
     if (email) fetchEtatData();
-  }, [email, clientName]);
+  }, [email, clientName, fetchEtatData]);
 
   const filteredImports = etatData.imports?.filter((item) => {
     const matchesClient = item.clientImport === clientName;

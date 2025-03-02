@@ -1,7 +1,7 @@
 // components/InvoiceInfo.tsx
 import { Invoice } from '@/type';
 import { useUser } from '@clerk/nextjs';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 interface Props {
   invoice: Invoice;
@@ -20,8 +20,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
-  commandes: string | null; // Ensure commandes is included
-  description: string | null; // Ensure description is included
+  commandes: string | null;
+  description: string | null;
 }
 
 const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice, dateDebut, dateFin, onModelsChange }) => {
@@ -46,33 +46,34 @@ const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice, dateDebut, dateFin,
     fetchClients();
   }, []);
 
-  useEffect(() => {
-    const fetchClientModels = async () => {
-      if (!invoice.clientName || !email) {
-        onModelsChange([]);
-        return;
-      }
+  const fetchClientModels = useCallback(async () => {
+    if (!invoice.clientName || !email) {
+      onModelsChange([]);
+      return;
+    }
 
-      try {
-        const params = new URLSearchParams();
-        params.append('email', email);
-        params.append('client', invoice.clientName);
-        if (dateDebut) params.append('dateDebut', dateDebut);
-        if (dateFin) params.append('dateFin', dateFin);
+    try {
+      const params = new URLSearchParams();
+      params.append('email', email);
+      params.append('client', invoice.clientName);
+      if (dateDebut) params.append('dateDebut', dateDebut);
+      if (dateFin) params.append('dateFin', dateFin);
 
-        const response = await fetch(`/api/client-model?${params.toString()}`);
-        if (!response.ok) throw new Error('Failed to fetch models');
-        const data = await response.json();
-        onModelsChange(data);
-        setError(null);
-      } catch (error) {
-        console.error('Error fetching client models:', error);
-        onModelsChange([]);
-        setError('Failed to load models for selected client and dates');
-      }
-    };
-    fetchClientModels();
+      const response = await fetch(`/api/client-model?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch models');
+      const data = await response.json();
+      onModelsChange(data);
+      setError(null);
+    } catch (error) {
+      console.error('Error fetching client models:', error);
+      onModelsChange([]);
+      setError('Failed to load models for selected client and dates');
+    }
   }, [invoice.clientName, email, dateDebut, dateFin, onModelsChange]);
+
+  useEffect(() => {
+    fetchClientModels();
+  }, [fetchClientModels]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: string) => {
     setInvoice({ ...invoice, [field]: e.target.value });
@@ -109,7 +110,7 @@ const InvoiceInfo: React.FC<Props> = ({ invoice, setInvoice, dateDebut, dateFin,
           onChange={(e) => handleInputChange(e, 'invoiceDate')}
         />
 
-        <h2 className="badge badge-accent">Date d'échéance</h2>
+        <h2 className="badge badge-accent">{"Date d'Échéance"}</h2>
         <input
           type="date"
           value={invoice?.dueDate}

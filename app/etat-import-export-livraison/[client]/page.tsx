@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Wrapper from "@/components/Wrapper";
 import { Search, Printer } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -69,7 +70,7 @@ export default function ClientEtatImportExportLivraisonPage() {
   const email = user?.primaryEmailAddress?.emailAddress;
   const { client } = useParams();
   const clientName = decodeURIComponent(client as string);
-  const [etatData, setEtatData] = useState<EtatLivraisonData | null>(null);
+  const [etatData, setEtatData] = useState<EtatLivraisonData>({ imports: [], exports: [], models: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,7 +78,7 @@ export default function ClientEtatImportExportLivraisonPage() {
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
 
-  const fetchEtatData = async () => {
+  const fetchEtatData = useCallback(async () => {
     if (!email) return;
 
     setLoading(true);
@@ -88,7 +89,7 @@ export default function ClientEtatImportExportLivraisonPage() {
         `/api/etat-import-export-livraison?email=${encodeURIComponent(email)}`
       );
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      const data = await response.json();
+      const data: EtatLivraisonData = await response.json();
       setEtatData(data);
       console.log("Fetched EtatData:", data);
     } catch (err) {
@@ -98,11 +99,11 @@ export default function ClientEtatImportExportLivraisonPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email]);
 
   useEffect(() => {
     if (email) fetchEtatData();
-  }, [email, clientName]);
+  }, [email, clientName, fetchEtatData]);
 
   const filteredImports = etatData?.imports?.filter((item) => {
     const matchesClient = item.clientEntree === clientName;

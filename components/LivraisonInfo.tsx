@@ -26,7 +26,7 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChang
   const { user } = useUser();
   const email = user?.primaryEmailAddress?.emailAddress;
   const [clients, setClients] = useState<Client[]>([]);
-  const [clientModels, setClientModels] = useState<ClientModel[]>([]);
+  const [, setClientModels] = useState<ClientModel[]>([]);
 
   useEffect(() => {
     const fetchClients = async () => {

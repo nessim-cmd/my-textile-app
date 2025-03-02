@@ -3,7 +3,7 @@ import { Livraison } from '@/type';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 import { ArrowDownFromLine, Layers } from 'lucide-react';
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 
 interface LivraisonPDFProps {
   livraison: Livraison;
@@ -29,25 +29,25 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
   const livraisonRef = useRef<HTMLDivElement>(null);
   const [client, setClient] = useState<Client | null>(null);
 
-  // Fetch client details based on livraison.clientName
-  useEffect(() => {
-    const fetchClientDetails = async () => {
-      if (livraison.clientName) {
-        try {
-          const response = await fetch('/api/client');
-          const clients: Client[] = await response.json();
-          const matchedClient = clients.find((c) => c.name === livraison.clientName);
-          setClient(matchedClient || null);
-        } catch (error) {
-          console.error('Error fetching client details:', error);
-          setClient(null);
-        }
-      } else {
+  const fetchClientDetails = useCallback(async () => {
+    if (livraison.clientName) {
+      try {
+        const response = await fetch('/api/client');
+        const clients: Client[] = await response.json();
+        const matchedClient = clients.find((c) => c.name === livraison.clientName);
+        setClient(matchedClient || null);
+      } catch (error) {
+        console.error('Error fetching client details:', error);
         setClient(null);
       }
-    };
-    fetchClientDetails();
+    } else {
+      setClient(null);
+    }
   }, [livraison.clientName]);
+
+  useEffect(() => {
+    fetchClientDetails();
+  }, [fetchClientDetails]);
 
   const handleDownloadPdf = async () => {
     const element = livraisonRef.current;
@@ -97,7 +97,7 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
               <h1 className="text-7xl font-bold uppercase">Livraison</h1>
             </div>
             <div className="text-right uppercase">
-              <p className="badge badge-ghost">Livraison ° {livraison.id}</p>
+              <p className="badge badge-ghost">Livraison N° {livraison.id}</p>
               <p className="my-2">
                 <strong>Date </strong>
                 {formatDate(livraison.livraisonDate)}
@@ -109,7 +109,7 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
             <div>
               <p className="badge badge-ghost mb-1">Émetteur</p>
               <p className="text-sm font-bold italic">MS Tailors</p>
-              <p className="text-sm text-gray-500 w-60 break-words">Rue de l'environnement El Mida, 8044</p>
+              <p className="text-sm text-gray-500 w-60 break-words">{"Rue de l'Environnement El Mida, 8044"}</p>
               <p className="text-sm text-gray-500 w-60 break-words">72217400</p>
               <p className="text-sm text-gray-500 w-60 break-words">mariemms360@gmail.com</p>
             </div>
@@ -121,7 +121,6 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
                   {client.address && <p className="text-sm text-gray-500 w-60 break-words">{client.address}</p>}
                   {client.phone1 && <p className="text-sm text-gray-500 w-60 break-words">Tél: {client.phone1}</p>}
                   {client.email && <p className="text-sm text-gray-500 w-60 break-words">Email: {client.email}</p>}
-                  
                 </>
               )}
             </div>
@@ -154,15 +153,16 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
 
           <div className="grid grid-cols-3 gap-4 p-2 border border-gray-300 rounded-lg shadow-md text-sm mt-4">
             <div className="flex flex-col space-y-1">
-            {client && (
+              {client && (
                 <>
                   {client.soumission && (
-                    <p className="text-sm text-gray-500 w-60 break-words "><span className='font-bold'>Soumission: </span> 
-                    {client.soumission}
+                    <p className="text-sm text-gray-500 w-60 break-words">
+                      <span className='font-bold'>Soumission: </span>
+                      {client.soumission}
                     </p>
                   )}
                   {client.dateFinSoumission && (
-                    <p className="text-sm text-gray-500 w-60 break-words ">
+                    <p className="text-sm text-gray-500 w-60 break-words">
                       <span className='font-bold'>Date Fin Soumission: </span>{formatDate(client.dateFinSoumission)}
                     </p>
                   )}

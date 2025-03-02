@@ -6,7 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { Commande } from "@/type";
 import Wrapper from "@/components/Wrapper";
-import CommandeComponent from "@/components/CommandeComponents"
+import CommandeComponent from "@/components/CommandeComponents";
 
 export default function Home() {
   const { user } = useUser();
@@ -30,9 +30,10 @@ export default function Home() {
       
       const data = await response.json();
       setCommandes(Array.isArray(data) ? data : []);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       console.error("Error loading commandes:", err);
-      setError(err.message || "Failed to load commandes");
+      setError(errorMessage || "Failed to load commandes");
     } finally {
       setLoading(false);
     }
@@ -40,7 +41,7 @@ export default function Home() {
 
   useEffect(() => {
     if (email) fetchCommandes();
-  }, [email]);
+  }, [email, fetchCommandes]); // Added fetchCommandes to dependency array
 
   const filteredCommandes = commandes.filter(commande =>
     commande.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -76,9 +77,10 @@ export default function Home() {
         origin: { y: 0.6 },
         zIndex: 9999,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       console.error("Error creating commande:", err);
-      alert(err.message || "Failed to create commande");
+      alert(errorMessage || "Failed to create commande");
     }
   };
 

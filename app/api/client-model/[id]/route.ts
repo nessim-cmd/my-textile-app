@@ -1,6 +1,12 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Define the type for a variant
+type VariantInput = {
+  name?: string | null;
+  qte_variante?: string | number | null; // Accept string since it’s parsed to number
+};
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,9 +27,9 @@ export async function PUT(
         puht: data.puht ? parseFloat(data.puht) : null,
         variants: {
           deleteMany: {}, // Remove all existing variants
-          create: (data.variants || []).map((v: any) => ({
+          create: (data.variants || []).map((v: VariantInput) => ({
             name: v.name || null,
-            qte_variante: v.qte_variante ? parseInt(v.qte_variante) : null,
+            qte_variante: v.qte_variante ? parseInt(v.qte_variante as string) : null,
           })),
         },
       },
@@ -33,7 +39,7 @@ export async function PUT(
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('Error updating client model:', error);
-    
+    return NextResponse.json({ error: 'Failed to update client model' }, { status: 500 });
   }
 }
 
@@ -47,6 +53,6 @@ export async function DELETE(
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Error deleting client model:', error);
-    
+    return NextResponse.json({ error: 'Failed to delete client model' }, { status: 500 });
   }
 }

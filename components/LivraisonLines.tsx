@@ -19,17 +19,16 @@ interface ClientModel {
 
 const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels = [] }) => {
   const handleAddLine = () => {
-    // Match full Prisma LivraisonLine type, including default createdAt/updatedAt
     const newLine: LivraisonLine = {
-      id: `${Date.now()}`, // Temporary ID until saved
-      commande: null, // Nullable as per Prisma type
-      modele: '', // Non-nullable in Prisma
-      description: null, // Nullable as per Prisma type
-      quantity: 1, // Nullable in Prisma, but defaulting to 1
+      id: `${Date.now()}`,
+      commande: null,
+      modele: '',
+      description: null,
+      quantity: 1,
       livraisonId: livraison.id,
       isExcluded: false,
-      createdAt: new Date(), // Default value for client-side addition
-      updatedAt: new Date(), // Default value for client-side addition
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     setLivraison({
       ...livraison,
@@ -39,8 +38,8 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
 
   const handleCommandeChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].commande = value || null; // Handle empty string as null
-    updatedLines[index].updatedAt = new Date(); // Update timestamp
+    updatedLines[index].commande = value || null;
+    updatedLines[index].updatedAt = new Date();
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
@@ -48,33 +47,33 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
     const updatedLines = [...livraison.lines];
     const [modeleName, commande] = value.split('|');
     const selectedModel = clientModels.find(
-      (model) => model.name === modeleName && model.commandes === commande
+      (model) => model.name === modeleName && (model.commandes?.split(',') || []).includes(commande)
     );
     updatedLines[index].modele = modeleName || '';
-    updatedLines[index].commande = selectedModel?.commandes || null;
+    updatedLines[index].commande = commande || null; // Set only the selected commande
     updatedLines[index].description = selectedModel?.description || null;
-    updatedLines[index].updatedAt = new Date(); // Update timestamp
+    updatedLines[index].updatedAt = new Date();
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleQuantityChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].quantity = value === '' ? null : parseFloat(value); // Nullable as per Prisma
-    updatedLines[index].updatedAt = new Date(); // Update timestamp
+    updatedLines[index].quantity = value === '' ? null : parseFloat(value);
+    updatedLines[index].updatedAt = new Date();
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleDescriptionChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].description = value || null; // Handle empty string as null
-    updatedLines[index].updatedAt = new Date(); // Update timestamp
+    updatedLines[index].description = value || null;
+    updatedLines[index].updatedAt = new Date();
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleIsExcludedChange = (index: number, checked: boolean) => {
     const updatedLines = [...livraison.lines];
     updatedLines[index].isExcluded = checked;
-    updatedLines[index].updatedAt = new Date(); // Update timestamp
+    updatedLines[index].updatedAt = new Date();
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
@@ -82,6 +81,17 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
     const updatedLines = livraison.lines.filter((_, i) => i !== index);
     setLivraison({ ...livraison, lines: updatedLines });
   };
+
+  // Generate model-commande pairs for the dropdown
+  const modelCommandeOptions = clientModels.flatMap((model) => {
+    const commandes = model.commandes ? model.commandes.split(',') : [];
+    return commandes.map((cmd) => ({
+      modelName: model.name || 'Unnamed Model',
+      commande: cmd.trim(),
+      description: model.description || null,
+      key: `${model.id}|${cmd.trim()}`, // Unique key for each pair
+    }));
+  });
 
   return (
     <div className="h-fit bg-base-200 p-5 rounded-xl w-full">
@@ -122,9 +132,12 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                     disabled={!livraison.clientName || clientModels.length === 0}
                   >
                     <option value="">Sélectionner un modèle</option>
-                    {clientModels.map((model) => (
-                      <option key={model.id} value={`${model.name || ''}|${model.commandes || ''}`}>
-                        {model.name || 'Unnamed Model'} ({model.commandes || 'N/A'})
+                    {modelCommandeOptions.map((option) => (
+                      <option 
+                        key={option.key} 
+                        value={`${option.modelName}|${option.commande}`}
+                      >
+                        {option.modelName} ({option.commande})
                       </option>
                     ))}
                   </select>
@@ -132,7 +145,7 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                 <td>
                   <input
                     type="number"
-                    value={line.quantity ?? ''} // Handle null as empty string for input
+                    value={line.quantity ?? ''} 
                     className="input input-sm input-bordered w-full"
                     min={0}
                     onChange={(e) => handleQuantityChange(index, e.target.value)}

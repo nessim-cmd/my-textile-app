@@ -12,7 +12,7 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
-  commandes: string;
+  commandes: string; // Comma-separated string, e.g., "com11,com22"
   description: string;
 }
 
@@ -25,7 +25,7 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
       description: "",
       quantity: 1,
       unitPrice: 0,
-      isExcluded: false, // Default to false (not excluded)
+      isExcluded: false,
       exportId: declaration.id,
     };
     setDeclaration({
@@ -42,10 +42,13 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
 
   const handleModeleChange = (index: number, value: string) => {
     const updatedLines = [...declaration.lines];
-    const selectedModel = clientModels.find((model) => model.name === value);
-    updatedLines[index].modele = value;
-    updatedLines[index].commande = selectedModel ? selectedModel.commandes : "";
-    updatedLines[index].description = selectedModel ? selectedModel.description : "";
+    const [modeleName, commande] = value.split('|'); // e.g., "mod123|com11"
+    const selectedModel = clientModels.find(
+      (model) => model.name === modeleName && (model.commandes?.split(',') || []).includes(commande)
+    );
+    updatedLines[index].modele = modeleName || '';
+    updatedLines[index].commande = commande || ''; // Set only the selected commande
+    updatedLines[index].description = selectedModel?.description || '';
     setDeclaration({ ...declaration, lines: updatedLines });
   };
 
@@ -77,6 +80,17 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
     const updatedLines = declaration.lines.filter((_, i) => i !== index);
     setDeclaration({ ...declaration, lines: updatedLines });
   };
+
+  // Generate model-commande pairs for the dropdown
+  const modelCommandeOptions = clientModels.flatMap((model) => {
+    const commandes = model.commandes ? model.commandes.split(',') : [];
+    return commandes.map((cmd) => ({
+      modelName: model.name || 'Unnamed Model',
+      commande: cmd.trim(),
+      description: model.description || '',
+      key: `${model.id}|${cmd.trim()}`, // Unique key for each pair
+    }));
+  });
 
   return (
     <div className="h-fit bg-base-200 p-5 rounded-xl w-full">
@@ -121,15 +135,18 @@ const ExportLines: React.FC<Props> = ({ declaration, setDeclaration, clientModel
                 </td>
                 <td>
                   <select
-                    value={line.modele}
+                    value={line.modele && line.commande ? `${line.modele}|${line.commande}` : ''}
                     onChange={(e) => handleModeleChange(index, e.target.value)}
-                    className="select select-sm select-bordered w-full max-h-select"
+                    className="select select-sm select-bordered w-full max-h-40"
                     disabled={!declaration.clientName || clientModels.length === 0}
                   >
                     <option value="">Sélectionner un modèle</option>
-                    {clientModels.map((model) => (
-                      <option key={model.id} value={model.name || ""}>
-                        {model.name || "Unnamed Model"} {model.commandes ? `(${model.commandes})` : ""}
+                    {modelCommandeOptions.map((option) => (
+                      <option 
+                        key={option.key} 
+                        value={`${option.modelName}|${option.commande}`}
+                      >
+                        {option.modelName} ({option.commande})
                       </option>
                     ))}
                   </select>

@@ -1,4 +1,3 @@
-// components/InvoiceLines.tsx
 import { Invoice } from '@/type';
 import { InvoiceLine } from '@prisma/client';
 import { Plus, Trash } from 'lucide-react';
@@ -14,8 +13,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
-  commandes: string | null; // Add commandes from ClientModel
-  description: string | null; // Add description from ClientModel
+  commandes: string | null; // Expected: "com11,com22" (comma-separated string)
+  description: string | null;
 }
 
 const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] }) => {
@@ -43,12 +42,12 @@ const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] 
 
   const handleModeleChange = (index: number, value: string) => {
     const updatedLines = [...invoice.lines];
-    const [modeleName, commande] = value.split('|'); // Split the value (e.g., "Razor|3195")
+    const [modeleName, commande] = value.split('|'); // e.g., "mod123|com11"
     const selectedModel = clientModels.find(
-      (model) => model.name === modeleName && model.commandes === commande
+      (model) => model.name === modeleName && (model.commandes?.split(',') || []).includes(commande)
     );
-    updatedLines[index].modele = modeleName;
-    updatedLines[index].commande = selectedModel?.commandes || '';
+    updatedLines[index].modele = modeleName || '';
+    updatedLines[index].commande = commande || ''; // Set only the selected commande (e.g., "com11")
     updatedLines[index].description = selectedModel?.description || '';
     setInvoice({ ...invoice, lines: updatedLines });
   };
@@ -75,6 +74,20 @@ const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] 
     const updatedLines = invoice.lines.filter((_, i) => i !== index);
     setInvoice({ ...invoice, lines: updatedLines });
   };
+
+  // Generate model-commande pairs for the dropdown
+  const modelCommandeOptions = clientModels.flatMap((model) => {
+    const commandes = model.commandes ? model.commandes.split(',') : []; // Split "com11,com22" into ["com11", "com22"]
+    return commandes.map((cmd) => ({
+      modelName: model.name || 'Unnamed Model',
+      commande: cmd.trim(), // e.g., "com11"
+      description: model.description || null,
+      key: `${model.id}|${cmd.trim()}`, // Unique key, e.g., "id1|com11"
+    }));
+  });
+
+  // Debug log to check options
+  console.log('modelCommandeOptions:', modelCommandeOptions);
 
   return (
     <div className="h-fit bg-base-200 p-5 rounded-xl w-full">
@@ -112,13 +125,16 @@ const InvoiceLines: React.FC<Props> = ({ invoice, setInvoice, clientModels = [] 
                   <select
                     value={line.modele && line.commande ? `${line.modele}|${line.commande}` : ''}
                     onChange={(e) => handleModeleChange(index, e.target.value)}
-                    className="select select-sm select-bordered w-full max-h-select"
+                    className="select select-sm select-bordered w-full max-h-40"
                     disabled={!invoice.clientName || clientModels.length === 0}
                   >
                     <option value="">Sélectionner un modèle</option>
-                    {clientModels.map((model) => (
-                      <option key={model.id} value={`${model.name || ''}|${model.commandes || ''}`}>
-                        {model.name || 'Unnamed Model'} ({model.commandes || 'N/A'})
+                    {modelCommandeOptions.map((option) => (
+                      <option 
+                        key={option.key} 
+                        value={`${option.modelName}|${option.commande}`}
+                      >
+                        {option.modelName} ({option.commande})
                       </option>
                     ))}
                   </select>

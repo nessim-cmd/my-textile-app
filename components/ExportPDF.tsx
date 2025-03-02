@@ -19,6 +19,12 @@ interface Client {
   email?: string | null;
 }
 
+// Type for items in declarationData
+interface DeclarationDataItem {
+  label: string;
+  value: string;
+}
+
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   const options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", year: "numeric" };
@@ -103,7 +109,7 @@ const ExportPDF: React.FC<ExportPDFProps> = ({ declaration, totals }) => {
     }
   };
 
-  const declarationData = [];
+  const declarationData: DeclarationDataItem[] = [];
   if (declaration.origineTessuto) declarationData.push({ label: "Origine Tissu", value: declaration.origineTessuto });
   if (declaration.poidsBrut) declarationData.push({ label: "Poids Brut", value: declaration.poidsBrut });
   if (declaration.poidsNet) declarationData.push({ label: "Poids Net", value: declaration.poidsNet });
@@ -115,7 +121,8 @@ const ExportPDF: React.FC<ExportPDFProps> = ({ declaration, totals }) => {
   declarationData.push({ label: "IBAN", value: "TN59 07304005614607041884" });
   declarationData.push({ label: "SWIFT", value: "CFCTTNTT" });
 
-  const columns = [[], [], []];
+  // Explicitly type columns as an array of DeclarationDataItem arrays
+  const columns: DeclarationDataItem[][] = [[], [], []];
   declarationData.forEach((item, index) => {
     columns[index % 3].push(item);
   });

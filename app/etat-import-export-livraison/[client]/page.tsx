@@ -113,15 +113,15 @@ export default function ClientEtatImportExportLivraisonPage() {
       (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesModel = selectedModel ? item.modele === selectedModel : true;
     const dateEntree = item.dateEntree ? new Date(item.dateEntree) : null;
-    let matchesDate = true;
+    let matchesDate: boolean = true; // Explicitly typed as boolean
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
       const end = dateFin ? new Date(dateFin) : null;
 
       matchesDate =
-        (!start || (dateEntree && dateEntree >= start)) &&
-        (!end || (dateEntree && dateEntree <= end));
+        (!start || (dateEntree !== null && dateEntree >= start)) &&
+        (!end || (dateEntree !== null && dateEntree <= end));
     }
 
     return matchesClient && matchesSearch && matchesModel && matchesDate;
@@ -134,15 +134,15 @@ export default function ClientEtatImportExportLivraisonPage() {
       (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesModel = selectedModel ? item.modele === selectedModel : true;
     const dateSortie = item.dateSortie ? new Date(item.dateSortie) : null;
-    let matchesDate = true;
+    let matchesDate: boolean = true; // Explicitly typed as boolean
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
       const end = dateFin ? new Date(dateFin) : null;
 
       matchesDate =
-        (!start || (dateSortie && dateSortie >= start)) &&
-        (!end || (dateSortie && dateSortie <= end));
+        (!start || (dateSortie !== null && dateSortie >= start)) &&
+        (!end || (dateSortie !== null && dateSortie <= end));
     }
 
     return matchesClient && matchesSearch && matchesModel && matchesDate;

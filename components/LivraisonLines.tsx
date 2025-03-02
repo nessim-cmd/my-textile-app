@@ -19,14 +19,17 @@ interface ClientModel {
 
 const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels = [] }) => {
   const handleAddLine = () => {
+    // Match full Prisma LivraisonLine type, including default createdAt/updatedAt
     const newLine: LivraisonLine = {
-      id: `${Date.now()}`,
-      commande: '',
-      modele: '',
-      description: '',
-      quantity: 1,
+      id: `${Date.now()}`, // Temporary ID until saved
+      commande: null, // Nullable as per Prisma type
+      modele: '', // Non-nullable in Prisma
+      description: null, // Nullable as per Prisma type
+      quantity: 1, // Nullable in Prisma, but defaulting to 1
       livraisonId: livraison.id,
       isExcluded: false,
+      createdAt: new Date(), // Default value for client-side addition
+      updatedAt: new Date(), // Default value for client-side addition
     };
     setLivraison({
       ...livraison,
@@ -36,7 +39,8 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
 
   const handleCommandeChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].commande = value;
+    updatedLines[index].commande = value || null; // Handle empty string as null
+    updatedLines[index].updatedAt = new Date(); // Update timestamp
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
@@ -46,27 +50,31 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
     const selectedModel = clientModels.find(
       (model) => model.name === modeleName && model.commandes === commande
     );
-    updatedLines[index].modele = modeleName;
-    updatedLines[index].commande = selectedModel?.commandes || '';
-    updatedLines[index].description = selectedModel?.description || '';
+    updatedLines[index].modele = modeleName || '';
+    updatedLines[index].commande = selectedModel?.commandes || null;
+    updatedLines[index].description = selectedModel?.description || null;
+    updatedLines[index].updatedAt = new Date(); // Update timestamp
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleQuantityChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].quantity = value === '' ? 0 : parseFloat(value);
+    updatedLines[index].quantity = value === '' ? null : parseFloat(value); // Nullable as per Prisma
+    updatedLines[index].updatedAt = new Date(); // Update timestamp
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleDescriptionChange = (index: number, value: string) => {
     const updatedLines = [...livraison.lines];
-    updatedLines[index].description = value;
+    updatedLines[index].description = value || null; // Handle empty string as null
+    updatedLines[index].updatedAt = new Date(); // Update timestamp
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
   const handleIsExcludedChange = (index: number, checked: boolean) => {
     const updatedLines = [...livraison.lines];
     updatedLines[index].isExcluded = checked;
+    updatedLines[index].updatedAt = new Date(); // Update timestamp
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
@@ -124,7 +132,7 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                 <td>
                   <input
                     type="number"
-                    value={line.quantity}
+                    value={line.quantity ?? ''} // Handle null as empty string for input
                     className="input input-sm input-bordered w-full"
                     min={0}
                     onChange={(e) => handleQuantityChange(index, e.target.value)}

@@ -206,6 +206,11 @@ export default function ExportDetailsPage() {
     setDeclaration({ ...declaration, modePaiment: parseInt(e.target.value) });
   };
 
+  // Wrap setClientModels in a function to match the expected type
+  const handleModelsChange = (models: ClientModel[]) => {
+    setClientModels(models);
+  };
+
   if (!declaration || !totals)
     return (
       <div className="flex justify-center items-center h-screen w-full">
@@ -265,7 +270,7 @@ export default function ExportDetailsPage() {
             </select>
             <button
               className="btn btn-sm btn-accent ml-4"
-              disabled={ isLoading}
+              disabled={isLoading}
               onClick={handleSave}
             >
               {isLoading ? (
@@ -318,7 +323,7 @@ export default function ExportDetailsPage() {
               setDeclaration={setDeclaration}
               dateDebut={dateDebut}
               dateFin={dateFin}
-              onModelsChange={setClientModels}
+              onModelsChange={handleModelsChange} // Pass the wrapped function
             />
           </div>
           <div className="flex w-full md:w-2/3 flex-col md:ml-4">

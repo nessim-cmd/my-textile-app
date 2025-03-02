@@ -19,6 +19,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
+  commandes: string; // Added to match app/exporte/[id]/page.tsx
+  description: string; // Added to match app/exporte/[id]/page.tsx
 }
 
 const ExportInfo: React.FC<Props> = ({ declaration, setDeclaration, dateDebut, dateFin, onModelsChange }) => {

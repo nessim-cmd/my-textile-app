@@ -15,6 +15,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
+  commandes: string | null; // Add commandes from ClientModel
+  description: string | null; // Add description from ClientModel
 }
 
 export default function InvoicePage() {

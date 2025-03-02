@@ -158,7 +158,7 @@ export default function Home() {
                 <InvoiceComponent key={invoice.id} invoice={invoice} index={0} />
               ))}
               {filteredExports.map((exp) => (
-                <ExportComponent key={exp.id} exporte={exp} index={0} />
+                <ExportComponent key={exp.id} exporte={exp} /> // Removed index prop
               ))}
               {filteredInvoices.length === 0 && filteredExports.length === 0 && (
                 <div className="col-span-3 text-center">

@@ -361,7 +361,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                         </p>
                       ) : null}
                       <p className="text-sm text-gray-600">
-                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span> / Reçu <span className="font-medium">{cmd.quantityReçu}</span>
+                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span> 
                       </p>
                     </div>
                   ))

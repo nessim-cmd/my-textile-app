@@ -22,7 +22,7 @@ export default function LivraisonPage() {
   const params = useParams<{ id: string }>();
   const [livraison, setLivraison] = useState<Livraison | null>(null);
   const [initialLivraison, setInitialLivraison] = useState<Livraison | null>(null);
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [clientModels, setClientModels] = useState<ClientModel[]>([]);
 
@@ -101,7 +101,7 @@ export default function LivraisonPage() {
           <div className="flex md:mt-0 mt-4">
             <button
               className="btn btn-sm btn-accent ml-4"
-              disabled={isSaveDisabled || isLoading}
+              disabled={ isLoading}
               onClick={handleSave}
             >
               {isLoading ? (

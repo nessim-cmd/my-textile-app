@@ -15,7 +15,7 @@ export default function LivraisonEntreePage() {
   const { getToken } = useAuth();
   const [livraisonEntree, setLivraisonEntree] = useState<LivraisonEntree | null>(null);
   const [initialLivraisonEntree, setInitialLivraisonEntree] = useState<LivraisonEntree | null>(null);
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -116,7 +116,7 @@ export default function LivraisonEntreePage() {
           <div className="flex mt-2 md:mt-0">
             <button
               className="btn btn-sm btn-accent ml-4"
-              disabled={isSaveDisabled || isLoading}
+              disabled={ isLoading}
               onClick={handleSave}
             >
               {isLoading ? (

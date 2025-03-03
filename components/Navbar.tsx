@@ -3,6 +3,7 @@
 import { UserButton } from '@clerk/nextjs'
 
 import { Bell, Layers } from 'lucide-react'
+import Link from 'next/link'
 
 import React from 'react'
 
@@ -16,7 +17,7 @@ const Navbar = () => {
                 <Layers className='h-6 w-6'/>
             </div>
             <span className='ml-3 font-bold text-2xl italic'>
-                    MS <span className='text-accent'>Tailors</span>
+                  <Link href="/">MS <span className='text-accent'>Tailors</span></Link>  
             </span>
       </div>
         <div className='flex space-x-4 items-center'>

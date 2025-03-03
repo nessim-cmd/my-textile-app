@@ -127,7 +127,7 @@ export default function InvoicePage() {
             <input
               type="date"
               value={dateDebut}
-              className="input input-bordered input-sm w-full max-w-[150px]"
+              className="input input-bordered input-sm w-full max-w-[150px] min-h-[48px]"
               onChange={(e) => setDateDebut(e.target.value)}
             />
           </div>
@@ -137,14 +137,14 @@ export default function InvoicePage() {
             <input
               type="date"
               value={dateFin}
-              className="input input-bordered input-sm w-full max-w-[150px]"
+              className="input input-bordered input-sm w-full max-w-[150px] min-h-[48px]"
               onChange={(e) => setDateFin(e.target.value)}
             />
           </div>
           {/* Méthode de Paiement and Statut on the same line */}
           <div className="flex flex-row items-center gap-2">
             <select
-              className="select select-sm select-bordered w-full max-w-[140px]"
+              className="select select-sm select-bordered w-full max-w-[140px] min-h-[48px]"
               value={invoice.modePaiment}
               onChange={handleModePaiment}
             >
@@ -153,7 +153,7 @@ export default function InvoicePage() {
               <option value={3}>Espéce</option>
             </select>
             <select
-              className="select select-sm select-bordered w-full max-w-[140px]"
+              className="select select-sm select-bordered w-full max-w-[140px] min-h-[48px]"
               value={invoice.status}
               onChange={handleStatusChange}
             >
@@ -167,7 +167,7 @@ export default function InvoicePage() {
           {/* Save and Trash buttons on the same line */}
           <div className="flex flex-row items-center gap-2">
             <button
-              className="btn btn-sm btn-accent w-full max-w-[120px]"
+              className="btn btn-sm btn-accent w-full max-w-[140px] min-h-[48px] flex flex-row items-center justify-center px-2 py-2 rounded-lg text-sm font-semibold whitespace-nowrap tracking-tight"
               disabled={isSaveDisabled || isLoading}
               onClick={handleSave}
             >
@@ -175,16 +175,16 @@ export default function InvoicePage() {
                 <span className="loading loading-spinner loading-sm"></span>
               ) : (
                 <>
-                  Sauvegarder
-                  <Save className="w-4 ml-2" />
+                  <span className="text-sm">Sauvegarder</span>
+                  <Save className="w-4 h-4 ml-1" />
                 </>
               )}
             </button>
             <button
               onClick={handleDelete}
-              className="btn btn-sm btn-accent w-full max-w-[50px]"
+              className="btn btn-sm btn-accent w-full max-w-[50px] min-h-[48px] flex flex-row items-center justify-center px-2 py-2 rounded-lg"
             >
-              <Trash className="w-4" />
+              <Trash className="w-4 h-4" />
             </button>
           </div>
         </div>

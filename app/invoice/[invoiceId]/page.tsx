@@ -1,4 +1,3 @@
-// app/invoice/[invoiceId]/page.tsx
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
@@ -15,8 +14,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
-  commandes: string | null; // Add commandes from ClientModel
-  description: string | null; // Add description from ClientModel
+  commandes: string | null;
+  description: string | null;
 }
 
 export default function InvoicePage() {
@@ -107,41 +106,45 @@ export default function InvoicePage() {
   if (!invoice || !totals)
     return (
       <div className="flex justify-center items-center h-screen w-full">
-        <span className="font-bold">Chargement de la facture...</span>
+        <span className="font-bold text-lg">Chargement de la facture...</span>
       </div>
     );
 
   return (
     <Wrapper>
-      <div>
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
-          <div className="flex items-center space-x-4">
+      <div className="p-4">
+        <div className="flex flex-col gap-3 mb-4">
+          {/* Facture-ID at the top, aligned left */}
+          <div className="flex justify-start">
             <p className="badge badge-ghost badge-lg uppercase">
               <span>Facture-</span>
               {invoice.id}
             </p>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-bold">Date Début:</label>
-              <input
-                type="date"
-                value={dateDebut}
-                className="input input-bordered input-sm w-36"
-                onChange={(e) => setDateDebut(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-bold">Date Fin:</label>
-              <input
-                type="date"
-                value={dateFin}
-                className="input input-bordered input-sm w-36"
-                onChange={(e) => setDateFin(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="flex md:mt-0 mt-4">
+          {/* Date Début */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-bold whitespace-nowrap">Date Début:</label>
+            <input
+              type="date"
+              value={dateDebut}
+              className="input input-bordered input-sm w-full max-w-[150px]"
+              onChange={(e) => setDateDebut(e.target.value)}
+            />
+          </div>
+          {/* Date Fin */}
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-bold whitespace-nowrap">Date Fin:</label>
+            <input
+              type="date"
+              value={dateFin}
+              className="input input-bordered input-sm w-full max-w-[150px]"
+              onChange={(e) => setDateFin(e.target.value)}
+            />
+          </div>
+          {/* Méthode de Paiement and Statut on the same line */}
+          <div className="flex flex-row items-center gap-2">
             <select
-              className="select select-sm select-bordered w-full"
+              className="select select-sm select-bordered w-full max-w-[140px]"
               value={invoice.modePaiment}
               onChange={handleModePaiment}
             >
@@ -150,7 +153,7 @@ export default function InvoicePage() {
               <option value={3}>Espéce</option>
             </select>
             <select
-              className="select select-sm select-bordered w-full"
+              className="select select-sm select-bordered w-full max-w-[140px]"
               value={invoice.status}
               onChange={handleStatusChange}
             >
@@ -160,8 +163,11 @@ export default function InvoicePage() {
               <option value={4}>Annulée</option>
               <option value={5}>Impayée</option>
             </select>
+          </div>
+          {/* Save and Trash buttons on the same line */}
+          <div className="flex flex-row items-center gap-2">
             <button
-              className="btn btn-sm btn-accent ml-4"
+              className="btn btn-sm btn-accent w-full max-w-[120px]"
               disabled={isSaveDisabled || isLoading}
               onClick={handleSave}
             >
@@ -174,19 +180,22 @@ export default function InvoicePage() {
                 </>
               )}
             </button>
-            <button onClick={handleDelete} className="btn btn-sm btn-accent ml-4">
+            <button
+              onClick={handleDelete}
+              className="btn btn-sm btn-accent w-full max-w-[50px]"
+            >
               <Trash className="w-4" />
             </button>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row w-full">
+        <div className="flex flex-col gap-4 md:flex-row w-full">
           <div className="flex w-full md:w-1/3 flex-col">
-            <div className="mb-4 bg-base-200 rounded-xl p-5">
+            <div className="mb-4 bg-base-200 rounded-xl p-4">
               <div className="flex justify-between items-center mb-4">
                 <div className="badge badge-accent">Résumé des Totaux</div>
                 <VATControl invoice={invoice} setInvoice={setInvoice} />
               </div>
-              <div className="space-y-2 text-md">
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Total Hors Taxes</span>
                   <span>{totals.totalHT.toFixed(2)} €</span>

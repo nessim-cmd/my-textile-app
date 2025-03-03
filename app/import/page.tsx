@@ -140,7 +140,7 @@ export default function ImportPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button className="flex p-2 rounded-xl bg-blue-300">
-            <span className="font-bold px-2">Rechercher</span>
+            <span className="font-bold px-2">Search</span>
             <Search className="w-5 h-5 mt-0.5" />
           </button>
         </div>

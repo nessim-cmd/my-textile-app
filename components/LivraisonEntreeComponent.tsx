@@ -32,10 +32,11 @@ const LivraisonEntreeComponent: React.FC<LivraisonEntreeComponentProps> = ({livr
                     <div className="stat-title">
                         <div className="uppercase text-lg">
                             {livraisonEntree.id}
+                            
                         </div>
                     </div>
                     <div className="stat-desc">
-                        {livraisonEntree.clientName}
+                        
                     </div>
                 </div>
             </div>

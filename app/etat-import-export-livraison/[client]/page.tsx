@@ -19,7 +19,6 @@ interface ImportEntry {
   id: string;
   dateEntree: string | null;
   numLivraisonEntree: string;
-  name:string;
   clientEntree: string;
   modele: string;
   commande: string;
@@ -56,7 +55,7 @@ interface CommandeSummary {
 
 interface GroupedImportEntry {
   dateEntree: string | null;
-  name: string;
+  numLivraisonEntree: string;
   lines: ImportEntry[];
 }
 
@@ -150,11 +149,11 @@ export default function ClientEtatImportExportLivraisonPage() {
   }) || [];
 
   const groupedImports = filteredImports.reduce((acc, item) => {
-    const key = `${item.name}-${item.dateEntree || 'null'}`;
+    const key = `${item.numLivraisonEntree}-${item.dateEntree || 'null'}`;
     if (!acc[key]) {
       acc[key] = {
         dateEntree: item.dateEntree,
-        name: item.name,
+        numLivraisonEntree: item.numLivraisonEntree,
         lines: [],
       };
     }
@@ -287,7 +286,7 @@ export default function ClientEtatImportExportLivraisonPage() {
         head: [["Date Import", "N° Livraison", "Modèle", "Commande", "Description", "Qté Reçu"]],
         body: groupedImportsArray.map((group) => [
           group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A",
-          group.name || "N/A",
+          group.numLivraisonEntree || "N/A",
           group.lines.map((line) => line.modele || "N/A").join("\n"),
           group.lines.map((line) => line.commande || "N/A").join("\n"),
           group.lines.map((line) => line.description || "N/A").join("\n"),
@@ -463,11 +462,11 @@ export default function ClientEtatImportExportLivraisonPage() {
                   </thead>
                   <tbody>
                     {groupedImportsArray.map((group, groupIndex) => (
-                      <tr key={group.name + groupIndex} className="hover:bg-blue-100 transition-colors">
+                      <tr key={group.numLivraisonEntree + groupIndex} className="hover:bg-blue-100 transition-colors">
                         <td className="p-4">
                           {group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A"}
                         </td>
-                        <td className="p-4">{group.name || "N/A"}</td>
+                        <td className="p-4">{group.numLivraisonEntree || "N/A"}</td>
                         <td className="p-4">
                           {group.lines.map((line, lineIndex) => (
                             <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>

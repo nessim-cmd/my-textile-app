@@ -36,7 +36,7 @@ const LivraisonEntreeComponent: React.FC<LivraisonEntreeComponentProps> = ({livr
                         </div>
                     </div>
                     <div className="stat-desc">
-                        
+                    
                     </div>
                 </div>
             </div>

@@ -103,8 +103,8 @@ export function AppSidebar() {
 
   return (
     <><Sidebar>
-      <div className="">
-      <CustomTrigger />
+      <div className="font-bold ml-[273px] flex justify-center items-center mt-[73px] ">
+      <CustomTrigger/>
       </div>
       
       <SidebarContent>

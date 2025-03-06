@@ -90,7 +90,7 @@ const Navbar = () => {
 
   return (
     <div className='border-b border-base-300 px-5 md:px-[10%] py-4'>
-      <div className='flex justify-between items-center'>
+      <div className='flex justify-between items-center '>
         <div className='flex items-center'>
           <div className='bg-accent-content text-accent rounded-full p-2'>
             <Layers className='h-6 w-6'/>
@@ -99,15 +99,15 @@ const Navbar = () => {
             <Link href="/">MS <span className='text-accent'>Tailors</span></Link>  
           </span>
         </div>
-        <div className='flex space-x-4 items-center'>
-          <div className="relative">
+        <div className='flex gap-4 items-center '>
+          <div className="relative ">
             <button 
               className="relative focus:outline-none"
               onClick={handleBellClick}
             >
-              <Bell className='mr-6'/>
+              <Bell className='mr-6 mt-2'/>
               {!hideBadge && notifications.length > 0 && (
-                <span className="absolute -top-2 left-3 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                <span className="absolute -top-1 left-3 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
                   {notifications.length}
                 </span>
               )}
@@ -119,21 +119,21 @@ const Navbar = () => {
                   {notifications.length > 0 ? (
                     notifications.map((notification) => (
                       <div 
-  key={notification.id} 
-  className="p-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0 text-sm text-gray-700"
->
-  {notification.daysRemaining === 0 
-    ? (
-      <>
-        Soumission of <span className="font-bold">{notification.clientName}</span> termine aujourd&apos;hui
-      </>
-    ) 
-    : (
-      <>
-        Soumission of <span className="font-bold">{notification.clientName}</span> sera terminé en {notification.daysRemaining} jours
-      </>
-    )}
-</div>
+                        key={notification.id} 
+                        className="p-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0 text-sm text-gray-700"
+                      >
+                        {notification.daysRemaining === 0 
+                         ? (
+                          <>
+                            Soumission of <span className="font-bold">{notification.clientName}</span> termine aujourd&apos;hui
+                          </>
+                        ) 
+                        : (
+                          <>
+                            Soumission of <span className="font-bold">{notification.clientName}</span> sera terminé en {notification.daysRemaining} jours
+                          </>
+                        )}
+                  </div>
                     ))
                   ) : (
                     <div className="p-2 text-gray-500 text-sm">No notifications</div>

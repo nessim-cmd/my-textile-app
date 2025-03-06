@@ -303,7 +303,7 @@ export default function ClientModelPage() {
                 <th>Commande</th>
                 <th>Description</th>
                 <th>PUHT</th>
-                <th>Variants</th>
+                <th>Variants/Qte</th>
                 <th>Actions</th>
               </tr>
             </thead>

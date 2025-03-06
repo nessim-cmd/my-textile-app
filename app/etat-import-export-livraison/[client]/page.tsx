@@ -4,7 +4,7 @@
 import { useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import Wrapper from "@/components/Wrapper";
-import { Search, Printer } from "lucide-react";
+import { Search, Printer, ChevronDown } from "lucide-react";
 import { useParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -74,9 +74,10 @@ export default function ClientEtatImportExportLivraisonPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const fetchEtatData = useCallback(async () => {
     if (!email) return;
@@ -111,9 +112,14 @@ export default function ClientEtatImportExportLivraisonPage() {
       item.commande.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.modele.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModel = selectedModel ? item.modele === selectedModel : true;
+    const matchesModel = selectedModels.length > 0
+      ? selectedModels.some(m => 
+          m.toLowerCase() === item.modele.toLowerCase() || 
+          (item.description || "").toLowerCase().includes(m.toLowerCase())
+        )
+      : true;
     const dateEntree = item.dateEntree ? new Date(item.dateEntree) : null;
-    let matchesDate: boolean = true; // Explicitly typed as boolean
+    let matchesDate: boolean = true;
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
@@ -132,9 +138,11 @@ export default function ClientEtatImportExportLivraisonPage() {
     const matchesSearch =
       item.commande.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModel = selectedModel ? item.modele === selectedModel : true;
+    const matchesModel = selectedModels.length > 0
+      ? selectedModels.some(m => m.toLowerCase() === item.modele.toLowerCase())
+      : true;
     const dateSortie = item.dateSortie ? new Date(item.dateSortie) : null;
-    let matchesDate: boolean = true; // Explicitly typed as boolean
+    let matchesDate: boolean = true;
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
@@ -147,6 +155,9 @@ export default function ClientEtatImportExportLivraisonPage() {
 
     return matchesClient && matchesSearch && matchesModel && matchesDate;
   }) || [];
+
+  console.log("Filtered Imports:", filteredImports);
+  console.log("Filtered Exports:", filteredExports);
 
   const groupedImports = filteredImports.reduce((acc, item) => {
     const key = `${item.numLivraisonEntree}-${item.dateEntree || 'null'}`;
@@ -162,8 +173,8 @@ export default function ClientEtatImportExportLivraisonPage() {
   }, {} as Record<string, GroupedImportEntry>);
 
   const groupedImportsArray = Object.values(groupedImports);
+  console.log("Grouped Imports Array:", groupedImportsArray);
 
-  // Group exports by numLivraisonSortie and dateSortie
   const groupedExports = filteredExports.reduce((acc, item) => {
     const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
     if (!acc[key]) {
@@ -178,6 +189,7 @@ export default function ClientEtatImportExportLivraisonPage() {
   }, {} as Record<string, GroupedExportEntry>);
 
   const groupedExportsArray = Object.values(groupedExports);
+  console.log("Grouped Exports Array:", groupedExportsArray);
 
   const allModels = Array.from(
     new Set(
@@ -190,7 +202,7 @@ export default function ClientEtatImportExportLivraisonPage() {
   console.log("All Models for dropdown:", allModels);
 
   const commandeSummaries: CommandeSummary[] = (etatData?.models || [])
-    .filter((model) => model.client === clientName)
+    .filter((model) => model.client === clientName && (selectedModels.length === 0 || selectedModels.includes(model.name)))
     .flatMap((model) => {
       const modelImports = filteredImports.filter((item) => item.modele === model.name);
       const modelExports = filteredExports.filter(
@@ -220,19 +232,17 @@ export default function ClientEtatImportExportLivraisonPage() {
 
   const totalQuantity = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityTotal, 0);
   const totalDelivered = filteredExports
-    .filter((item) => !item.isExcluded)
+    .filter((item) => !item.isExcluded && (selectedModels.length === 0 || selectedModels.includes(item.modele)))
     .reduce((sum, item) => sum + item.quantityDelivered, 0);
 
   const handleDownloadPDF = () => {
     const pdf = new jsPDF("p", "mm", "a4");
     let yOffset = 10;
 
-    // Add title with increased font size
     pdf.setFontSize(20);
     pdf.text(`État des Livraisons pour ${clientName}`, 10, yOffset);
     yOffset += 12;
 
-    // Add Summary Section with increased font size
     pdf.setFontSize(14);
     pdf.text("Résumé", 10, yOffset);
     yOffset += 6;
@@ -252,7 +262,6 @@ export default function ClientEtatImportExportLivraisonPage() {
         );
         yOffset += 6;
 
-        // Check for page break
         if (yOffset > 270) {
           pdf.addPage();
           yOffset = 10;
@@ -264,18 +273,15 @@ export default function ClientEtatImportExportLivraisonPage() {
       yOffset += 6;
     }
 
-    // Add Total with increased font size
     pdf.setFontSize(12);
     pdf.text(`Total: ${totalQuantity} / Livré: ${totalDelivered}`, 10, yOffset);
     yOffset += 12;
 
-    // Check for page break
     if (yOffset > 270) {
       pdf.addPage();
       yOffset = 10;
     }
 
-    // Add Importations Section with increased font size
     pdf.setFontSize(14);
     pdf.text("Importations", 10, yOffset);
     yOffset += 6;
@@ -303,13 +309,11 @@ export default function ClientEtatImportExportLivraisonPage() {
       yOffset += 6;
     }
 
-    // Check for page break
     if (yOffset > 270) {
       pdf.addPage();
       yOffset = 10;
     }
 
-    // Add Exportations Section with increased font size
     pdf.setFontSize(14);
     pdf.text("Exportations", 10, yOffset);
     yOffset += 6;
@@ -336,8 +340,13 @@ export default function ClientEtatImportExportLivraisonPage() {
       pdf.text("Aucune exportation trouvée.", 10, yOffset);
     }
 
-    // Download the PDF
     pdf.save(`Etat_des_Livraisons_${clientName}.pdf`);
+  };
+
+  const toggleModelSelection = (model: string) => {
+    setSelectedModels((prev) =>
+      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model]
+    );
   };
 
   return (
@@ -361,7 +370,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                         </p>
                       ) : null}
                       <p className="text-sm text-gray-600">
-                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span> 
+                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span>
                       </p>
                     </div>
                   ))
@@ -399,21 +408,37 @@ export default function ClientEtatImportExportLivraisonPage() {
             </button>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <select
-              className="select select-bordered"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+          <div className="relative">
+            <button
+              className="btn btn-bordered flex items-center gap-2"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <option value="">Tous les modèles</option>
-              {allModels.length > 0 ? (
-                allModels.map((model) => (
-                  <option key={model} value={model}>{model}</option>
-                ))
-              ) : (
-                <option value="" disabled>Aucun modèle trouvé</option>
-              )}
-            </select>
+              {selectedModels.length > 0
+                ? `${selectedModels.length} modèle(s) sélectionné(s)`
+                : "Tous les modèles"}
+              <ChevronDown className="w-5 h-5" />
+            </button>
+            {isDropdownOpen && (
+              <div className="absolute z-10 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="p-2">
+                  {allModels.length > 0 ? (
+                    allModels.map((model) => (
+                      <label key={model} className="flex items-center space-x-2 p-2 hover:bg-gray-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedModels.includes(model)}
+                          onChange={() => toggleModelSelection(model)}
+                          className="checkbox checkbox-sm"
+                        />
+                        <span>{model}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="p-2 text-gray-500">Aucun modèle trouvé</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-2">
@@ -452,7 +477,6 @@ export default function ClientEtatImportExportLivraisonPage() {
           <div className="alert alert-error text-center">{error}</div>
         ) : (filteredImports.length > 0 || filteredExports.length > 0) ? (
           <div className="flex flex-col md:flex-row gap-6">
-            {/* Import Table (Left) */}
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-4">Importations</h2>
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
@@ -502,7 +526,6 @@ export default function ClientEtatImportExportLivraisonPage() {
               </div>
             </div>
 
-            {/* Export Table (Right) */}
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-4">Exportations</h2>
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">

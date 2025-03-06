@@ -13,8 +13,8 @@ interface ClientModel {
   id: string;
   name: string | null;
   clientId: string;
-  commandes: string | null; // Add commandes from ClientModel
-  description: string | null; // Add description from ClientModel
+  commandes: string | null;
+  description: string | null;
 }
 
 export default function LivraisonPage() {
@@ -30,7 +30,7 @@ export default function LivraisonPage() {
     try {
       const response = await fetch(`/api/livraisons/${params.id}`);
       if (!response.ok) throw new Error("Failed to fetch livraison");
-      const data = await response.json();
+      const data: Livraison = await response.json();
       setLivraison(data);
       setInitialLivraison(data);
     } catch (error) {
@@ -60,7 +60,7 @@ export default function LivraisonPage() {
       if (!response.ok) throw new Error("Failed to update livraison");
 
       const updatedResponse = await fetch(`/api/livraisons/${livraison.id}`);
-      const updatedLivraison = await updatedResponse.json();
+      const updatedLivraison: Livraison = await updatedResponse.json();
       setLivraison(updatedLivraison);
       setInitialLivraison(updatedLivraison);
     } catch (error) {
@@ -101,7 +101,7 @@ export default function LivraisonPage() {
           <div className="flex md:mt-0 mt-4">
             <button
               className="btn btn-sm btn-accent ml-4"
-              disabled={ isLoading}
+              disabled={isLoading}
               onClick={handleSave}
             >
               {isLoading ? (
@@ -122,17 +122,17 @@ export default function LivraisonPage() {
 
         <div className="flex flex-col md:flex-row w-full">
           <div className="flex w-full md:w-1/3 flex-col">
-            <LivraisonInfo 
-              livraison={livraison} 
-              setLivraison={setLivraison} 
+            <LivraisonInfo
+              livraison={livraison}
+              setLivraison={setLivraison}
               onModelsChange={setClientModels}
             />
           </div>
 
           <div className="flex w-full md:w-2/3 flex-col md:ml-4">
-            <LivraisonLines 
-              livraison={livraison} 
-              setLivraison={setLivraison} 
+            <LivraisonLines
+              livraison={livraison}
+              setLivraison={setLivraison}
               clientModels={clientModels}
             />
             <LivraisonPDF livraison={livraison} />

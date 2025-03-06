@@ -1,5 +1,4 @@
 import { Livraison } from '@/type';
-import { LivraisonLine } from '@prisma/client';
 import { Plus, Trash } from 'lucide-react';
 import React from 'react';
 
@@ -15,6 +14,18 @@ interface ClientModel {
   clientId: string;
   commandes: string | null;
   description: string | null;
+}
+
+interface LivraisonLine {
+  id: string;
+  commande: string | null;
+  modele: string;
+  description: string | null;
+  quantity: number | null;
+  livraisonId: string;
+  isExcluded: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels = [] }) => {
@@ -50,7 +61,7 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
       (model) => model.name === modeleName && (model.commandes?.split(',') || []).includes(commande)
     );
     updatedLines[index].modele = modeleName || '';
-    updatedLines[index].commande = commande || null; // Set only the selected commande
+    updatedLines[index].commande = commande || null;
     updatedLines[index].description = selectedModel?.description || null;
     updatedLines[index].updatedAt = new Date();
     setLivraison({ ...livraison, lines: updatedLines });
@@ -82,14 +93,13 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
     setLivraison({ ...livraison, lines: updatedLines });
   };
 
-  // Generate model-commande pairs for the dropdown
   const modelCommandeOptions = clientModels.flatMap((model) => {
     const commandes = model.commandes ? model.commandes.split(',') : [];
     return commandes.map((cmd) => ({
       modelName: model.name || 'Unnamed Model',
       commande: cmd.trim(),
       description: model.description || null,
-      key: `${model.id}|${cmd.trim()}`, // Unique key for each pair
+      key: `${model.id}|${cmd.trim()}`,
     }));
   });
 
@@ -104,7 +114,14 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
       <div className="scrollable">
         <table className="table w-full">
           <thead className="uppercase">
-            <tr><th></th><th>Commande</th><th>Modèle</th><th>Quantité</th><th>Description</th><th></th></tr>
+            <tr>
+              <th>Exclure</th>
+              <th>Commande</th>
+              <th>Modèle</th>
+              <th>Quantité</th>
+              <th>Description</th>
+              <th></th>
+            </tr>
           </thead>
           <tbody>
             {livraison.lines.map((line, index) => (
@@ -114,6 +131,7 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                     type="checkbox"
                     checked={line.isExcluded || false}
                     onChange={(e) => handleIsExcludedChange(index, e.target.checked)}
+                    className="checkbox checkbox-sm"
                   />
                 </td>
                 <td>
@@ -133,8 +151,8 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                   >
                     <option value="">Sélectionner un modèle</option>
                     {modelCommandeOptions.map((option) => (
-                      <option 
-                        key={option.key} 
+                      <option
+                        key={option.key}
                         value={`${option.modelName}|${option.commande}`}
                       >
                         {option.modelName} ({option.commande})
@@ -145,7 +163,7 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
                 <td>
                   <input
                     type="number"
-                    value={line.quantity ?? ''} 
+                    value={line.quantity ?? ''}
                     className="input input-sm input-bordered w-full"
                     min={0}
                     onChange={(e) => handleQuantityChange(index, e.target.value)}

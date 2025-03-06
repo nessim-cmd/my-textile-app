@@ -84,15 +84,13 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
         <div className="p-8" ref={livraisonRef}>
           <div className="flex justify-between items-center text-sm">
             <div className="flex flex-col">
-              <div>
-                <div className="flex items-center">
-                  <div className="bg-accent-content text-accent rounded-full p-2">
-                    <Layers className="h-6 w-6" />
-                  </div>
-                  <span className="ml-3 font-bold text-2xl italic">
-                    MS<span className="text-accent">Tailors</span>
-                  </span>
+              <div className="flex items-center">
+                <div className="bg-accent-content text-accent rounded-full p-2">
+                  <Layers className="h-6 w-6" />
                 </div>
+                <span className="ml-3 font-bold text-2xl italic">
+                  MS<span className="text-accent">Tailors</span>
+                </span>
               </div>
               <h1 className="text-7xl font-bold uppercase">Livraison</h1>
             </div>
@@ -130,7 +128,7 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
             <table className="table table-zebra">
               <thead>
                 <tr>
-                  <th></th>
+                  <th>Exclu</th>
                   <th>Modèle</th>
                   <th>Commande</th>
                   <th>Description</th>
@@ -140,7 +138,7 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
               <tbody>
                 {livraison.lines.map((ligne, index) => (
                   <tr key={index + 1}>
-                    <td>{index + 1}</td>
+                    <td>{ligne.isExcluded ? "Oui" : "Non"}</td>
                     <td>{ligne.modele}</td>
                     <td>{ligne.commande}</td>
                     <td>{ligne.description}</td>

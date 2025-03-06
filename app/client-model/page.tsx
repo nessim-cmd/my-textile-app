@@ -4,7 +4,7 @@
 import Wrapper from '@/components/Wrapper';
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -51,7 +51,7 @@ export default function ClientModelPage() {
     ordine: '',
     puht: 0,
     clientId: '',
-    commandesWithVariants: []
+    commandesWithVariants: [],
   });
   const [commandesWithVariants, setCommandesWithVariants] = useState<Commande[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
   const [dateDebut, setDateDebut] = useState('');
@@ -61,6 +61,8 @@ export default function ClientModelPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const fetchData = useCallback(async () => {
     if (!email) return;
@@ -75,7 +77,7 @@ export default function ClientModelPage() {
     try {
       const token = await getToken();
       const res = await fetch(`/api/client-model?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
       const data = await res.json();
@@ -86,13 +88,13 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  }, [email, dateDebut, dateFin, searchTerm]);
+  }, [email, dateDebut, dateFin, searchTerm, getToken]);
 
   const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
       const res = await fetch('/api/client', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setClients(data);
@@ -146,10 +148,10 @@ export default function ClientModelPage() {
         method,
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -166,7 +168,7 @@ export default function ClientModelPage() {
         lotto: '',
         ordine: '',
         puht: 0,
-        clientId: ''
+        clientId: '',
       });
       setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
       await fetchData();
@@ -184,9 +186,9 @@ export default function ClientModelPage() {
           method: 'DELETE',
           headers: { 
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ id })
+          body: JSON.stringify({ id }),
         });
         await fetchData();
       } catch (error) {
@@ -206,7 +208,7 @@ export default function ClientModelPage() {
       lotto: model.lotto || '',
       ordine: model.ordine || '',
       puht: model.puht || 0,
-      clientId: model.clientId || ''
+      clientId: model.clientId || '',
     });
 
     const loadedCommandesWithVariants = model.commandesWithVariants && Array.isArray(model.commandesWithVariants)
@@ -228,11 +230,15 @@ export default function ClientModelPage() {
 
   const uniqueModels = Array.from(
     new Map(
-      models.map((model) => [
-        `${model.clientId}-${model.name}`,
-        model,
-      ])
+      models.map((model) => [`${model.clientId}-${model.name}`, model])
     ).values()
+  );
+
+  const totalItems = uniqueModels.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedModels = uniqueModels.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   return (
@@ -308,7 +314,7 @@ export default function ClientModelPage() {
               </tr>
             </thead>
             <tbody>
-              {uniqueModels.map(model => (
+              {paginatedModels.map(model => (
                 <tr key={model.id}>
                   <td>{model.client?.name || "N/A"}</td>
                   <td>{model.name || "Unnamed"}</td>
@@ -379,6 +385,28 @@ export default function ClientModelPage() {
           </table>
         </div>
 
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Previous
+            </button>
+            <span className="text-sm">Page {currentPage} of {totalPages}</span>
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        )}
+
         {/* Modal with smooth transition */}
         <dialog className={`modal ${isModalOpen ? 'modal-open' : ''}`} open={isModalOpen}>
           <div className="modal-box max-w-3xl w-full sm:w-11/12 md:w-3/4 lg:w-2/3 transition-all duration-300 ease-in-out transform translate-y-0">
@@ -387,9 +415,7 @@ export default function ClientModelPage() {
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               {modalError && (
-                <div className="alert alert-error mb-4">
-                  {modalError}
-                </div>
+                <div className="alert alert-error mb-4">{modalError}</div>
               )}
 
               <select
@@ -571,7 +597,7 @@ export default function ClientModelPage() {
                       lotto: '',
                       ordine: '',
                       puht: 0,
-                      clientId: ''
+                      clientId: '',
                     });
                     setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
                   }}

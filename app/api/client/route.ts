@@ -1,3 +1,4 @@
+// api/client/route.ts
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -9,7 +10,7 @@ export async function GET() {
     return NextResponse.json(clients, { status: 200 });
   } catch (error) {
     console.error("GET /api/client Error:", error);
-    
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newClient, { status: 201 });
   } catch (error) {
     console.error("POST /api/client Error:", error);
-    
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
@@ -58,17 +59,17 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(updatedClient, { status: 200 });
   } catch (error) {
     console.error("PUT /api/client Error:", error);
-    
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
     const { id } = await request.json();
-    await prisma.client.delete({ where: { id } }); // Fixed to delete from 'client' table, not 'clientModel'
+    await prisma.client.delete({ where: { id } });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("DELETE /api/client Error:", error);
-   
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { Layers, Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { Layers, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { useUser, useAuth } from "@clerk/nextjs"; // Added useAuth
 import confetti from "canvas-confetti";
 import { Commande } from "@/type";
 import Wrapper from "@/components/Wrapper";
@@ -10,6 +10,7 @@ import CommandeComponent from "@/components/CommandeComponents";
 
 export default function Home() {
   const { user } = useUser();
+  const { getToken } = useAuth(); // Added for authentication
   const [commandeName, setCommandeName] = useState("");
   const [isNameValid, setIsNameValid] = useState(true);
   const email = user?.primaryEmailAddress?.emailAddress;
@@ -17,18 +18,24 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
-  const fetchCommandes = async () => {
+  const fetchCommandes = useCallback(async () => {
     if (!email) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/commande?email=${encodeURIComponent(email)}`);
+      const token = await getToken();
+      const response = await fetch(`/api/commande?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
+      console.log('Fetched commandes:', data); // Debug log
       setCommandes(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -37,24 +44,35 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, getToken]);
 
   useEffect(() => {
     if (email) fetchCommandes();
-  }, [email, fetchCommandes]); // Added fetchCommandes to dependency array
+  }, [email, fetchCommandes]);
 
   const filteredCommandes = commandes.filter(commande =>
     commande.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     commande.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalItems = filteredCommandes.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedCommandes = filteredCommandes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const handleCreateCommande = async () => {
     if (!email || !commandeName.trim()) return;
 
     try {
+      const token = await getToken();
       const response = await fetch("/api/commande", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ 
           email, 
           name: commandeName.trim() 
@@ -68,7 +86,6 @@ export default function Home() {
 
       await fetchCommandes();
       setCommandeName("");
-
       (document.getElementById("commande_modal") as HTMLDialogElement)?.close();
 
       confetti({
@@ -96,7 +113,7 @@ export default function Home() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <button className="flex p-2 rounded-xl bg-blue-300">
-           <span className="font-bold px-2">Search</span>
+            <span className="font-bold px-2">Search</span>
             <Search className="w-5 h-5 mt-0.5" />
           </button>
         </div>
@@ -119,26 +136,42 @@ export default function Home() {
               <span className="loading loading-dots loading-lg"></span>
             </div>
           ) : error ? (
-            <div className="col-span-3 alert alert-error">
-              {error}
-            </div>
-          ) : filteredCommandes.length > 0 ? (
-            filteredCommandes.map((commande) => (
+            <div className="col-span-3 alert alert-error">{error}</div>
+          ) : paginatedCommandes.length > 0 ? (
+            paginatedCommandes.map((commande) => (
               <CommandeComponent key={commande.id} commande={commande} index={0} />
             ))
           ) : (
-            <div className="col-span-3 text-center">
-              Aucune commande trouvée
-            </div>
+            <div className="col-span-3 text-center">Aucune commande trouvée</div>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Previous
+            </button>
+            <span className="text-sm">Page {currentPage} of {totalPages}</span>
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        )}
 
         <dialog id="commande_modal" className="modal">
           <div className="modal-box">
             <form method="dialog">
-              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                ✕
-              </button>
+              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
             </form>
 
             <h3 className="font-bold text-lg mb-4">Nouvelle Commande</h3>
@@ -156,9 +189,7 @@ export default function Home() {
                 maxLength={60}
               />
               <label className="label">
-                <span className="label-text-alt">
-                  {commandeName.length}/60 caractères
-                </span>
+                <span className="label-text-alt">{commandeName.length}/60 caractères</span>
               </label>
             </div>
 

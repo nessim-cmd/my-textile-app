@@ -9,6 +9,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar"
+import { CustomTrigger } from "./CustomTrigger"
 
 const items = [
   {
@@ -101,7 +102,11 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar>
+    <><Sidebar>
+      <div className="">
+      <CustomTrigger />
+      </div>
+      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
@@ -123,8 +128,7 @@ export function AppSidebar() {
                             <span className="font-bold uppercase">{item.title}</span>
                             <ChevronDown
                               className="ml-auto h-4 w-4 transition-transform duration-200"
-                              style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }}
-                            />
+                              style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                       </SidebarMenuItem>
@@ -133,7 +137,7 @@ export function AppSidebar() {
                           {item.subItems.map((subItem) => (
                             <SidebarMenuItem key={subItem.title}>
                               <SidebarMenuButton asChild>
-                                <a 
+                                <a
                                   href={subItem.url}
                                   className={pathname === subItem.url ? "font-bold text-primary" : ""}
                                 >
@@ -147,17 +151,15 @@ export function AppSidebar() {
                     </Collapsible>
                   )
                 }
-                
+
                 // Direct link for Calendar
                 if (item.url) {
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>
-                        <a 
+                        <a
                           href={item.url}
-                          className={`flex items-center gap-2 w-full ${
-                            pathname === item.url ? "font-bold text-primary" : ""
-                          }`}
+                          className={`flex items-center gap-2 w-full ${pathname === item.url ? "font-bold text-primary" : ""}`}
                         >
                           <item.icon />
                           <span className="font-bold uppercase">{item.title}</span>
@@ -173,6 +175,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>
+    </Sidebar></>
   )
 }

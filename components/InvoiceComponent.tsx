@@ -110,8 +110,9 @@ const InvoiceComponent: React.FC<InvoiceComponentProps> = ({ invoice, }) => {
     return (
         <div className='bg-base-200/90 p-5 rounded-xl space-y-2 shadow'>
             <div className='flex justify-between items-center w-full'>
-                <div>{getStatusBadge(invoice.status)}</div>
-                <div>{getModePaiment(invoice.modePaiment)}</div>
+                    <div className='stat-desc'>
+                       {invoice.name}
+                    </div>
                 <Link
                     className='btn btn-accent btn-sm'
                     href={`/invoice/${invoice.id}`}>
@@ -131,8 +132,10 @@ const InvoiceComponent: React.FC<InvoiceComponentProps> = ({ invoice, }) => {
                             {calculateTotal().toFixed(2) } €
                         </div>
                     </div>
-                    <div className='stat-desc'>
-                       {invoice.name}
+                    
+                    <div className='flex pt-3 space-x-2'>
+                        {getStatusBadge(invoice.status)}
+                        {getModePaiment(invoice.modePaiment)}
                     </div>
                 </div>
             </div>

@@ -1,18 +1,17 @@
 "use client";
 
-import { Layers, Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
-
-import { Invoice } from "@/type";
+import { Layers, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { useUser, useAuth } from "@clerk/nextjs";
+import confetti from "canvas-confetti";
+import { Invoice, DeclarationExport } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import InvoiceComponent from "@/components/InvoiceComponent";
 import ExportComponent from "@/components/ExportComponent";
-import { DeclarationExport } from "@/type";
-import confetti from "canvas-confetti";
 
 export default function Home() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [invoiceName, setInvoiceName] = useState("");
   const [isNameValid, setIsNameValid] = useState(true);
   const email = user?.primaryEmailAddress?.emailAddress;
@@ -21,75 +20,85 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     if (!email) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/invoices?email=${encodeURIComponent(email)}`);
+      const token = await getToken();
+      const response = await fetch(`/api/invoices?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
       setInvoices(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading invoices:", error);
+      setError("Failed to load invoices");
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, getToken]);
 
-  const fetchExports = async () => {
+  const fetchExports = useCallback(async () => {
     if (!email) return;
 
-    setLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch(`/api/exporte?email=${encodeURIComponent(email)}`);
+      const token = await getToken();
+      const response = await fetch(`/api/exporte?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
       setExports(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading exports:", error);
-    } finally {
-      setLoading(false);
+      setError("Failed to load exports");
     }
-  };
+  }, [email, getToken]);
 
   useEffect(() => {
     if (email) {
       fetchInvoices();
       fetchExports();
     }
-  }, [email]);
+  }, [email, fetchInvoices, fetchExports]);
 
-  // Filter both invoices and exports using one search term
-  const filteredInvoices = invoices.filter(invoice =>
-    invoice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+  const combinedItems = [
+    ...invoices.map(item => ({ type: "invoice", data: item })),
+    ...exports.map(item => ({ type: "export", data: item })),
+  ].filter(item =>
+    item.type === "invoice"
+      ? (item.data as Invoice).name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.data as Invoice).id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      : (item.data as DeclarationExport).num_dec.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.data as DeclarationExport).clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.data as DeclarationExport).id.toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredExports = exports.filter(exp =>
-    exp.num_dec.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exp.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    exp.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+  const totalItems = combinedItems.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedItems = combinedItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleCreateInvoice = async () => {
     if (!email || !invoiceName.trim()) return;
 
     try {
+      const token = await getToken();
       const response = await fetch("/api/invoices", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email, 
-          name: invoiceName.trim() 
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email, name: invoiceName.trim() }),
       });
 
       if (!response.ok) {
@@ -99,18 +108,11 @@ export default function Home() {
 
       await fetchInvoices();
       setInvoiceName("");
-
-      // Close modal
       (document.getElementById("invoice_modal") as HTMLDialogElement)?.close();
-
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        zIndex: 9999,
-      });
+      confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, zIndex: 9999 });
     } catch (error) {
       console.error("Error creating invoice:", error);
+      setError("Failed to create invoice");
     }
   };
 
@@ -149,36 +151,50 @@ export default function Home() {
               <span className="loading loading-dots loading-lg"></span>
             </div>
           ) : error ? (
-            <div className="col-span-3 alert alert-error">
-              {error}
-            </div>
+            <div className="col-span-3 alert alert-error">{error}</div>
+          ) : paginatedItems.length > 0 ? (
+            paginatedItems.map((item, index) => (
+              item.type === "invoice" ? (
+                <InvoiceComponent key={(item.data as Invoice).id} invoice={item.data as Invoice} index={index} />
+              ) : (
+                <ExportComponent key={(item.data as DeclarationExport).id} exporte={item.data as DeclarationExport} />
+              )
+            ))
           ) : (
-            <>
-              {filteredInvoices.map((invoice) => (
-                <InvoiceComponent key={invoice.id} invoice={invoice} index={0} />
-              ))}
-              {filteredExports.map((exp) => (
-                <ExportComponent key={exp.id} exporte={exp} /> // Removed index prop
-              ))}
-              {filteredInvoices.length === 0 && filteredExports.length === 0 && (
-                <div className="col-span-3 text-center">
-                  Aucune facture ou export trouvé
-                </div>
-              )}
-            </>
+            <div className="col-span-3 text-center">Aucune facture ou export trouvé</div>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Previous
+            </button>
+            <span className="text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        )}
 
         <dialog id="invoice_modal" className="modal">
           <div className="modal-box">
             <form method="dialog">
-              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                ✕
-              </button>
+              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
             </form>
-
             <h3 className="font-bold text-lg mb-4">Nouvelle Facture</h3>
-
             <div className="form-control">
               <input
                 type="text"
@@ -192,12 +208,9 @@ export default function Home() {
                 maxLength={60}
               />
               <label className="label">
-                <span className="label-text-alt">
-                  {invoiceName.length}/60 caractères
-                </span>
+                <span className="label-text-alt">{invoiceName.length}/60 caractères</span>
               </label>
             </div>
-
             <button
               className="btn btn-accent w-full mt-4"
               disabled={!isNameValid || !invoiceName.trim()}

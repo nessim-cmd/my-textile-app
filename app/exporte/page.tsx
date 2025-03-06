@@ -1,6 +1,6 @@
 "use client";
 
-import { Layers, Search } from "lucide-react";
+import { Layers, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
@@ -27,6 +27,8 @@ export default function ExportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const fetchClients = useCallback(async () => {
     try {
@@ -76,6 +78,13 @@ export default function ExportPage() {
   const filteredDeclarations = declarations.filter(declaration =>
     declaration.num_dec.toLowerCase().includes(searchTerm.toLowerCase()) ||
     declaration.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalItems = filteredDeclarations.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedDeclarations = filteredDeclarations.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   const handleCreateDeclaration = async () => {
@@ -160,34 +169,48 @@ export default function ExportPage() {
               <span className="loading loading-dots loading-lg"></span>
             </div>
           ) : error ? (
-            <div className="col-span-3 alert alert-error">
-              {error}
-            </div>
-          ) : filteredDeclarations.length > 0 ? (
-            filteredDeclarations.map((declaration) => (
+            <div className="col-span-3 alert alert-error">{error}</div>
+          ) : paginatedDeclarations.length > 0 ? (
+            paginatedDeclarations.map((declaration) => (
               <ExportComponent key={declaration.id} exporte={declaration} />
             ))
           ) : (
-            <div className="col-span-3 text-center">
-              Aucune déclaration trouvée
-            </div>
+            <div className="col-span-3 text-center">Aucune déclaration trouvée</div>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Previous
+            </button>
+            <span className="text-sm">Page {currentPage} of {totalPages}</span>
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        )}
 
         <dialog id="declaration_modal" className="modal">
           <div className="modal-box">
             <form method="dialog">
-              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                ✕
-              </button>
+              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
             </form>
 
             <h3 className="font-bold text-lg mb-4">Nouvelle Déclaration</h3>
 
             {modalError && (
-              <div className="alert alert-error mb-4">
-                {modalError}
-              </div>
+              <div className="alert alert-error mb-4">{modalError}</div>
             )}
 
             <div className="form-control space-y-4">
@@ -211,9 +234,7 @@ export default function ExportPage() {
               >
                 <option value="">Sélectionner un client</option>
                 {clients.map((client) => (
-                  <option key={client.id} value={client.name}>
-                    {client.name}
-                  </option>
+                  <option key={client.id} value={client.name}>{client.name}</option>
                 ))}
               </select>
             </div>

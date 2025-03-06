@@ -8,6 +8,7 @@ import { Search, Printer, ChevronDown } from "lucide-react";
 import { useParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import React from "react";
 
 interface EtatLivraisonData {
   imports: ImportEntry[];
@@ -290,17 +291,29 @@ export default function ClientEtatImportExportLivraisonPage() {
       autoTable(pdf, {
         startY: yOffset,
         head: [["Date Import", "N° Livraison", "Modèle", "Commande", "Description", "Qté Reçu"]],
-        body: groupedImportsArray.map((group) => [
-          group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A",
-          group.numLivraisonEntree || "N/A",
-          group.lines.map((line) => line.modele || "N/A").join("\n"),
-          group.lines.map((line) => line.commande || "N/A").join("\n"),
-          group.lines.map((line) => line.description || "N/A").join("\n"),
-          group.lines.map((line) => line.quantityReçu.toString()).join("\n"),
-        ]),
+        body: groupedImportsArray.flatMap((group) =>
+          group.lines.map((line, index) => [
+            index === 0 ? (group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A") : "",
+            index === 0 ? (group.numLivraisonEntree || "N/A") : "",
+            line.modele || "N/A",
+            line.commande || "N/A",
+            line.description || "N/A",
+            line.quantityReçu.toString(),
+          ])
+        ),
         theme: "striped",
         styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
+        didDrawCell: (data) => {
+          if (data.row.index > 0 && data.row.index < groupedImportsArray.flatMap(g => g.lines).length) {
+            const prevLine = groupedImportsArray.flatMap(g => g.lines)[data.row.index - 1];
+            const currentLine = groupedImportsArray.flatMap(g => g.lines)[data.row.index];
+            if (prevLine.numLivraisonEntree !== currentLine.numLivraisonEntree) {
+              pdf.setDrawColor(200, 200, 200);
+              pdf.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+            }
+          }
+        },
       });
       yOffset = (pdf as any).lastAutoTable.finalY + 12;
     } else {
@@ -321,19 +334,31 @@ export default function ClientEtatImportExportLivraisonPage() {
     if (groupedExportsArray.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Réparation", "Date Export", "N° Livraison", "Modèle", "Commande", "Description", "Qté Livrée"]],
-        body: groupedExportsArray.map((group) => [
-          group.lines.map((line) => (line.isExcluded ? "Oui" : "Non")).join("\n"),
-          group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A",
-          group.numLivraisonSortie || "N/A",
-          group.lines.map((line) => line.modele).join("\n"),
-          group.lines.map((line) => line.commande || "N/A").join("\n"),
-          group.lines.map((line) => line.description || "N/A").join("\n"),
-          group.lines.map((line) => line.quantityDelivered.toString()).join("\n"),
-        ]),
+        head: [["Exclu", "Date Export", "N° Livraison", "Modèle", "Commande", "Description", "Qté Livrée"]],
+        body: groupedExportsArray.flatMap((group) =>
+          group.lines.map((line, index) => [
+            line.isExcluded ? "Oui" : "Non",
+            index === 0 ? (group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A") : "",
+            index === 0 ? (group.numLivraisonSortie || "N/A") : "",
+            line.modele,
+            line.commande || "N/A",
+            line.description || "N/A",
+            line.quantityDelivered.toString(),
+          ])
+        ),
         theme: "striped",
         styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
+        didDrawCell: (data) => {
+          if (data.row.index > 0 && data.row.index < groupedExportsArray.flatMap(g => g.lines).length) {
+            const prevLine = groupedExportsArray.flatMap(g => g.lines)[data.row.index - 1];
+            const currentLine = groupedExportsArray.flatMap(g => g.lines)[data.row.index];
+            if (prevLine.numLivraisonSortie !== currentLine.numLivraisonSortie) {
+              pdf.setDrawColor(200, 200, 200);
+              pdf.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+            }
+          }
+        },
       });
     } else {
       pdf.setFontSize(11);
@@ -353,10 +378,10 @@ export default function ClientEtatImportExportLivraisonPage() {
     <Wrapper>
       <div className="flex flex-col space-y-6 py-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-0">
-          <h1 className="text-3xl font-bold text-gray-800">
+          <h1 className="text-3xl font-bold text-gray-800 w-full">
             État des Livraisons pour {clientName}
           </h1>
-          <div className="flex flex-col md:flex-row gap-2">
+          <div className="flex flex-col md:flex-row gap-2 w-full ">
             <div
               className="border border-gray-300 outline outline-1 outline-gray-200 p-4 rounded-lg bg-white shadow-md w-full max-w-md mt-4 md:mt-0"
             >
@@ -365,7 +390,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                   commandeSummaries.map((cmd, index) => (
                     <div key={`${cmd.model}-${cmd.commande}`}>
                       {index === 0 || cmd.model !== commandeSummaries[index - 1].model ? (
-                        <p className="text-sm text-gray-600 font-semibold mt-2">
+                        <p className="text-sm text-gray-600 mt-2 font-bold">
                           Modèle: {cmd.model}
                         </p>
                       ) : null}
@@ -384,13 +409,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleDownloadPDF}
-              className="btn btn-accent mt-4 md:mt-0"
-            >
-              <Printer className="w-5 h-5 mr-2" />
-              Télécharger PDF
-            </button>
+            
           </div>
         </div>
 
@@ -467,6 +486,13 @@ export default function ClientEtatImportExportLivraisonPage() {
               </button>
             )}
           </div>
+          <button
+              onClick={handleDownloadPDF}
+              className="btn btn-accent mt-4 md:mt-0"
+            >
+              <Printer className="w-5 h-5 mr-2" />
+              Télécharger PDF
+            </button>
         </div>
 
         {loading ? (
@@ -482,44 +508,45 @@ export default function ClientEtatImportExportLivraisonPage() {
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr><th className="p-4 text-left">Date Import</th><th className="p-4 text-left">N° Livraison</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Description</th><th className="p-4 text-left">Qté Reçu</th></tr>
+                    <tr>
+                      <th className="p-4 text-left">Date Import</th>
+                      <th className="p-4 text-left">N° Livraison</th>
+                      <th className="p-4 text-left">Modèle</th>
+                      <th className="p-4 text-left">Commande</th>
+                      <th className="p-4 text-left">Description</th>
+                      <th className="p-4 text-left">Qté Reçu</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {groupedImportsArray.map((group, groupIndex) => (
-                      <tr key={group.numLivraisonEntree + groupIndex} className="hover:bg-blue-100 transition-colors">
-                        <td className="p-4">
-                          {group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A"}
-                        </td>
-                        <td className="p-4">{group.numLivraisonEntree || "N/A"}</td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.modele || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.commande || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.description || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.quantityReçu}
-                            </div>
-                          ))}
-                        </td>
-                      </tr>
+                      <React.Fragment key={group.numLivraisonEntree + groupIndex}>
+                        {group.lines.map((line, lineIndex) => (
+                          <tr
+                            key={line.id}
+                            className="hover:bg-blue-100 transition-colors"
+                          >
+                            {lineIndex === 0 && (
+                              <>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A"}
+                                </td>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.numLivraisonEntree || "N/A"}
+                                </td>
+                              </>
+                            )}
+                            <td className="p-4">{line.modele || "N/A"}</td>
+                            <td className="p-4">{line.commande || "N/A"}</td>
+                            <td className="p-4">{line.description || "N/A"}</td>
+                            <td className="p-4">{line.quantityReçu}</td>
+                          </tr>
+                        ))}
+                        {groupIndex < groupedImportsArray.length - 1 && (
+                          <tr className="border-t border-gray-300">
+                            <td colSpan={6} className="p-0 h-px"></td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -531,55 +558,53 @@ export default function ClientEtatImportExportLivraisonPage() {
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr><th className="p-4 text-left"></th><th className="p-4 text-left">Date Export</th><th className="p-4 text-left">N° Livraison</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Description</th><th className="p-4 text-left">Qté Livrée</th></tr>
+                    <tr>
+                      <th className="p-4 text-left"></th>
+                      <th className="p-4 text-left">Date Export</th>
+                      <th className="p-4 text-left">N° Livraison</th>
+                      <th className="p-4 text-left">Modèle</th>
+                      <th className="p-4 text-left">Commande</th>
+                      <th className="p-4 text-left">Description</th>
+                      <th className="p-4 text-left">Qté Livrée</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {groupedExportsArray.map((group, groupIndex) => (
-                      <tr key={group.numLivraisonSortie + groupIndex} className="hover:bg-blue-100 transition-colors">
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                      <React.Fragment key={group.numLivraisonSortie + groupIndex}>
+                        {group.lines.map((line, lineIndex) => (
+                          <tr
+                            key={line.id}
+                            className="hover:bg-blue-100 transition-colors"
+                          >
+                            <td className="p-4">
                               <input
                                 type="checkbox"
                                 checked={line.isExcluded}
                                 disabled
                               />
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A"}
-                        </td>
-                        <td className="p-4">{group.numLivraisonSortie || "N/A"}</td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.modele}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.commande || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.description || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.quantityDelivered}
-                            </div>
-                          ))}
-                        </td>
-                      </tr>
+                            </td>
+                            {lineIndex === 0 && (
+                              <>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A"}
+                                </td>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.numLivraisonSortie || "N/A"}
+                                </td>
+                              </>
+                            )}
+                            <td className="p-4">{line.modele}</td>
+                            <td className="p-4">{line.commande || "N/A"}</td>
+                            <td className="p-4">{line.description || "N/A"}</td>
+                            <td className="p-4">{line.quantityDelivered}</td>
+                          </tr>
+                        ))}
+                        {groupIndex < groupedExportsArray.length - 1 && (
+                          <tr className="border-t border-gray-300">
+                            <td colSpan={7} className="p-0 h-px"></td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

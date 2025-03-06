@@ -128,7 +128,7 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
             <table className="table table-zebra">
               <thead>
                 <tr>
-                  <th>Exclu</th>
+                  
                   <th>Modèle</th>
                   <th>Commande</th>
                   <th>Description</th>
@@ -138,7 +138,7 @@ const LivraisonPDF: React.FC<LivraisonPDFProps> = ({ livraison }) => {
               <tbody>
                 {livraison.lines.map((ligne, index) => (
                   <tr key={index + 1}>
-                    <td>{ligne.isExcluded ? "Oui" : "Non"}</td>
+                    
                     <td>{ligne.modele}</td>
                     <td>{ligne.commande}</td>
                     <td>{ligne.description}</td>

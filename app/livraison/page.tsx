@@ -1,8 +1,8 @@
 "use client";
 
-import { Layers, Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { Layers, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { useUser, useAuth } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { Livraison } from "@/type";
 import Wrapper from "@/components/Wrapper";
@@ -10,6 +10,7 @@ import LivraisonComponent from "@/components/LivraisonComponent";
 
 export default function LivraisonPage() {
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [livraisonName, setLivraisonName] = useState("");
   const [isNameValid, setIsNameValid] = useState(true);
   const email = user?.primaryEmailAddress?.emailAddress;
@@ -17,15 +18,20 @@ export default function LivraisonPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
-  const fetchLivraisons = async () => {
+  const fetchLivraisons = useCallback(async () => {
     if (!email) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/livraisons?email=${encodeURIComponent(email)}`);
+      const token = await getToken();
+      const response = await fetch(`/api/livraisons?email=${encodeURIComponent(email)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
@@ -36,28 +42,33 @@ export default function LivraisonPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, getToken]);
 
   useEffect(() => {
     if (email) fetchLivraisons();
-  }, [email]);
+  }, [email, fetchLivraisons]);
 
   const filteredLivraisons = livraisons.filter((livraison) =>
     livraison.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     livraison.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalItems = filteredLivraisons.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedLivraisons = filteredLivraisons.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const handleCreateLivraison = async () => {
     if (!email || !livraisonName.trim()) return;
 
     try {
+      const token = await getToken();
       const response = await fetch("/api/livraisons", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email, 
-          name: livraisonName.trim() 
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email, name: livraisonName.trim() }),
       });
 
       if (!response.ok) {
@@ -117,8 +128,8 @@ export default function LivraisonPage() {
             </div>
           ) : error ? (
             <div className="col-span-3 alert alert-error">{error}</div>
-          ) : filteredLivraisons.length > 0 ? (
-            filteredLivraisons.map((livraison) => (
+          ) : paginatedLivraisons.length > 0 ? (
+            paginatedLivraisons.map((livraison) => (
               <LivraisonComponent key={livraison.id} livraison={livraison} index={0} />
             ))
           ) : (
@@ -126,12 +137,32 @@ export default function LivraisonPage() {
           )}
         </div>
 
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Previous
+            </button>
+            <span className="text-sm">Page {currentPage} of {totalPages}</span>
+            <button
+              className="btn btn-outline btn-sm flex items-center"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        )}
+
         <dialog id="livraison_modal" className="modal">
           <div className="modal-box">
             <form method="dialog">
-              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-                ✕
-              </button>
+              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
             </form>
 
             <h3 className="font-bold text-lg mb-4">Nouvelle Livraison</h3>
@@ -149,9 +180,7 @@ export default function LivraisonPage() {
                 maxLength={60}
               />
               <label className="label">
-                <span className="label-text-alt">
-                  {livraisonName.length}/60 caractères
-                </span>
+                <span className="label-text-alt">{livraisonName.length}/60 caractères</span>
               </label>
             </div>
 

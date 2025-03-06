@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
-import Head from "next/head"; // Added for dynamic head tags
+import Head from "next/head";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +29,7 @@ export default function RootLayout({
       appearance={{
         elements: {
           footer: {
-            display: "none", // Hides the footer entirely
+            display: "none",
           },
         },
       }}

@@ -1,129 +1,216 @@
-import { currentUser, User } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
-import prisma from "@/lib/db";
-import UserDialog from "./UserDialog";
+"use client";
 
-export default async function AdminUsersPage() {
-  const clerkUser = await currentUser();
+import { Inbox, ChevronDown, Scissors, UserRoundPenIcon, Blocks, SendToBack, DatabaseZapIcon, Calendar, LayoutDashboard } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import prisma from "@/lib/db"; // Import Prisma client
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { CustomTrigger } from "@/components/CustomTrigger";
 
-  if (!clerkUser) {
-    redirect("/sign-in");
+// Define all items
+const allItems = [
+  { title: "Dashboard", icon: LayoutDashboard, url: "/dashboard" },
+  { title: "Creation Entree", icon: Blocks, subItems: [
+    { title: "Declaration Import", url: "/import" },
+    { title: "Bon Livraison Entree", url: "/livraisonEntree" },
+  ]},
+  { title: "Client", icon: UserRoundPenIcon, subItems: [
+    { title: "Client", url: "/client" },
+    { title: "Client-modeles", url: "/client-model" },
+  ]},
+  { title: "Creation Sortee", icon: Inbox, subItems: [
+    { title: "Declaration Export", url: "/exporte" },
+    { title: "Bon Livraison", url: "/livraison" },
+    { title: "Factures", url: "/invoice" },
+  ]},
+  { title: "Coupe", icon: Scissors, subItems: [
+    { title: "Fiche Etiquage Coupe", url: "/coupe" },
+  ]},
+  { title: "Suivi", icon: SendToBack, subItems: [
+    { title: "Suivi Declarations", url: "/etat-import-export" },
+    { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
+    { title: "Planning", url: "/planning" },
+  ]},
+  { title: "Stock", icon: DatabaseZapIcon, subItems: [
+    { title: "Fournisseur", url: "/fournisseur" },
+    { title: "Bon Commande", url: "/commande" },
+  ]},
+  { title: "Calendar", icon: Calendar, url: "/calendar" },
+];
+
+// Function to filter items based on role
+const getFilteredItems = (role: string | undefined) => {
+  console.log("Filtering items for role (raw):", role);
+  const normalizedRole = role?.toUpperCase() || "UNKNOWN";
+  console.log("Filtering items for role (normalized):", normalizedRole);
+  switch (normalizedRole) {
+    case "ADMIN":
+      console.log("Returning all items for ADMIN");
+      return allItems;
+    case "COUPEUR":
+      console.log("Returning Coupe items for COUPEUR");
+      return allItems.filter(item => item.title === "Coupe");
+    case "CHEF":
+      console.log("Returning Suivi items for CHEF");
+      return allItems.filter(item => item.title === "Suivi");
+    case "USER":
+      console.log("Returning Dashboard and Calendar for USER");
+      return allItems.filter(item => item.title === "Dashboard" || item.title === "Calendar");
+    default:
+      console.log("Role not recognized, returning empty array for role:", normalizedRole);
+      return [];
   }
+};
 
-  // Sync admin user to Prisma
-  const dbUser = await prisma.user.findUnique({ where: { clerkUserId: clerkUser.id } });
-  if (!dbUser) {
-    const email = clerkUser.emailAddresses[0].emailAddress;
-    await prisma.user.upsert({
-      where: { clerkUserId: clerkUser.id },
-      update: { email, name: clerkUser.firstName || "Admin", role: "ADMIN" },
-      create: { clerkUserId: clerkUser.id, email, name: clerkUser.firstName || "Admin", role: "ADMIN" },
-    });
-  } else if (dbUser.role !== "ADMIN") {
-    redirect("/");
-  }
+export function AppSidebar() {
+  const pathname = usePathname();
+  const { user, isLoaded } = useUser();
+  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set([""]));
 
-  const users = await prisma.user.findMany();
+  // Get role from Clerk and fallback to Prisma
+  const getRole = async () => {
+    if (!user || !isLoaded) return undefined;
+    const clerkRole = user.publicMetadata?.role as string | undefined;
+    console.log("Clerk role:", clerkRole);
+    if (clerkRole) return clerkRole;
 
-  async function handleAddUser(formData: FormData) {
-    "use server";
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const role = formData.get("role") as "ADMIN" | "COUPEUR" | "CHEF" | "USER";
+    // Fallback to Prisma if Clerk metadata is missing
+    const dbUser = await prisma.user.findUnique({ where: { clerkUserId: user.id } });
+    console.log("Prisma role:", dbUser?.role);
+    return dbUser?.role || "UNKNOWN";
+  };
 
-    console.log("Attempting to add user:", { name, email, role });
+  // Memoize role fetch
+  const role = useMemo(() => (isLoaded ? getRole() : undefined), [isLoaded, user?.id]);
+  // Memoize filtered items with resolved role
+  const items = useMemo(async () => {
+    const resolvedRole = await role;
+    return isLoaded ? getFilteredItems(resolvedRole) : [];
+  }, [isLoaded, role]);
 
-    try {
-      // Check existing users
-      const usersResponse = await fetch(
-        `https://api.clerk.com/v1/users?email=${encodeURIComponent(email)}`,
-        {
-          headers: { "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}` },
-        }
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    items.then(resolvedItems => {
+      const shouldUpdate = resolvedItems.some(item =>
+        item.subItems?.some(subItem => subItem.url === pathname)
       );
-      if (!usersResponse.ok) throw new Error(`Failed to fetch users: ${await usersResponse.text()}`);
-      const users: User[] = await usersResponse.json();
-      console.log("Existing users:", users);
 
-      // Check existing invitations
-      const invitationsResponse = await fetch(
-        `https://api.clerk.com/v1/invitations?email_address=${encodeURIComponent(email)}`,
-        {
-          headers: { "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}` },
-        }
-      );
-      if (!invitationsResponse.ok) throw new Error(`Failed to fetch invitations: ${await invitationsResponse.text()}`);
-      const invitations = await invitationsResponse.json();
-      console.log("Existing invitations:", invitations);
-
-      // Revoke pending invitations
-      for (const inv of invitations) {
-        if (inv.status === "pending" && inv.email_address === email) {
-          await fetch(`https://api.clerk.com/v1/invitations/${inv.id}/revoke`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
-              "Content-Type": "application/json",
-            },
-          });
-          console.log(`Revoked invitation ${inv.id}`);
-        }
+      if (shouldUpdate) {
+        const newOpenMenus = new Set<string>();
+        resolvedItems.forEach(item => {
+          if (item.subItems?.some(subItem => subItem.url === pathname)) {
+            newOpenMenus.add(item.title);
+          }
+        });
+        setOpenMenus(prev => {
+          if (Array.from(prev).sort().join() !== Array.from(newOpenMenus).sort().join()) {
+            return newOpenMenus;
+          }
+          return prev;
+        });
       }
+    });
+  }, [pathname, items, isLoaded]);
 
-      // Create new invitation
-      const response = await fetch("https://api.clerk.com/v1/invitations", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email_address: email,
-          public_metadata: { role }, // Store role in Clerk metadata
-          redirect_url: "mstailors.vercel.app:3000/sign-in",
-        }),
-      });
-      if (!response.ok) throw new Error(`Failed to create invitation: ${await response.text()}`);
-      const invitation = await response.json();
-      console.log("Invitation created:", invitation);
+  const toggleMenu = (title: string) => {
+    setOpenMenus(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(title)) {
+        newSet.delete(title);
+      } else {
+        newSet.add(title);
+      }
+      return newSet;
+    });
+  };
 
-      // Add to Prisma (pending user)
-      await prisma.user.upsert({
-        where: { email },
-        update: { clerkUserId: invitation.id, name, role },
-        create: { clerkUserId: invitation.id, email, name, role },
-      });
-      console.log("User added to database with invitation ID:", invitation.id);
-    } catch (error) {
-      console.error("Error in handleAddUser:", error);
-      throw error;
-    }
-
-    redirect("/admin/users");
+  if (!isLoaded) {
+    return <div>Loading sidebar...</div>;
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl mb-4">User Management</h1>
-      <UserDialog onAdd={handleAddUser} />
-      <table className="w-full border-collapse mt-6">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border p-2">Name</th>
-            <th className="border p-2">Email</th>
-            <th className="border p-2">Role</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td className="border p-2">{u.name}</td>
-              <td className="border p-2">{u.email}</td>
-              <td className="border p-2">{u.role}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Sidebar>
+      <div className="font-bold ml-[273px] flex justify-center items-center mt-[73px]">
+        <CustomTrigger />
+      </div>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {(async () => {
+                const resolvedItems = await items;
+                return resolvedItems.map((item) => {
+                  if (item.subItems) {
+                    const isOpen = openMenus.has(item.title);
+                    return (
+                      <Collapsible
+                        key={item.title}
+                        open={isOpen}
+                        onOpenChange={() => toggleMenu(item.title)}
+                      >
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton>
+                              <item.icon />
+                              <span className="font-bold uppercase">{item.title}</span>
+                              <ChevronDown
+                                className="ml-auto h-4 w-4 transition-transform duration-200"
+                                style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
+                              />
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                        </SidebarMenuItem>
+                        <CollapsibleContent>
+                          <div className="ml-8">
+                            {item.subItems.map((subItem) => (
+                              <SidebarMenuItem key={subItem.title}>
+                                <SidebarMenuButton asChild>
+                                  <a
+                                    href={subItem.url}
+                                    className={pathname === subItem.url ? "font-bold text-primary" : ""}
+                                  >
+                                    <span>{subItem.title}</span>
+                                  </a>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  }
+
+                  if (item.url) {
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild>
+                          <a
+                            href={item.url}
+                            className={`flex items-center gap-2 w-full ${pathname === item.url ? "font-bold text-primary" : ""}`}
+                          >
+                            <item.icon />
+                            <span className="font-bold uppercase">{item.title}</span>
+                          </a>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  }
+
+                  return null;
+                });
+              })()}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
   );
 }

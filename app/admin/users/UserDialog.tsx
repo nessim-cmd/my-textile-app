@@ -30,22 +30,22 @@ export default function UserDialog({ onAdd }: UserDialogProps) {
 
   return (
     <>
-      <button onClick={() => setIsOpen(true)} className="p-2 text-white bg-blue-500">
+      <button onClick={() => setIsOpen(true)} className="p-2 text-white bg-blue-500 rounded-md">
         Add User
       </button>
       {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-xl mb-4">Add User</h2>
+            <h2 className="text-2xl font-semibold flex mb-4 items-center justify-center">Add User</h2>
             {error && <p className="text-red-500 mb-4">{error}</p>}
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
                 <label className="block mb-1">Name</label>
-                <input type="text" name="name" className="border p-2 w-full" required />
+                <input type="text" name="name" className="border p-2 w-full rounded-md" required />
               </div>
               <div className="mb-4">
                 <label className="block mb-1">Email</label>
-                <input type="email" name="email" className="border p-2 w-full" required />
+                <input type="email" name="email" className="border p-2 w-full rounded-md" required />
               </div>
               <div className="mb-4">
                 <label className="block mb-1">Role</label>
@@ -57,13 +57,13 @@ export default function UserDialog({ onAdd }: UserDialogProps) {
                 </select>
               </div>
               <div className="flex gap-2">
-                <button type="submit" className="bg-blue-500 text-white p-2">
+                <button type="submit" className="bg-green-700 w-full text-white p-2 rounded-xl">
                   Add
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="bg-gray-500 text-white p-2"
+                  className="bg-red-600 text-white p-2 rounded-xl"
                 >
                   Cancel
                 </button>

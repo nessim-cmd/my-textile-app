@@ -2,6 +2,8 @@ import { currentUser, User } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import UserDialog from "./UserDialog";
+import { UserRow } from "@/components/UserRow"; // Import the new Client Component
+import Wrapper from "@/components/Wrapper";
 
 export default async function AdminUsersPage() {
   const clerkUser = await currentUser();
@@ -79,7 +81,7 @@ export default async function AdminUsersPage() {
         },
         body: JSON.stringify({
           email_address: email,
-          public_metadata: { role }, // Store role in Clerk metadata
+          public_metadata: { role },
           redirect_url: "https://mstailors.vercel.app/sign-in",
         }),
       });
@@ -102,28 +104,82 @@ export default async function AdminUsersPage() {
     redirect("/admin/users");
   }
 
+  async function handleDeleteUser(userId: string): Promise<{ success: boolean; error?: string } | undefined> {
+    "use server";
+    console.log("Attempting to delete user with ID:", userId);
+
+    try {
+      // Find the user in Prisma
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) throw new Error("User not found");
+
+      // Optionally delete the Clerk user or revoke the invitation if they exist
+      if (user.clerkUserId) {
+        if (user.clerkUserId.startsWith("user_")) {
+          const deleteResponse = await fetch(`https://api.clerk.com/v1/users/${user.clerkUserId}`, {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
+              "Content-Type": "application/json",
+            },
+          });
+          if (!deleteResponse.ok) throw new Error(`Failed to delete Clerk user: ${await deleteResponse.text()}`);
+          console.log("Clerk user deleted:", user.clerkUserId);
+        } else if (user.clerkUserId.startsWith("inv_")) {
+          const revokeResponse = await fetch(`https://api.clerk.com/v1/invitations/${user.clerkUserId}/revoke`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.CLERK_SECRET_KEY}`,
+              "Content-Type": "application/json",
+            },
+          });
+          if (!revokeResponse.ok) {
+            const errorText = await revokeResponse.text();
+            const errorData = JSON.parse(errorText);
+            if (errorData.errors && errorData.errors[0].code === "invitation_already_revoked") {
+              console.log("Invitation already revoked, skipping:", user.clerkUserId);
+            } else {
+              throw new Error(`Failed to revoke invitation: ${errorText}`);
+            }
+          } else {
+            console.log("Invitation revoked:", user.clerkUserId);
+          }
+        }
+      }
+
+      // Delete from Prisma
+      await prisma.user.delete({ where: { id: userId } });
+      console.log("User deleted from Prisma with ID:", userId);
+      return { success: true }; // Return success before redirect
+    } catch (error) {
+      console.error("Error in handleDeleteUser:", error);
+  
+    }
+
+    redirect("/admin/users"); // Moved outside the try-catch to ensure return happens first
+  }
+
   return (
+    <Wrapper>
     <div className="p-6">
-      <h1 className="text-3xl mb-4">User Management</h1>
+      <h1 className="text-3xl mb-4 font-bold text-2xl">User Management</h1>
       <UserDialog onAdd={handleAddUser} />
-      <table className="w-full border-collapse mt-6">
+      <table className="w-full border-collapse mt-6 rounded-lg">
         <thead>
           <tr className="bg-gray-200">
             <th className="border p-2">Name</th>
             <th className="border p-2">Email</th>
             <th className="border p-2">Role</th>
+            <th className="border p-2">Actions</th>
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id}>
-              <td className="border p-2">{u.name}</td>
-              <td className="border p-2">{u.email}</td>
-              <td className="border p-2">{u.role}</td>
-            </tr>
+            <UserRow key={u.id} user={u} onDelete={handleDeleteUser} />
           ))}
         </tbody>
       </table>
     </div>
+    </Wrapper>
   );
 }

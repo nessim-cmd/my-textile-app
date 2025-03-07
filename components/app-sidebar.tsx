@@ -12,9 +12,12 @@ import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGrou
 
 const items = [
   {
-    title: "Dashboard ",
+    title: "Dashboard",
     icon: LayoutDashboard,
-    url: "/dashboard" // Direct URL property instead of subItems
+    subItems: [
+      { title: "Dashboard", url: "/dashboard" },
+      { title: "Users", url: "/admin/users" },
+    ],
   },
   {
     title: "Creation Entree",

@@ -73,24 +73,30 @@ model Event {
   description String
   date        DateTime
 }
-
 model User {
   id           String             @id @default(uuid())
   name         String
   email        String             @unique
+  role         Role               @default(USER) // Changed to USER
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   clerkUserId  String?            @unique
   invoices     Invoice[]          @relation("UserInvoices")
   livraisons   Livraison[]        @relation("UserLivraison")
-  livraisonsEntry   LivraisonEntree[]        @relation("UserLivraisonEntry")
+  livraisonsEntry LivraisonEntree[] @relation("UserLivraisonEntry")
   commandes    Commande[]         @relation("UserCommande")
   declarations DeclarationImport[] @relation("UserDeclarations")
   suiviProductions SuiviProduction[] @relation("UserSuiviProductions")
-  plannings Planning[] @relation("UserPlannings")
-  exporte DeclarationExport[] @relation("UserExport")
+  plannings    Planning[]         @relation("UserPlannings")
+  exporte      DeclarationExport[] @relation("UserExport")
 }
 
+enum Role {
+  ADMIN
+  COUPEUR
+  CHEF
+  USER
+}
 model Invoice {
   id              String        @id
   name            String

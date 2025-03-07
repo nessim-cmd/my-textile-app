@@ -1,21 +1,23 @@
-"use client"
+"use client";
 
-import { Inbox, ChevronDown, Scissors, UserRoundPenIcon, Blocks, SendToBack, DatabaseZapIcon, Calendar, LayoutDashboard } from "lucide-react"
-import { useState, useEffect } from "react"
-import { usePathname } from "next/navigation"
+import { Inbox, ChevronDown, Scissors, UserRoundPenIcon, Blocks, SendToBack, DatabaseZapIcon, Calendar, LayoutDashboard } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar"
-import { CustomTrigger } from "./CustomTrigger"
+} from "@/components/ui/collapsible";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar";
+import { CustomTrigger } from "./CustomTrigger";
 
-const items = [
+// Define all items
+const allItems = [
   {
-    title: "Dashboard ",
+    title: "Dashboard",
     icon: LayoutDashboard,
-    url: "/dashboard" // Direct URL property instead of subItems
+    url: "/dashboard",
   },
   {
     title: "Creation Entree",
@@ -43,70 +45,108 @@ const items = [
     ],
   },
   {
-    title: "Coupe ",
+    title: "Coupe",
     icon: Scissors,
     subItems: [
       { title: "Fiche Etiquage Coupe", url: "/coupe" },
     ],
   },
   {
-    title: "Suivi ",
+    title: "Suivi",
     icon: SendToBack,
     subItems: [
       { title: "Suivi Declarations", url: "/etat-import-export" },
       { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
-      { title: "Planning", url: "/planning" }
+      { title: "Planning", url: "/planning" },
     ],
   },
   {
-    title: "Stock ",
+    title: "Stock",
     icon: DatabaseZapIcon,
     subItems: [
       { title: "Fournisseur", url: "/fournisseur" },
-      { title: "Bon Commande", url: "/commande" }
+      { title: "Bon Commande", url: "/commande" },
     ],
   },
   {
-    title: "Calendar ",
+    title: "Calendar",
     icon: Calendar,
-    url: "/calendar" // Direct URL property instead of subItems
+    url: "/calendar",
   },
-]
+];
+
+// Function to filter items based on role
+const getFilteredItems = (role: string | undefined) => {
+  switch (role) {
+    case "ADMIN":
+      return allItems;
+    case "COUPEUR":
+      return allItems.filter(item => item.title === "Coupe");
+    case "CHEF":
+      return allItems.filter(item => item.title === "Suivi");
+    case "USER":
+      return allItems.filter(item => item.title === "Dashboard" || item.title === "Calendar");
+    default:
+      return [];
+  }
+};
 
 export function AppSidebar() {
-  const pathname = usePathname()
-  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set([""]))
+  const pathname = usePathname();
+  const { user, isLoaded } = useUser();
+  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set([""]));
+
+  // Get role from publicMetadata
+  const role = user?.publicMetadata?.role as string | undefined;
+
+  // Memoize filtered items to prevent recalculation on every render
+  const items = useMemo(() => (isLoaded ? getFilteredItems(role) : []), [isLoaded, role]);
 
   useEffect(() => {
-    const newOpenMenus = new Set(openMenus)
-    
-    items.forEach(item => {
-      if (item.subItems?.some(subItem => subItem.url === pathname)) {
-        newOpenMenus.add(item.title)
-      }
-    })
+    if (!isLoaded) return; // Wait for user data to load
 
-    setOpenMenus(newOpenMenus)
-  }, [pathname])
+    // Only update openMenus if pathname matches a subItem
+    const shouldUpdate = items.some(item =>
+      item.subItems?.some(subItem => subItem.url === pathname)
+    );
+
+    if (shouldUpdate) {
+      const newOpenMenus = new Set<string>();
+      items.forEach(item => {
+        if (item.subItems?.some(subItem => subItem.url === pathname)) {
+          newOpenMenus.add(item.title);
+        }
+      });
+      setOpenMenus(prev => {
+        if (Array.from(prev).sort().join() !== Array.from(newOpenMenus).sort().join()) {
+          return newOpenMenus;
+        }
+        return prev;
+      });
+    }
+  }, [pathname, items, isLoaded]); // Dependencies are stable
 
   const toggleMenu = (title: string) => {
     setOpenMenus(prev => {
-      const newSet = new Set(prev)
+      const newSet = new Set(prev);
       if (newSet.has(title)) {
-        newSet.delete(title)
+        newSet.delete(title);
       } else {
-        newSet.add(title)
+        newSet.add(title);
       }
-      return newSet
-    })
+      return newSet;
+    });
+  };
+
+  if (!isLoaded) {
+    return <div>Loading sidebar...</div>;
   }
 
   return (
-    <><Sidebar>
-      <div className="font-bold ml-[273px] flex justify-center items-center mt-[73px] ">
-      <CustomTrigger/>
+    <Sidebar>
+      <div className="font-bold ml-[273px] flex justify-center items-center mt-[73px]">
+        <CustomTrigger />
       </div>
-      
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
@@ -114,7 +154,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => {
                 if (item.subItems) {
-                  const isOpen = openMenus.has(item.title)
+                  const isOpen = openMenus.has(item.title);
                   return (
                     <Collapsible
                       key={item.title}
@@ -128,7 +168,8 @@ export function AppSidebar() {
                             <span className="font-bold uppercase">{item.title}</span>
                             <ChevronDown
                               className="ml-auto h-4 w-4 transition-transform duration-200"
-                              style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+                              style={{ transform: isOpen ? "rotate(180deg)" : "none" }}
+                            />
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                       </SidebarMenuItem>
@@ -149,10 +190,9 @@ export function AppSidebar() {
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
-                  )
+                  );
                 }
 
-                // Direct link for Calendar
                 if (item.url) {
                   return (
                     <SidebarMenuItem key={item.title}>
@@ -166,15 +206,15 @@ export function AppSidebar() {
                         </a>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-                  )
+                  );
                 }
 
-                return null
+                return null;
               })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar></>
-  )
+    </Sidebar>
+  );
 }

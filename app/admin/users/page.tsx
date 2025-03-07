@@ -80,7 +80,7 @@ export default async function AdminUsersPage() {
         body: JSON.stringify({
           email_address: email,
           public_metadata: { role }, // Store role in Clerk metadata
-          redirect_url: "http://localhost:3000/sign-in",
+          redirect_url: "mstailors.vercel.app:3000/sign-in",
         }),
       });
       if (!response.ok) throw new Error(`Failed to create invitation: ${await response.text()}`);

@@ -31,14 +31,12 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
     const margin = 10;
     let yPosition = margin;
 
-    // Header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.setTextColor(33, 150, 243);
     doc.text(`Liste des Manques - ${clientName}`, margin, yPosition);
     yPosition += 10;
 
-    // Table Headers
     doc.setFontSize(10);
     doc.setTextColor(0);
     doc.setFillColor(230, 230, 230);
@@ -49,7 +47,6 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
     });
     yPosition += 8;
 
-    // Table Rows - Declarations
     doc.setFont("helvetica", "normal");
     data.declarations.forEach(dec => {
       dec.models.forEach(model => {
@@ -80,7 +77,6 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
       });
     });
 
-    // Table Rows - Livraisons
     data.livraisons.forEach(liv => {
       liv.lines.forEach(line => {
         if (line.quantityReçu > line.quantityTrouvee) {
@@ -109,7 +105,6 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
       });
     });
 
-    // Footer
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text(`Generated on ${new Date().toLocaleDateString()}`, margin, 287);
@@ -118,14 +113,14 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
   };
 
   return (
-    <div className="card bg-base-200 p-6 rounded-xl shadow-lg">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">{clientName}</h2>
-        <div className="flex items-center gap-4">
+    <div className="card bg-base-200 p-4 sm:p-6 rounded-xl shadow-lg">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
+        <h2 className="text-lg sm:text-xl font-semibold">{clientName}</h2>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
           <span className="badge badge-error">{totalMissingItems} items manquants</span>
           <button
             onClick={downloadPDF}
-            className="btn btn-sm btn-primary flex items-center gap-1"
+            className="btn btn-sm btn-primary flex items-center gap-1 whitespace-nowrap"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -144,19 +139,20 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
             PDF
           </button>
           <button
-            className="btn btn-sm btn-accent"
+            className="btn btn-sm btn-accent flex items-center gap-1 whitespace-nowrap"
             onClick={() => setShowDetails(!showDetails)}
           >
             {showDetails ? "Masquer" : "Détails"}
-            <SquareArrowOutUpRight className="w-4 ml-2" />
+            <SquareArrowOutUpRight className="w-4 ml-1" />
           </button>
         </div>
       </div>
 
       {showDetails && (
         <div className="overflow-x-auto">
-          <h3 className="text-lg font-bold mb-2">Liste des Manques pour {clientName}</h3>
-          <table className="table table-zebra w-full">
+          <h3 className="text-md sm:text-lg font-bold mb-2">Liste des Manques pour {clientName}</h3>
+          {/* Desktop Table */}
+          <table className="table table-zebra w-full hidden sm:table">
             <thead>
               <tr>
                 <th>Type</th>
@@ -200,7 +196,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                     <tr key={`${liv.id}-${line.id}`}>
                       <td>{line.quantityReçu > line.quantityTrouvee ? "Livraison" : "N/A"}</td>
                       <td>{line.modele || "N/A"}</td>
-                      <td>{line.commande  || "N/A"}</td>
+                      <td>{line.commande || "N/A"}</td>
                       <td>{line.description || "N/A"}</td>
                       <td>{line.quantityReçu !== null && line.quantityReçu !== undefined ? line.quantityReçu : "N/A"}</td>
                       <td>{line.quantityTrouvee !== null && line.quantityTrouvee !== undefined ? line.quantityTrouvee : "N/A"}</td>
@@ -219,6 +215,69 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
               )}
             </tbody>
           </table>
+
+          {/* Mobile Card Layout */}
+          <div className="sm:hidden space-y-4">
+            {data.declarations.flatMap(dec =>
+              dec.models.flatMap(model =>
+                model.accessories.map(acc =>
+                  acc.quantity_manque < 0 ? (
+                    <div key={`${dec.id}-${model.id}-${acc.id}`} className="card bg-base-100 p-4 shadow">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="font-semibold">Type:</span>
+                        <span>{acc.quantity_manque < 0 ? "Déclaration" : "N/A"}</span>
+                        <span className="font-semibold">Modèle:</span>
+                        <span>{model.name || "N/A"}</span>
+                        <span className="font-semibold">Commande:</span>
+                        <span>{dec.num_dec || "N/A"}</span>
+                        <span className="font-semibold">Reference:</span>
+                        <span>{acc.reference_accessoire || "N/A"}</span>
+                        <span className="font-semibold">Qté Reçue:</span>
+                        <span>{acc.quantity_reçu !== null && acc.quantity_reçu !== undefined ? acc.quantity_reçu : "N/A"}</span>
+                        <span className="font-semibold">Qté Trouvée:</span>
+                        <span>{acc.quantity_trouve !== null && acc.quantity_trouve !== undefined ? acc.quantity_trouve : "N/A"}</span>
+                        <span className="font-semibold">Qté Manquante:</span>
+                        <span className="text-red-500">
+                          {acc.quantity_manque !== null && acc.quantity_manque !== undefined ? Math.abs(acc.quantity_manque) : "N/A"}
+                        </span>
+                        <span className="font-semibold">Lien:</span>
+                        <Link href={`/import/${dec.id}`} className="btn btn-xs btn-accent">Voir</Link>
+                      </div>
+                    </div>
+                  ) : null
+                )
+              )
+            )}
+            {data.livraisons.flatMap(liv =>
+              liv.lines.map(line =>
+                line.quantityReçu > line.quantityTrouvee ? (
+                  <div key={`${liv.id}-${line.id}`} className="card bg-base-100 p-4 shadow">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <span className="font-semibold">Type:</span>
+                      <span>{line.quantityReçu > line.quantityTrouvee ? "Livraison" : "N/A"}</span>
+                      <span className="font-semibold">Modèle:</span>
+                      <span>{line.modele || "N/A"}</span>
+                      <span className="font-semibold">Commande:</span>
+                      <span>{line.commande || "N/A"}</span>
+                      <span className="font-semibold">Reference:</span>
+                      <span>{line.description || "N/A"}</span>
+                      <span className="font-semibold">Qté Reçue:</span>
+                      <span>{line.quantityReçu !== null && line.quantityReçu !== undefined ? line.quantityReçu : "N/A"}</span>
+                      <span className="font-semibold">Qté Trouvée:</span>
+                      <span>{line.quantityTrouvee !== null && line.quantityTrouvee !== undefined ? line.quantityTrouvee : "N/A"}</span>
+                      <span className="font-semibold">Qté Manquante:</span>
+                      <span className="text-red-500">
+                        {(line.quantityReçu !== null && line.quantityReçu !== undefined && line.quantityTrouvee !== null && line.quantityTrouvee !== undefined) 
+                          ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
+                      </span>
+                      <span className="font-semibold">Lien:</span>
+                      <Link href={`/livraisonEntree/${liv.id}`} className="btn btn-xs btn-accent">Voir</Link>
+                    </div>
+                  </div>
+                ) : null
+              )
+            )}
+          </div>
         </div>
       )}
     </div>

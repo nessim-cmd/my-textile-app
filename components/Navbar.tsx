@@ -47,7 +47,7 @@ const Navbar = () => {
                 id: `${client.id}-${client.dateFinSoumission}`,
                 clientName: client.name || 'Unknown',
                 daysRemaining: days,
-                link: 'http://localhost:3000/client', // Add link for submission notifications
+                link: 'tailors.vercel.app/client', // Add link for submission notifications
               };
             }
             return null;
@@ -64,7 +64,7 @@ const Navbar = () => {
         const manqueNotification = hasManques ? [{
           id: 'manque-notification',
           message: 'There is a manque of accessoires',
-          link: 'http://localhost:3000/liste-manque',
+          link: 'tailors.vercel.app/liste-manque',
         }] : [];
 
         // Combine notifications

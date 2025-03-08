@@ -65,7 +65,8 @@ const items = [
     icon: DatabaseZapIcon,
     subItems: [
       { title: "Fournisseur", url: "/fournisseur" },
-      { title: "Bon Commande", url: "/commande" }
+      { title: "Bon Commande", url: "/commande" },
+      { title: "Listes des Manques", url: "/liste-manque" }
     ],
   },
   {

@@ -12,18 +12,24 @@ import {
   Variant as PrismaVariante,
   LivraisonEntree as PrismaLivraisonEntry,
   LivraisonEntreeLine,
+  Client as PrismaClient, // Keep the import
 } from "@prisma/client";
 
+// Remove the Client interface
+// export interface Client extends PrismaClient {}
+
+export interface LivraisonEntree extends PrismaLivraisonEntry {
+  lines: LivraisonEntreeLine[];
+  client?: PrismaClient | null; // Use PrismaClient directly
+}
+
+// Rest of your type definitions remain unchanged
 export interface Invoice extends PrismaInvoice {
   lines: InvoiceLine[];
 }
 
 export interface Livraison extends PrismaLivraison {
   lines: LivraisonLine[];
-}
-
-export interface LivraisonEntree extends PrismaLivraisonEntry {
-  lines: LivraisonEntreeLine[];
 }
 
 export interface Commande extends PrismaCommande {
@@ -119,7 +125,7 @@ export interface ExportLine {
   description: string;
   quantity: number;
   unitPrice: number;
-  isExcluded: boolean; // Added isExcluded field
+  isExcluded: boolean;
   exportId: string;
 }
 

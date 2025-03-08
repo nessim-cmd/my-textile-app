@@ -162,7 +162,7 @@ export default async function AdminUsersPage() {
   return (
     <Wrapper>
     <div className="p-6">
-      <h1 className="text-3xl mb-4 font-bold text-2xl">User Management</h1>
+      <h1 className="text-3xl mb-4 font-bold ">User Management</h1>
       <UserDialog onAdd={handleAddUser} />
       <table className="w-full border-collapse mt-6 rounded-lg">
         <thead>

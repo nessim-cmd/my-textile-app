@@ -1,63 +1,86 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// components/Navbar.tsx
-"use client"
+"use client";
 
-import { UserButton } from '@clerk/nextjs'
-import { Bell, Layers } from 'lucide-react'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { useAuth } from "@clerk/nextjs";
+import { UserButton } from '@clerk/nextjs';
+import { Bell, Layers } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useAuth, useUser } from "@clerk/nextjs";
 import { getNotificationDays } from '@/utils/dateUtils';
 
 interface Notification {
   id: string;
-  clientName: string;
-  daysRemaining: number;
+  clientName?: string; // Optional for submission notifications
+  daysRemaining?: number; // Optional for submission notifications
+  message?: string; // For manque notifications
+  link?: string; // For navigation
 }
 
 const Navbar = () => {
   const { getToken } = useAuth();
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [hideBadge, setHideBadge] = useState(false);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null); // Corrected type
+  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [lastResetDate, setLastResetDate] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchNotifications = async () => {
+      if (!email) return;
+
       try {
         const token = await getToken();
-        const response = await fetch('/api/client', {
-          headers: { Authorization: `Bearer ${token}` }
+
+        // Fetch submission notifications
+        const clientResponse = await fetch('/api/client', {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        if (!response.ok) throw new Error('Failed to fetch clients');
-        const clients = await response.json();
-        const newNotifications = clients
+        if (!clientResponse.ok) throw new Error('Failed to fetch clients');
+        const clients = await clientResponse.json();
+        const submissionNotifications = clients
           .map((client: any) => {
             const days = getNotificationDays(client.dateFinSoumission);
             if (days !== null) {
               return {
                 id: `${client.id}-${client.dateFinSoumission}`,
                 clientName: client.name || 'Unknown',
-                daysRemaining: days
+                daysRemaining: days,
+                link: 'http://localhost:3000/client', // Add link for submission notifications
               };
             }
             return null;
           })
           .filter((notification: Notification | null) => notification !== null) as Notification[];
-        console.log('Fetched notifications:', newNotifications);
-        setNotifications(newNotifications);
+
+        // Fetch manque notifications
+        const manqueResponse = await fetch(`/api/liste-manque?email=${encodeURIComponent(email)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!manqueResponse.ok) throw new Error('Failed to fetch liste-manque');
+        const manqueData = await manqueResponse.json();
+        const hasManques = (manqueData.declarations?.length > 0 || manqueData.livraisons?.length > 0);
+        const manqueNotification = hasManques ? [{
+          id: 'manque-notification',
+          message: 'There is a manque of accessoires',
+          link: 'http://localhost:3000/liste-manque',
+        }] : [];
+
+        // Combine notifications
+        const combinedNotifications = [...submissionNotifications, ...manqueNotification];
+        console.log('Combined notifications:', combinedNotifications);
+        setNotifications(combinedNotifications);
       } catch (error) {
         console.error('Error fetching notifications:', error);
       }
     };
 
-    // Check if it's a new day and reset if needed
     const checkAndResetNotifications = () => {
       const today = new Date().toDateString();
       if (lastResetDate !== today) {
         console.log('Resetting notifications for new day:', today);
-        setNotifications([]); // Clear notifications
+        setNotifications([]);
         setLastResetDate(today);
       }
     };
@@ -65,32 +88,32 @@ const Navbar = () => {
     fetchNotifications();
     checkAndResetNotifications();
 
-    const fetchInterval = setInterval(fetchNotifications, 60000); // Refresh every minute
-    const resetInterval = setInterval(checkAndResetNotifications, 60000); // Check every minute for new day
+    const fetchInterval = setInterval(fetchNotifications, 120000); // Refresh every minute
+    const resetInterval = setInterval(checkAndResetNotifications, 120000); // Check every 2minutes
 
     return () => {
       clearInterval(fetchInterval);
       clearInterval(resetInterval);
     };
-  }, [getToken]);
+  }, [getToken, email]);
 
   const handleBellClick = () => {
     setIsDropdownOpen(prev => !prev);
-    if (!isDropdownOpen) { // Only hide badge when opening dropdown
+    if (!isDropdownOpen) {
       setHideBadge(true);
-      if (timeoutId) clearTimeout(timeoutId); // Clear existing timeout
+      if (timeoutId) clearTimeout(timeoutId);
       const newTimeout = setTimeout(() => {
         setHideBadge(false);
         console.log('Badge reappears after 2 minutes');
         setTimeoutId(null);
-      }, 12000000); // 2 minutes
+      }, 120000); // 2 minutes
       setTimeoutId(newTimeout);
     }
   };
 
   return (
     <div className='border-b border-base-300 px-5 md:px-[10%] py-4'>
-      <div className='flex justify-between items-center '>
+      <div className='flex justify-between items-center'>
         <div className='flex items-center'>
           <div className='bg-accent-content text-accent rounded-full p-2'>
             <Layers className='h-6 w-6'/>
@@ -99,8 +122,8 @@ const Navbar = () => {
             <Link href="/">MS <span className='text-accent'>Tailors</span></Link>  
           </span>
         </div>
-        <div className='flex gap-4 items-center '>
-          <div className="relative ">
+        <div className='flex gap-4 items-center'>
+          <div className="relative">
             <button 
               className="relative focus:outline-none"
               onClick={handleBellClick}
@@ -122,18 +145,20 @@ const Navbar = () => {
                         key={notification.id} 
                         className="p-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0 text-sm text-gray-700"
                       >
-                        {notification.daysRemaining === 0 
-                         ? (
-                          <>
-                            Soumission of <span className="font-bold">{notification.clientName}</span> termine aujourd&apos;hui
-                          </>
-                        ) 
-                        : (
-                          <>
-                            Soumission of <span className="font-bold">{notification.clientName}</span> sera terminé en {notification.daysRemaining} jours
-                          </>
+                        {notification.message ? (
+                          <Link href={notification.link || '#'} className="block">
+                            {notification.message}
+                          </Link>
+                        ) : (
+                          <Link href={notification.link || '#'} className="block">
+                            {notification.daysRemaining === 0 ? (
+                              <>Soumission of <span className="font-bold">{notification.clientName}</span> {"termine aujourd'hui"}</>
+                            ) : (
+                              <>Soumission of <span className="font-bold">{notification.clientName}</span> sera terminé en {notification.daysRemaining} jours</>
+                            )}
+                          </Link>
                         )}
-                  </div>
+                      </div>
                     ))
                   ) : (
                     <div className="p-2 text-gray-500 text-sm">No notifications</div>
@@ -147,6 +172,6 @@ const Navbar = () => {
       </div>
     </div>
   );
-}
+};
 
-export default Navbar
+export default Navbar;

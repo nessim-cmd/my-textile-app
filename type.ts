@@ -70,6 +70,7 @@ export interface Model {
 }
 
 export interface Accessoire {
+  name: string;
   id: string;
   reference_accessoire: string;
   quantity_reçu: number;

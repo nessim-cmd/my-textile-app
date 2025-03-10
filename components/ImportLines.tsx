@@ -37,6 +37,7 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
           quantity_trouve: 0,
           quantity_manque: 0,
           modelId: modelId,
+          name: ""
         };
         return {
           ...model,

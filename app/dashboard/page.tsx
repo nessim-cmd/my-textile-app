@@ -207,7 +207,7 @@ export default function DashboardPage() {
                   {selectedClients.length ? `${selectedClients.length} Clients Selected` : 'Select Clients'}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
+              <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto bg-white">
                 <DropdownMenuLabel>Clients</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {clients.map(client => (

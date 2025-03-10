@@ -23,7 +23,7 @@ export default function UserDialog({ onAdd }: UserDialogProps) {
         setError(null);
         return;
       }
-      setError("Failed to process request. Please try again.");
+      setError("Failed to add user. Please try again.");
       console.error("Dialog error:", err);
     }
   };

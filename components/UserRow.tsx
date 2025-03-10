@@ -4,7 +4,7 @@ import { useState } from "react";
 
 interface UserRowProps {
   user: { id: string; name: string; email: string; role: string };
-  onDelete: (userId: string) => Promise<{ success: boolean; error?: string } | undefined>;
+  onDelete: (userId: string) => Promise<void>;
 }
 
 export function UserRow({ user, onDelete }: UserRowProps) {
@@ -16,12 +16,13 @@ export function UserRow({ user, onDelete }: UserRowProps) {
       setIsDeleting(true);
       setError(null);
       try {
-        const result = await onDelete(user.id);
-        if (!result?.success) {
-          throw new Error(result?.error || "Failed to delete user");
-        }
-        // Success case - no action needed, redirect handled by server
+        await onDelete(user.id);
+        // No need to handle success here; server redirects
       } catch (err) {
+        if (err instanceof Error && err.message.includes("NEXT_REDIRECT")) {
+          // Redirect happened, no action needed
+          return;
+        }
         console.error("Error deleting user:", err);
         setError("Failed to delete user. Please try again.");
       } finally {

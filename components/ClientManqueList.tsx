@@ -17,12 +17,13 @@ interface ClientManqueListProps {
 const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data }) => {
   const [showDetails, setShowDetails] = useState(false);
 
-  const totalMissingItems = data.declarations.reduce((sum, dec) => 
-    sum + dec.models.reduce((modelSum, model) => 
-      modelSum + model.accessories.reduce((accSum, acc) => 
-        accSum + (acc.quantity_manque < 0 ? Math.abs(acc.quantity_manque) : 0), 0), 0), 0) +
-    data.livraisons.reduce((sum, liv) => 
-      sum + liv.lines.reduce((lineSum, line) => 
+  const totalMissingItems =
+    data.declarations.reduce((sum, dec) =>
+      sum + dec.models.reduce((modelSum, model) =>
+        modelSum + model.accessories.reduce((accSum, acc) =>
+          accSum + (acc.quantity_manque < 0 ? Math.abs(acc.quantity_manque) : 0), 0), 0), 0) +
+    data.livraisons.reduce((sum, liv) =>
+      sum + liv.lines.reduce((lineSum, line) =>
         lineSum + (line.quantityReçu > line.quantityTrouvee ? line.quantityReçu - line.quantityTrouvee : 0), 0), 0);
 
   const downloadPDF = () => {
@@ -41,37 +42,40 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
     doc.setTextColor(0);
     doc.setFillColor(230, 230, 230);
     doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
-    const headers = ["Modèle", "Commande", "Reference", "Qté Reçue", "Qté Trouvée", "Qté Manquante"];
+    const headers = ["Type", "Modèle", "Commande", "Référence", "Qté Reçue", "Qté Trouvée", "Qté Manquante"];
     headers.forEach((header, index) => {
-      doc.text(header, margin + 5 + index * 30, yPosition + 6);
+      doc.text(header, margin + 5 + index * 27, yPosition + 6);
     });
     yPosition += 8;
 
     doc.setFont("helvetica", "normal");
+    const addRow = (row: string[], isMissing: boolean) => {
+      doc.setFillColor(255, 255, 255);
+      doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
+      row.forEach((cell, index) => {
+        doc.setTextColor(index === 6 && isMissing ? 255 : 0, 0, 0); // Fixed syntax
+        doc.text(cell.slice(0, 15), margin + 5 + index * 27, yPosition + 6);
+      });
+      yPosition += 8;
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = margin;
+      }
+    };
+
     data.declarations.forEach(dec => {
       dec.models.forEach(model => {
         model.accessories.forEach(acc => {
           if (acc.quantity_manque < 0) {
-            const row = [
+            addRow([
+              "Déclaration",
               model.name || "N/A",
               dec.num_dec || "N/A",
               acc.reference_accessoire || "N/A",
-              acc.quantity_reçu !== null && acc.quantity_reçu !== undefined ? acc.quantity_reçu.toString() : "N/A",
-              acc.quantity_trouve !== null && acc.quantity_trouve !== undefined ? acc.quantity_trouve.toString() : "N/A",
-              acc.quantity_manque !== null && acc.quantity_manque !== undefined ? Math.abs(acc.quantity_manque).toString() : "N/A",
-            ];
-            doc.setFillColor(255, 255, 255);
-            doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
-            row.forEach((cell, index) => {
-              if (index === 5) doc.setTextColor(255, 0, 0);
-              else doc.setTextColor(0);
-              doc.text(cell.slice(0, 15), margin + 5 + index * 30, yPosition + 6);
-            });
-            yPosition += 8;
-            if (yPosition > 270) {
-              doc.addPage();
-              yPosition = margin;
-            }
+              acc.quantity_reçu?.toString() ?? "N/A",
+              acc.quantity_trouve?.toString() ?? "N/A",
+              acc.quantity_manque ? Math.abs(acc.quantity_manque).toString() : "N/A",
+            ], true);
           }
         });
       });
@@ -80,27 +84,15 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
     data.livraisons.forEach(liv => {
       liv.lines.forEach(line => {
         if (line.quantityReçu > line.quantityTrouvee) {
-          const row = [
+          addRow([
+            "Livraison",
             line.modele || "N/A",
             line.commande || "N/A",
             line.description || "N/A",
-            line.quantityReçu !== null && line.quantityReçu !== undefined ? line.quantityReçu.toString() : "N/A",
-            line.quantityTrouvee !== null && line.quantityTrouvee !== undefined ? line.quantityTrouvee.toString() : "N/A",
-            (line.quantityReçu !== null && line.quantityReçu !== undefined && line.quantityTrouvee !== null && line.quantityTrouvee !== undefined) 
-              ? (line.quantityReçu - line.quantityTrouvee).toString() : "N/A",
-          ];
-          doc.setFillColor(255, 255, 255);
-          doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
-          row.forEach((cell, index) => {
-            if (index === 5) doc.setTextColor(255, 0, 0);
-            else doc.setTextColor(0);
-            doc.text(cell.slice(0, 15), margin + 5 + index * 30, yPosition + 6);
-          });
-          yPosition += 8;
-          if (yPosition > 270) {
-            doc.addPage();
-            yPosition = margin;
-          }
+            line.quantityReçu?.toString() ?? "N/A",
+            line.quantityTrouvee?.toString() ?? "N/A",
+            (line.quantityReçu && line.quantityTrouvee) ? (line.quantityReçu - line.quantityTrouvee).toString() : "N/A",
+          ], true);
         }
       });
     });
@@ -158,7 +150,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                 <th>Type</th>
                 <th>Modèle</th>
                 <th>Commande</th>
-                <th>Reference</th>
+                <th>Référence</th>
                 <th>Qté Reçue</th>
                 <th>Qté Trouvée</th>
                 <th>Qté Manquante</th>
@@ -171,15 +163,13 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                   model.accessories.map(acc =>
                     acc.quantity_manque < 0 ? (
                       <tr key={`${dec.id}-${model.id}-${acc.id}`}>
-                        <td>{acc.quantity_manque < 0 ? "Déclaration" : "N/A"}</td>
+                        <td>Déclaration</td>
                         <td>{model.name || "N/A"}</td>
                         <td>{dec.num_dec || "N/A"}</td>
                         <td>{acc.reference_accessoire || "N/A"}</td>
-                        <td>{acc.quantity_reçu !== null && acc.quantity_reçu !== undefined ? acc.quantity_reçu : "N/A"}</td>
-                        <td>{acc.quantity_trouve !== null && acc.quantity_trouve !== undefined ? acc.quantity_trouve : "N/A"}</td>
-                        <td className="text-red-500">
-                          {acc.quantity_manque !== null && acc.quantity_manque !== undefined ? Math.abs(acc.quantity_manque) : "N/A"}
-                        </td>
+                        <td>{acc.quantity_reçu ?? "N/A"}</td>
+                        <td>{acc.quantity_trouve ?? "N/A"}</td>
+                        <td className="text-red-500">{acc.quantity_manque ? Math.abs(acc.quantity_manque) : "N/A"}</td>
                         <td>
                           <Link href={`/import/${dec.id}`} className="btn btn-xs btn-accent">
                             Voir
@@ -194,15 +184,14 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                 liv.lines.map(line =>
                   line.quantityReçu > line.quantityTrouvee ? (
                     <tr key={`${liv.id}-${line.id}`}>
-                      <td>{line.quantityReçu > line.quantityTrouvee ? "Livraison" : "N/A"}</td>
+                      <td>Livraison</td>
                       <td>{line.modele || "N/A"}</td>
                       <td>{line.commande || "N/A"}</td>
                       <td>{line.description || "N/A"}</td>
-                      <td>{line.quantityReçu !== null && line.quantityReçu !== undefined ? line.quantityReçu : "N/A"}</td>
-                      <td>{line.quantityTrouvee !== null && line.quantityTrouvee !== undefined ? line.quantityTrouvee : "N/A"}</td>
+                      <td>{line.quantityReçu ?? "N/A"}</td>
+                      <td>{line.quantityTrouvee ?? "N/A"}</td>
                       <td className="text-red-500">
-                        {(line.quantityReçu !== null && line.quantityReçu !== undefined && line.quantityTrouvee !== null && line.quantityTrouvee !== undefined) 
-                          ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
+                        {(line.quantityReçu !== null && line.quantityTrouvee !== null) ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
                       </td>
                       <td>
                         <Link href={`/livraisonEntree/${liv.id}`} className="btn btn-xs btn-accent">
@@ -225,21 +214,19 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                     <div key={`${dec.id}-${model.id}-${acc.id}`} className="card bg-base-100 p-4 shadow">
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <span className="font-semibold">Type:</span>
-                        <span>{acc.quantity_manque < 0 ? "Déclaration" : "N/A"}</span>
+                        <span>Déclaration</span>
                         <span className="font-semibold">Modèle:</span>
                         <span>{model.name || "N/A"}</span>
                         <span className="font-semibold">Commande:</span>
                         <span>{dec.num_dec || "N/A"}</span>
-                        <span className="font-semibold">Reference:</span>
+                        <span className="font-semibold">Référence:</span>
                         <span>{acc.reference_accessoire || "N/A"}</span>
                         <span className="font-semibold">Qté Reçue:</span>
-                        <span>{acc.quantity_reçu !== null && acc.quantity_reçu !== undefined ? acc.quantity_reçu : "N/A"}</span>
+                        <span>{acc.quantity_reçu ?? "N/A"}</span>
                         <span className="font-semibold">Qté Trouvée:</span>
-                        <span>{acc.quantity_trouve !== null && acc.quantity_trouve !== undefined ? acc.quantity_trouve : "N/A"}</span>
+                        <span>{acc.quantity_trouve ?? "N/A"}</span>
                         <span className="font-semibold">Qté Manquante:</span>
-                        <span className="text-red-500">
-                          {acc.quantity_manque !== null && acc.quantity_manque !== undefined ? Math.abs(acc.quantity_manque) : "N/A"}
-                        </span>
+                        <span className="text-red-500">{acc.quantity_manque ? Math.abs(acc.quantity_manque) : "N/A"}</span>
                         <span className="font-semibold">Lien:</span>
                         <Link href={`/import/${dec.id}`} className="btn btn-xs btn-accent">Voir</Link>
                       </div>
@@ -254,21 +241,20 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                   <div key={`${liv.id}-${line.id}`} className="card bg-base-100 p-4 shadow">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <span className="font-semibold">Type:</span>
-                      <span>{line.quantityReçu > line.quantityTrouvee ? "Livraison" : "N/A"}</span>
+                      <span>Livraison</span>
                       <span className="font-semibold">Modèle:</span>
                       <span>{line.modele || "N/A"}</span>
                       <span className="font-semibold">Commande:</span>
                       <span>{line.commande || "N/A"}</span>
-                      <span className="font-semibold">Reference:</span>
+                      <span className="font-semibold">Référence:</span>
                       <span>{line.description || "N/A"}</span>
                       <span className="font-semibold">Qté Reçue:</span>
-                      <span>{line.quantityReçu !== null && line.quantityReçu !== undefined ? line.quantityReçu : "N/A"}</span>
+                      <span>{line.quantityReçu ?? "N/A"}</span>
                       <span className="font-semibold">Qté Trouvée:</span>
-                      <span>{line.quantityTrouvee !== null && line.quantityTrouvee !== undefined ? line.quantityTrouvee : "N/A"}</span>
+                      <span>{line.quantityTrouvee ?? "N/A"}</span>
                       <span className="font-semibold">Qté Manquante:</span>
                       <span className="text-red-500">
-                        {(line.quantityReçu !== null && line.quantityReçu !== undefined && line.quantityTrouvee !== null && line.quantityTrouvee !== undefined) 
-                          ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
+                        {(line.quantityReçu !== null && line.quantityTrouvee !== null) ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
                       </span>
                       <span className="font-semibold">Lien:</span>
                       <Link href={`/livraisonEntree/${liv.id}`} className="btn btn-xs btn-accent">Voir</Link>

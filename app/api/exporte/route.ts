@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
-export async function GET(request: NextRequest) {
+export async function GET() { // Removed unused 'request' parameter
   console.log("GET /api/exporte - Request received");
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-    
-    console.log("GET /api/exporte - Email:", email);
-    if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
-
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const declarations = await prisma.declarationExport.findMany({
       include: { 
-        exporte: { 
-          include: { lines: true },
-          orderBy: { createdAt: "desc" },
-        },
+        lines: true 
       },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    const transformedDeclarations = user.exporte.map(declaration => ({
+    const transformedDeclarations = declarations.map(declaration => ({
       ...declaration,
       createdAt: declaration.createdAt.toISOString(),
       updatedAt: declaration.updatedAt.toISOString(),
@@ -49,20 +38,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log("POST /api/exporte - Request body:", body);
 
-    const { email, num_dec, exportDate, clientName } = body;
+    const { num_dec, exportDate, clientName } = body;
     
-    if (!email || !num_dec || !exportDate || !clientName) {
-      console.log("POST /api/exporte - Missing required fields:", { email, num_dec, exportDate, clientName });
+    if (!num_dec || !exportDate || !clientName) {
+      console.log("POST /api/exporte - Missing required fields:", { num_dec, exportDate, clientName });
       return NextResponse.json(
-        { error: "Email, num_dec, exportDate, and clientName are required" },
+        { error: "num_dec, exportDate, and clientName are required" },
         { status: 400 }
       );
-    }
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      console.log("POST /api/exporte - User not found for email:", email);
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const newDeclaration = await prisma.declarationExport.create({
@@ -71,7 +54,6 @@ export async function POST(request: NextRequest) {
         exportDate,
         clientName,
         valeur: 0, // Default to 0, will be updated based on TotalTTC
-        userId: user.id,
         vatActive: false,
         vatRate: 20,
         status: 1,
@@ -84,14 +66,10 @@ export async function POST(request: NextRequest) {
         dueDate: "",
         createdAt: new Date(),
         updatedAt: new Date(),
+        // userId is omitted since it's optional now
       },
       include: { lines: true },
     });
-
-    if (!newDeclaration) {
-      console.log("POST /api/exporte - Failed to create declaration");
-      return NextResponse.json({ error: "Failed to create declaration" }, { status: 500 });
-    }
 
     const transformedDeclaration = {
       ...newDeclaration,

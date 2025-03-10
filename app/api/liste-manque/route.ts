@@ -1,20 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-
-    if (!email) {
-      console.log("No email provided");
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
-    }
-
-    console.log("Fetching declarations for email:", email);
+    console.log("Fetching all declarations with missing quantities");
     const declarations = await prisma.declarationImport.findMany({
       where: {
-        user: { email },
         models: {
           some: {
             accessories: {
@@ -38,28 +29,24 @@ export async function GET(request: NextRequest) {
 
     console.log("Declarations fetched:", declarations.length);
 
-    console.log("Fetching livraisons for email:", email);
+    console.log("Fetching all livraisons");
     const livraisons = await prisma.livraisonEntree.findMany({
-      where: {
-        createdById: { email },
-        lines: {
-          some: {
-            quantityReçu: { gt: prisma.livraisonEntreeLine.fields.quantityTrouvee }, // Changed to gt
-          },
-        },
-      },
       include: {
-        lines: {
-          where: {
-            quantityReçu: { gt: prisma.livraisonEntreeLine.fields.quantityTrouvee }, // Changed to gt
-          },
-        },
+        lines: true,
         client: true,
       },
     });
 
-    console.log("Livraisons fetched:", livraisons.length);
-    livraisons.forEach(liv => {
+    // Filter livraisons where any line has quantityReçu > quantityTrouvee
+    const filteredLivraisons = livraisons
+      .map(liv => ({
+        ...liv,
+        lines: liv.lines.filter(line => line.quantityReçu > line.quantityTrouvee),
+      }))
+      .filter(liv => liv.lines.length > 0);
+
+    console.log("Livraisons fetched and filtered:", filteredLivraisons.length);
+    filteredLivraisons.forEach(liv => {
       if (!liv.client && !liv.clientName) {
         console.warn(`Livraison ${liv.id} has no client or clientName`);
       }
@@ -88,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       declarations: transformedDeclarations,
-      livraisons,
+      livraisons: filteredLivraisons,
     }, { status: 200 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";

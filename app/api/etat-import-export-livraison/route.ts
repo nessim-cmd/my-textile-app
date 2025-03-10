@@ -1,7 +1,6 @@
 import prisma from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 
-// Define interfaces for the response
 interface EtatLivraisonData {
   imports: ImportEntry[];
   exports: ExportEntry[];
@@ -28,7 +27,7 @@ interface ExportEntry {
   commande: string;
   description: string;
   quantityDelivered: number;
-  isExcluded: boolean; // Added field for checkbox state
+  isExcluded: boolean;
 }
 
 interface ModelEntry {
@@ -38,52 +37,30 @@ interface ModelEntry {
   commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
 }
 
-// Type for the expected structure of commandesWithVariants in the database
 type CommandesWithVariantsDB = { value: string; variants: { name: string; qte_variante: number }[] }[] | null;
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-
-    if (!email) {
-      console.log("No email provided in query parameters");
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
-    }
-
-    console.log(`Fetching user with email: ${email}`);
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      console.log(`User not found for email: ${email}`);
-      return NextResponse.json({ imports: [], exports: [], models: [] }, { status: 200 });
-    }
-
-    // Fetch LivraisonEntree (Imports)
+    console.log("Fetching all LivraisonEntree (imports)");
     const livraisonsEntree = await prisma.livraisonEntree.findMany({
-      where: { userId: user.id },
       include: { lines: true, client: true },
       orderBy: { createdAt: "desc" },
     });
 
-    // Fetch Livraison (Exports)
+    console.log("Fetching all Livraison (exports)");
     const livraisons = await prisma.livraison.findMany({
-      where: { userId: user.id },
       include: { lines: true },
       orderBy: { createdAt: "desc" },
     });
 
-    // Fetch ClientModel entries
+    console.log("Fetching all clients with associated LivraisonEntree");
     const clients = await prisma.client.findMany({
       where: {
-        livraisonEntrees: {
-          some: {
-            userId: user.id,
-          },
-        },
+        livraisonEntrees: { some: {} }, // Fetch clients with any LivraisonEntree
       },
     });
 
-    console.log("Clients associated with user:", clients);
+    console.log("Clients fetched:", clients.length);
 
     const clientModels = await prisma.clientModel.findMany({
       where: {
@@ -94,9 +71,8 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    console.log("ClientModels fetched:", clientModels);
+    console.log("ClientModels fetched:", clientModels.length);
 
-    // Build imports array from LivraisonEntree
     const imports: ImportEntry[] = livraisonsEntree.flatMap((le) =>
       le.lines.map((line) => ({
         id: `${le.id}-${line.id}-entree`,
@@ -110,7 +86,6 @@ export async function GET(request: NextRequest) {
       }))
     );
 
-    // Build exports array from Livraison
     const exports: ExportEntry[] = livraisons.flatMap((liv) =>
       liv.lines.map((line) => ({
         id: `${liv.id}-${line.id}-sortie`,
@@ -125,11 +100,8 @@ export async function GET(request: NextRequest) {
       }))
     );
 
-    // Build models array from ClientModel
     const models: ModelEntry[] = clientModels.map((model) => {
-      // Safely handle commandesWithVariants JSON field
       let commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[] = [];
-      
       if (model.commandesWithVariants) {
         try {
           const parsed = model.commandesWithVariants as CommandesWithVariantsDB;
@@ -155,11 +127,11 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    console.log("LivraisonsEntree:", livraisonsEntree);
-    console.log("Livraisons:", livraisons);
-    console.log("Imports:", imports);
-    console.log("Exports:", exports);
-    console.log("Models:", models);
+    console.log("LivraisonsEntree processed:", livraisonsEntree.length);
+    console.log("Livraisons processed:", livraisons.length);
+    console.log("Imports processed:", imports.length);
+    console.log("Exports processed:", exports.length);
+    console.log("Models processed:", models.length);
 
     const responseData: EtatLivraisonData = { imports, exports, models };
     return NextResponse.json(responseData, { status: 200 });

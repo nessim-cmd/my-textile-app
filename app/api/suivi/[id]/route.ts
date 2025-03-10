@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from "@/lib/db";
 
-// Define interfaces for type safety
 interface SuiviProductionLine {
   id: string;
   commande: string;
@@ -20,7 +19,7 @@ interface SuiviProductionData {
 }
 
 export async function GET(
-  request: NextRequest,
+  _: NextRequest, // Use underscore to indicate unused parameter (avoids ESLint error)
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -47,7 +46,6 @@ export async function PUT(
     const { id } = await params;
     const suiviData: SuiviProductionData = await request.json();
     
-    // Update main suivi
     await prisma.suiviProduction.update({
       where: { id },
       data: {
@@ -57,12 +55,10 @@ export async function PUT(
       },
     });
 
-    // Handle lines
     const existingLines = await prisma.suiviProductionLine.findMany({
       where: { suiviId: id },
     });
 
-    // Delete removed lines
     const linesToDelete = existingLines.filter(el => 
       !suiviData.lines.some((sl: SuiviProductionLine) => sl.id === el.id)
     );
@@ -73,7 +69,6 @@ export async function PUT(
       });
     }
 
-    // Update or create lines
     for (const line of suiviData.lines) {
       if (existingLines.some(el => el.id === line.id)) {
         await prisma.suiviProductionLine.update({
@@ -105,7 +100,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _: NextRequest, // Use underscore for unused parameter
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

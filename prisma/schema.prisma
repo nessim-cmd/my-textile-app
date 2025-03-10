@@ -120,8 +120,8 @@ model Invoice {
   gmailclient     String
   phoneclient     String
   lines           InvoiceLine[] @relation("InvoiceLines")
-  userId          String
-  createdById     User          @relation("UserInvoices", fields: [userId], references: [id])
+  userId          String?
+  createdById     User?          @relation("UserInvoices", fields: [userId], references: [id])
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 }
@@ -148,8 +148,8 @@ model Livraison {
   soumission       String          @default("")
   soumissionValable String         @default("")
   lines            LivraisonLine[] @relation("LivraisonLines")
-  userId           String
-  createdById      User            @relation("UserLivraison", fields: [userId], references: [id])
+  userId           String?
+  createdById      User?            @relation("UserLivraison", fields: [userId], references: [id])
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 }
@@ -205,8 +205,8 @@ model Commande {
   clientAddress String         @default("")
   commandeDate  String         @default("")
   lines         CommandeLine[] @relation("CommandeLines")
-  userId        String
-  createdById   User           @relation("UserCommande", fields: [userId], references: [id])
+  userId        String?
+  createdById   User?          @relation("UserCommande", fields: [userId], references: [id])
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -227,11 +227,11 @@ model DeclarationImport {
   date_import DateTime
   client      String
   valeur      Float
-  userId      String
+  userId      String?
   models      Model[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  user        User        @relation("UserDeclarations", fields: [userId], references: [id])
+  user        User?        @relation("UserDeclarations", fields: [userId], references: [id])
 }
 
 model Model {
@@ -260,8 +260,8 @@ model SuiviProduction {
   qte_total   Int
   client      String
   lines       SuiviProductionLine[]
-  userId      String
-  createdById     User          @relation("UserSuiviProductions", fields: [userId], references: [id])
+  userId      String?
+  createdById     User?          @relation("UserSuiviProductions", fields: [userId], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
@@ -340,8 +340,8 @@ model DeclarationExport {
   modePaiment Int          @default(1)
   origineTessuto String
   lines       ExportLine[] @relation("ExportLines")
-  userId      String
-  createdByUser User     @relation("UserExport", fields: [userId], references: [id])
+  userId      String?
+  createdByUser User?     @relation("UserExport", fields: [userId], references: [id])
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }

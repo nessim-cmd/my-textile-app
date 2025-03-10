@@ -1,9 +1,9 @@
-import prisma from '@/lib/db';
-import { LivraisonEntree } from '@/type';
-import { NextRequest, NextResponse } from 'next/server';
+import prisma from "@/lib/db";
+import { LivraisonEntree } from "@/type";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  request: NextRequest,
+  _: NextRequest, // Use underscore for unused parameter
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -17,7 +17,10 @@ export async function GET(
       : NextResponse.json({ error: "LivraisonEntree Not Found" }, { status: 404 });
   } catch (error) {
     console.error("GET /api/livraisonEntree/[id] Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
 
@@ -29,7 +32,6 @@ export async function PUT(
     const { id } = await params;
     const livraisonEntreeData = await request.json();
 
-    // Ensure the client exists or create it
     let clientId = livraisonEntreeData.clientId;
     if (!clientId && livraisonEntreeData.clientName) {
       const client = await prisma.client.findFirst({
@@ -59,7 +61,7 @@ export async function PUT(
         clientId: clientId || null,
         clientName: livraisonEntreeData.clientName,
         livraisonDate: livraisonEntreeData.livraisonDate,
-        userId: livraisonEntreeData.userId || null,
+        // userId is optional, so we omit it or set it null if not provided
       },
     });
 
@@ -81,7 +83,6 @@ export async function PUT(
       let clientModel;
 
       if (clientId && line.modele) {
-        // Convert modele to lowercase before saving
         const modeleLowercase = line.modele.toLowerCase();
 
         const existingClientModel = await prisma.clientModel.findFirst({
@@ -106,10 +107,10 @@ export async function PUT(
             },
             include: { variants: true },
           });
-          console.log(`Created new ClientModel: ${clientModel.id}, modele: ${modeleLowercase}, commandes: ${line.commande || 'null'}`);
+          console.log(`Created new ClientModel: ${clientModel.id}, modele: ${modeleLowercase}, commandes: ${line.commande || "null"}`);
         } else {
           clientModel = existingClientModel;
-          console.log(`Reused existing ClientModel: ${clientModel.id}, modele: ${modeleLowercase}, commandes: ${line.commande || 'null'}`);
+          console.log(`Reused existing ClientModel: ${clientModel.id}, modele: ${modeleLowercase}, commandes: ${line.commande || "null"}`);
         }
       } else {
         console.error(`Missing clientId: ${clientId} or modele: ${line.modele}`);
@@ -141,12 +142,15 @@ export async function PUT(
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("PUT /api/livraisonEntree/[id] Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _: NextRequest, // Use underscore for unused parameter
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -155,6 +159,9 @@ export async function DELETE(
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("DELETE /api/livraisonEntree/[id] Error:", error);
-    
+    return NextResponse.json(
+      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }

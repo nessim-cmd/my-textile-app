@@ -1,33 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
-export async function GET(request: NextRequest) {
+export async function GET() { // Removed unused 'request' parameter
   console.log("GET /api/import - Request received");
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-    
-    console.log("GET /api/import - Email:", email);
-    if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
-
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const declarations = await prisma.declarationImport.findMany({
       include: { 
-        declarations: { 
-          include: { 
-            models: {
-              include: { accessories: true },
-            },
-          },
-          orderBy: { createdAt: "desc" },
+        models: {
+          include: { accessories: true },
         },
       },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    // Transform Date fields to strings
-    const transformedDeclarations = user.declarations.map(declaration => ({
+    const transformedDeclarations = declarations.map(declaration => ({
       ...declaration,
       createdAt: declaration.createdAt.toISOString(),
       updatedAt: declaration.updatedAt.toISOString(),
@@ -56,18 +42,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   console.log("POST /api/import - Request received");
   try {
-    const { email, num_dec, date_import, client, valeur } = await request.json();
+    const { num_dec, date_import, client, valeur } = await request.json();
     
-    console.log("POST /api/import - Email:", email, "Num Dec:", num_dec);
-    if (!email || !num_dec || !date_import || !client || valeur === undefined) {
+    console.log("POST /api/import - Num Dec:", num_dec);
+    if (!num_dec || !date_import || !client || valeur === undefined) {
       return NextResponse.json(
-        { error: "Email, num_dec, date_import, client, and valeur are required" },
+        { error: "num_dec, date_import, client, and valeur are required" },
         { status: 400 }
       );
     }
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const newDeclaration = await prisma.declarationImport.create({
       data: {
@@ -75,14 +58,13 @@ export async function POST(request: NextRequest) {
         date_import: new Date(date_import),
         client,
         valeur,
-        userId: user.id,
+        // userId is optional, so we omit it
         createdAt: new Date(),
         updatedAt: new Date(),
       },
       include: { models: { include: { accessories: true } } },
     });
 
-    // Transform Date fields to strings
     const transformedDeclaration = {
       ...newDeclaration,
       createdAt: newDeclaration.createdAt.toISOString(),

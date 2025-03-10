@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 import { ExportLine } from "@/type";
 
 export async function GET(
-  request: NextRequest,
+  _: NextRequest, // Use underscore for unused parameter
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -24,7 +24,7 @@ export async function GET(
       exportDate: declaration.exportDate ? new Date(declaration.exportDate).toISOString() : "",
       lines: declaration.lines.map(line => ({
         ...line,
-        isExcluded: line.isExcluded, // Ensure isExcluded is included
+        isExcluded: line.isExcluded,
       })),
     };
 
@@ -90,7 +90,7 @@ export async function PUT(
             description: line.description,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
-            isExcluded: line.isExcluded, // Ensure isExcluded is updated
+            isExcluded: line.isExcluded,
           },
         });
       } else {
@@ -102,7 +102,7 @@ export async function PUT(
             description: line.description,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
-            isExcluded: line.isExcluded, // Ensure isExcluded is saved
+            isExcluded: line.isExcluded,
             exportId: id,
           },
         });
@@ -120,7 +120,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _: NextRequest, // Use underscore for unused parameter
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import { NextRequest, NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 
 interface EtatDeclarationData {
   imports: EtatDeclaration[];
@@ -32,25 +32,10 @@ interface ModelEntry {
   commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-
-    if (!email) {
-      console.log("No email provided in query parameters");
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
-    }
-
-    console.log(`Fetching user with email: ${email}`);
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      console.log(`User not found for email: ${email}`);
-      return NextResponse.json({ imports: [], exports: [], models: [] }, { status: 200 });
-    }
-
+    console.log("Fetching all declaration imports");
     const declarationImports = await prisma.declarationImport.findMany({
-      where: { userId: user.id },
       include: {
         models: {
           include: { accessories: true },
@@ -59,8 +44,8 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
+    console.log("Fetching all declaration exports");
     const declarationExports = await prisma.declarationExport.findMany({
-      where: { userId: user.id },
       include: { lines: true },
       orderBy: { createdAt: "desc" },
     });
@@ -69,6 +54,7 @@ export async function GET(request: NextRequest) {
     const exportClients = [...new Set(declarationExports.map(de => de.clientName))];
     const allClients = [...new Set([...importClients, ...exportClients])];
 
+    console.log("Fetching client models for clients:", allClients);
     const clientModels = await prisma.clientModel.findMany({
       where: {
         client: {
@@ -129,16 +115,16 @@ export async function GET(request: NextRequest) {
         numDecExport: de.num_dec,
         clientExport: de.clientName,
         valeurExport: de.valeur,
-        quantityDelivered: line.isExcluded ? 0 : line.quantity, // Exclude quantity if isExcluded is true
+        quantityDelivered: line.isExcluded ? 0 : line.quantity,
         isExcluded: line.isExcluded,
       }))
     );
 
-    console.log("DeclarationImports:", declarationImports);
-    console.log("DeclarationExports:", declarationExports);
-    console.log("Imports:", imports);
-    console.log("Exports:", exports);
-    console.log("Models:", models);
+    console.log("DeclarationImports fetched:", declarationImports.length);
+    console.log("DeclarationExports fetched:", declarationExports.length);
+    console.log("Imports processed:", imports.length);
+    console.log("Exports processed:", exports.length);
+    console.log("Models processed:", models.length);
 
     const responseData: EtatDeclarationData = { imports, exports, models };
     return NextResponse.json(responseData, { status: 200 });

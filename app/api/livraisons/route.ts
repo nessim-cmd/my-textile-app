@@ -1,39 +1,31 @@
-// app/api/livraisons/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
-export async function GET(request: NextRequest) {
+export async function GET() { // Removed email filtering
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get("email");
-
-    if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
-
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const livraisons = await prisma.livraison.findMany({
       include: {
-        livraisons: {
-          include: { lines: true },
-          orderBy: { createdAt: "desc" },
-        },
+        lines: true,
       },
+      orderBy: { createdAt: "desc" },
     });
 
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-    return NextResponse.json(user.livraisons);
+    console.log("GET /api/livraisons - Livraisons fetched:", livraisons);
+    return NextResponse.json(livraisons);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to fetch livraisons" }, { status: 500 });
+    console.error("GET /api/livraisons Error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch livraisons", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name } = await request.json();
+    const { name } = await request.json();
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
     const now = new Date();
     const year = now.getFullYear();
@@ -52,7 +44,7 @@ export async function POST(request: NextRequest) {
       data: {
         id: livraisonId,
         name,
-        userId: user.id,
+        // userId omitted since it’s optional
         issuerName: "",
         issuerAddress: "",
         clientName: "",
@@ -63,9 +55,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(newLivraison);
+    console.log("POST /api/livraisons - New livraison created:", newLivraison);
+    return NextResponse.json(newLivraison, { status: 201 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to create livraison" }, { status: 500 });
+    console.error("POST /api/livraisons Error:", error);
+    return NextResponse.json(
+      { error: "Failed to create livraison", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
   }
 }

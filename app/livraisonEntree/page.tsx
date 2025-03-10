@@ -2,18 +2,16 @@
 
 import { Layers, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { LivraisonEntree } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import LivraisonEntreeComponent from "@/components/LivraisonEntreeComponent";
 
-export default function Home() {
-  const { user } = useUser();
+export default function LivraisonEntreePage() {
   const { getToken } = useAuth();
   const [livraisonEntreeName, setLivraisonEntreeName] = useState("");
   const [isNameValid, setIsNameValid] = useState(true);
-  const email = user?.primaryEmailAddress?.emailAddress;
   const [livraisonsEntree, setLivraisonsEntree] = useState<LivraisonEntree[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,14 +20,12 @@ export default function Home() {
   const itemsPerPage = 8;
 
   const fetchLivraisonsEntree = useCallback(async () => {
-    if (!email) return;
-
     setLoading(true);
     setError(null);
 
     try {
       const token = await getToken();
-      const response = await fetch(`/api/livraisonEntree?email=${encodeURIComponent(email)}`, {
+      const response = await fetch("/api/livraisonEntree", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -42,15 +38,15 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [email, getToken]);
+  }, [getToken]);
 
   useEffect(() => {
-    if (email) fetchLivraisonsEntree();
-  }, [email, fetchLivraisonsEntree]);
+    fetchLivraisonsEntree();
+  }, [fetchLivraisonsEntree]);
 
   const filteredLivraisonsEntree = livraisonsEntree.filter(livraisonEntree =>
-    livraisonEntree.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    livraisonEntree.id.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    (livraisonEntree.name?.toLowerCase().includes(searchTerm.toLowerCase()) || "") ||
+    livraisonEntree.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalItems = filteredLivraisonsEntree.length;
@@ -61,7 +57,7 @@ export default function Home() {
   );
 
   const handleCreateLivraisonEntree = async () => {
-    if (!email || !livraisonEntreeName.trim()) return;
+    if (!livraisonEntreeName.trim()) return;
 
     try {
       const token = await getToken();
@@ -69,7 +65,6 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          email,
           name: livraisonEntreeName.trim(),
         }),
       });

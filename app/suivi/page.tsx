@@ -2,46 +2,41 @@
 
 import { Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { SuiviProduction } from "@/type";
 import Wrapper from "@/components/Wrapper";
 import SuiviComponent from "@/components/SuiviComponent";
 
 export default function SuiviPage() {
-  const { user } = useUser();
   const [modelName, setModelName] = useState("");
   const [qteTotal, setQteTotal] = useState("");
   const [client, setClient] = useState("");
-  const email = user?.primaryEmailAddress?.emailAddress;
   const [suivis, setSuivis] = useState<SuiviProduction[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const fetchSuivis = async () => {
-    if (!email) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/suivi?email=${encodeURIComponent(email)}`);
+      const response = await fetch("/api/suivi");
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
       
       const data = await response.json();
       setSuivis(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading suivis:", error);
-     
+      setError("Failed to load suivis");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (email) fetchSuivis();
-  }, [email]);
+    fetchSuivis();
+  }, []);
 
   const filteredSuivis = suivis.filter(suivi =>
     suivi.model_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,14 +44,13 @@ export default function SuiviPage() {
   );
 
   const handleCreateSuivi = async () => {
-    if (!email || !modelName.trim() || !qteTotal || !client.trim()) return;
+    if (!modelName.trim() || !qteTotal || !client.trim()) return;
 
     try {
       const response = await fetch("/api/suivi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          email,
           model_name: modelName.trim(),
           qte_total: parseInt(qteTotal),
           client: client.trim()
@@ -83,7 +77,7 @@ export default function SuiviPage() {
       });
     } catch (error) {
       console.error("Error creating suivi:", error);
-      
+      setError("Failed to create suivi");
     }
   };
 
@@ -146,14 +140,13 @@ export default function SuiviPage() {
             <h3 className="font-bold text-lg mb-4">Nouveau Suivi</h3>
 
             <div className="form-control space-y-4">
-            <input
+              <input
                 type="text"
                 placeholder="Client"
                 className="input input-bordered w-full"
                 value={client}
                 onChange={(e) => setClient(e.target.value)}
               />
-
               <input
                 type="text"
                 placeholder="Nom du modèle"
@@ -161,7 +154,6 @@ export default function SuiviPage() {
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
               />
-              
               <input
                 type="number"
                 placeholder="Quantité totale"
@@ -169,8 +161,6 @@ export default function SuiviPage() {
                 value={qteTotal}
                 onChange={(e) => setQteTotal(e.target.value)}
               />
-              
-              
             </div>
 
             <button

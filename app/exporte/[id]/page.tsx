@@ -9,7 +9,7 @@ import VATControlExport from "@/components/VATControleExport";
 import ExportInfo from "@/components/ExportInfo";
 import ExportLines from "@/components/ExportLines";
 import ExportPDF from "@/components/ExportPDF";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 
 interface Client {
   id: string;
@@ -21,7 +21,7 @@ interface ClientModel {
   name: string | null;
   clientId: string;
   commandes: string;
-  description: string; // Added description field
+  description: string;
 }
 
 interface Totals {
@@ -48,8 +48,6 @@ export default function ExportDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const { getToken } = useAuth();
-  const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress;
   const [declaration, setDeclaration] = useState<DeclarationExport | null>(null);
   const [initialDeclaration, setInitialDeclaration] = useState<DeclarationExport | null>(null);
   const [, setClients] = useState<Client[]>([]);
@@ -93,7 +91,7 @@ export default function ExportDetailsPage() {
   };
 
   const fetchClientModels = async () => {
-    if (!declaration?.clientName || !email) {
+    if (!declaration?.clientName) {
       setClientModels([]);
       return;
     }
@@ -101,7 +99,6 @@ export default function ExportDetailsPage() {
     try {
       const token = await getToken();
       const params = new URLSearchParams();
-      params.append("email", email);
       params.append("client", declaration.clientName);
       if (dateDebut) params.append("dateDebut", dateDebut);
       if (dateFin) params.append("dateFin", dateFin);
@@ -145,7 +142,6 @@ export default function ExportDetailsPage() {
     const vat = declaration.vatActive ? ht * (declaration.vatRate / 100) : 0;
     const totalTTC = ht + vat;
     setTotals({ totalHT: ht, totalVAT: vat, totalTTC });
-    // Update the declaration's valeur with TotalTTC
     setDeclaration({ ...declaration, valeur: totalTTC });
   }, [declaration?.lines, declaration?.vatActive, declaration?.vatRate]);
 
@@ -206,7 +202,6 @@ export default function ExportDetailsPage() {
     setDeclaration({ ...declaration, modePaiment: parseInt(e.target.value) });
   };
 
-  // Wrap setClientModels in a function to match the expected type
   const handleModelsChange = (models: ClientModel[]) => {
     setClientModels(models);
   };
@@ -323,7 +318,7 @@ export default function ExportDetailsPage() {
               setDeclaration={setDeclaration}
               dateDebut={dateDebut}
               dateFin={dateFin}
-              onModelsChange={handleModelsChange} // Pass the wrapped function
+              onModelsChange={handleModelsChange}
             />
           </div>
           <div className="flex w-full md:w-2/3 flex-col md:ml-4">

@@ -2,7 +2,7 @@
 
 import { Layers, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import confetti from "canvas-confetti";
 import { DeclarationExport } from "@/type";
 import Wrapper from "@/components/Wrapper";
@@ -14,15 +14,12 @@ interface Client {
 }
 
 export default function ExportPage() {
-  const { user } = useUser();
   const { getToken } = useAuth();
   const [numDec, setNumDec] = useState("");
   const [exportDate, setExportDate] = useState("");
   const [clientName, setClientName] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [modalError, setModalError] = useState<string | null>(null);
-
-  const email = user?.primaryEmailAddress?.emailAddress;
   const [declarations, setDeclarations] = useState<DeclarationExport[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,14 +43,12 @@ export default function ExportPage() {
   }, [getToken]);
 
   const fetchDeclarations = useCallback(async () => {
-    if (!email) return;
-
     setLoading(true);
     setError(null);
 
     try {
       const token = await getToken();
-      const response = await fetch(`/api/exporte?email=${encodeURIComponent(email)}`, {
+      const response = await fetch("/api/exporte", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -66,14 +61,12 @@ export default function ExportPage() {
     } finally {
       setLoading(false);
     }
-  }, [email, getToken]);
+  }, [getToken]);
 
   useEffect(() => {
-    if (email) {
-      fetchDeclarations();
-      fetchClients();
-    }
-  }, [email, fetchClients, fetchDeclarations]);
+    fetchDeclarations();
+    fetchClients();
+  }, [fetchClients, fetchDeclarations]);
 
   const filteredDeclarations = declarations.filter(declaration =>
     declaration.num_dec.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,7 +81,7 @@ export default function ExportPage() {
   );
 
   const handleCreateDeclaration = async () => {
-    if (!email || !numDec.trim() || !exportDate || !clientName.trim()) {
+    if (!numDec.trim() || !exportDate || !clientName.trim()) {
       setModalError("All fields are required");
       return;
     }
@@ -104,7 +97,6 @@ export default function ExportPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 
-          email,
           num_dec: numDec.trim(),
           exportDate,
           clientName: clientName.trim(),

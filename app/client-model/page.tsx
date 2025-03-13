@@ -2,44 +2,39 @@
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getClientModels, createClientModel, updateClientModel, deleteClientModel, syncClientModels } from '@/lib/clientModelApi';
+import { getClients } from '@/lib/clientApi';
 
 interface Client {
   id: string;
-  name: string;
+  name?: string | null;
 }
 
 interface Variant {
   id?: string;
-  name: string;
-  qte_variante: number;
-}
-
-interface Commande {
-  value: string;
-  variants: Variant[];
+  name?: string | null;
+  qte_variante?: number | null;
 }
 
 interface ClientModel {
   id: string;
-  name: string;
-  description: string;
-  commandes: string;
-  commandesWithVariants: Commande[];
-  lotto: string;
-  ordine: string;
-  puht: number;
+  name?: string | null;
+  description?: string | null;
+  commandes?: string | null; // Comma-separated string
+  lotto?: string | null;
+  ordine?: string | null;
+  puht?: number | null;
   clientId: string;
-  client: Client;
-  variants: Variant[];
+  client?: Client;
+  variants?: Variant[];
 }
 
 export default function ClientModelPage() {
   const { user } = useUser();
-  const { getToken } = useAuth();
-  const email = user?.primaryEmailAddress?.emailAddress;
+  const email = user?.primaryEmailAddress?.emailAddress || localStorage.getItem("clerkUserEmail") || '';
   const [models, setModels] = useState<ClientModel[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,9 +46,8 @@ export default function ClientModelPage() {
     ordine: '',
     puht: 0,
     clientId: '',
-    commandesWithVariants: [],
   });
-  const [commandesWithVariants, setCommandesWithVariants] = useState<Commande[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
+  const [variants, setVariants] = useState<Variant[]>([{ name: '', qte_variante: 0 }]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -62,6 +56,7 @@ export default function ClientModelPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const itemsPerPage = 8;
 
   const fetchData = useCallback(async () => {
@@ -69,18 +64,9 @@ export default function ClientModelPage() {
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams({ email });
-    if (dateDebut) params.append('dateDebut', dateDebut);
-    if (dateFin) params.append('dateFin', dateFin);
-    if (searchTerm) params.append('search', searchTerm);
-
     try {
-      const token = await getToken();
-      const res = await fetch(`/api/client-model?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-      const data = await res.json();
+      const params = { email, dateDebut, dateFin, search: searchTerm };
+      const data = await getClientModels(params);
       setModels(data);
     } catch (err) {
       setError("Failed to fetch client models");
@@ -88,75 +74,67 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  }, [email, dateDebut, dateFin, searchTerm, getToken]);
+  }, [email, dateDebut, dateFin, searchTerm]);
 
   const fetchClients = useCallback(async () => {
     try {
-      const token = await getToken();
-      const res = await fetch('/api/client', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const data = await getClients();
       setClients(data);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  }, [getToken]);
+  }, []);
 
   useEffect(() => {
     if (email) {
       fetchData();
       fetchClients();
+      localStorage.setItem("clerkUserEmail", email);
     }
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      syncClientModels(email).then(fetchData);
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [email, dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const method = formData.id ? 'PUT' : 'POST';
-    const url = '/api/client-model';
-
     setModalError(null);
 
-    const combinedCommandes = commandesWithVariants.map(c => c.value).filter(v => v.trim() !== '').join(',');
-    const combinedVariants = commandesWithVariants.flatMap((c: Commande) =>
-      c.variants
-        .filter((v: Variant) => v.name.trim() !== '')
-        .map((v: Variant) => ({
-          ...v,
-          name: `${c.value}:${v.name}`,
-        }))
-    );
+    const combinedCommandes = formData.commandes?.split(',').filter(c => c.trim() !== '').join(',') || null;
+    const filteredVariants = variants.filter(v => v.name && v.name.trim() !== '');
+
+    const payload: Partial<ClientModel> & { email?: string } = {
+      ...(formData.id ? { id: formData.id } : { email }),
+      name: formData.name || null,
+      description: formData.description || null,
+      commandes: combinedCommandes,
+      variants: filteredVariants,
+      lotto: formData.lotto || null,
+      ordine: formData.ordine || null,
+      puht: formData.puht || null,
+      clientId: formData.clientId || '',
+    };
 
     try {
-      const token = await getToken();
-      const payload = {
-        ...(formData.id ? { id: formData.id } : { email }),
-        name: formData.name || null,
-        description: formData.description || null,
-        commandes: combinedCommandes || null,
-        commandesWithVariants: commandesWithVariants.filter(c => c.value.trim() !== ''),
-        variants: combinedVariants,
-        lotto: formData.lotto || null,
-        ordine: formData.ordine || null,
-        puht: formData.puht || null,
-        clientId: formData.clientId,
-      };
-
-      console.log('Submitting payload:', payload);
-
-      const response = await fetch(url, {
-        method,
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to save');
+      if (formData.id) {
+        const updatedModel = await updateClientModel(payload);
+        setModels((prev) =>
+          prev.map((m) => (m.id === updatedModel.id ? updatedModel : m))
+        );
+      } else {
+        const newModel = await createClientModel(payload as Partial<ClientModel> & { email: string });
+        setModels((prev) => [...prev, newModel]);
       }
 
       setIsModalOpen(false);
@@ -164,14 +142,12 @@ export default function ClientModelPage() {
         name: '',
         description: '',
         commandes: '',
-        commandesWithVariants: [],
         lotto: '',
         ordine: '',
         puht: 0,
         clientId: '',
       });
-      setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-      await fetchData();
+      setVariants([{ name: '', qte_variante: 0 }]);
     } catch (error) {
       console.error('Submission error:', error);
       setModalError("Failed to save client model");
@@ -181,16 +157,8 @@ export default function ClientModelPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this model?')) {
       try {
-        const token = await getToken();
-        await fetch(`/api/client-model`, {
-          method: 'DELETE',
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ id }),
-        });
-        await fetchData();
+        await deleteClientModel(id);
+        setModels((prev) => prev.filter((m) => m.id !== id));
       } catch (error) {
         console.error('Error deleting:', error);
         setError("Failed to delete client model");
@@ -204,18 +172,12 @@ export default function ClientModelPage() {
       name: model.name || '',
       description: model.description || '',
       commandes: model.commandes || '',
-      commandesWithVariants: model.commandesWithVariants || [],
       lotto: model.lotto || '',
       ordine: model.ordine || '',
       puht: model.puht || 0,
       clientId: model.clientId || '',
     });
-
-    const loadedCommandesWithVariants = model.commandesWithVariants && Array.isArray(model.commandesWithVariants)
-      ? model.commandesWithVariants
-      : [{ value: '', variants: [{ name: '', qte_variante: 0 }] }];
-
-    setCommandesWithVariants(loadedCommandesWithVariants);
+    setVariants(model.variants && model.variants.length > 0 ? model.variants : [{ name: '', qte_variante: 0 }]);
     setIsModalOpen(true);
   };
 
@@ -230,7 +192,7 @@ export default function ClientModelPage() {
 
   const uniqueModels = Array.from(
     new Map(
-      models.map((model) => [`${model.clientId}-${model.name}`, model])
+      models.map((model) => [`${model.clientId}-${model.name || ''}`, model])
     ).values()
   );
 
@@ -244,8 +206,8 @@ export default function ClientModelPage() {
   return (
     <Wrapper>
       <div className="flex flex-col gap-4 mb-4">
-        {/* Mobile-friendly top section */}
         <div className="flex flex-col gap-4 p-4">
+          <h1 className="text-2xl font-bold">Client Models {isOffline && '(Offline Mode)'}</h1>
           <button 
             className="btn btn-primary w-full sm:w-auto"
             onClick={() => setIsModalOpen(true)}
@@ -306,7 +268,7 @@ export default function ClientModelPage() {
               <tr>
                 <th>Client</th>
                 <th>Model Name</th>
-                <th>Commande</th>
+                <th>Commandes</th>
                 <th>Description</th>
                 <th>PUHT</th>
                 <th>Variants/Qte</th>
@@ -318,49 +280,16 @@ export default function ClientModelPage() {
                 <tr key={model.id}>
                   <td>{model.client?.name || "N/A"}</td>
                   <td>{model.name || "Unnamed"}</td>
-                  <td className="flex flex-col">
-                    {model.commandesWithVariants && model.commandesWithVariants.length > 0 ? (
-                      model.commandesWithVariants.map((cmd, i) => (
-                        <div key={i} className="mb-1">
-                          {cmd.value || "N/A"}
-                          {i < model.commandesWithVariants.length - 1 && (
-                            <hr className="border-t border-gray-300 my-1 w-12" />
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div>{model.commandes || "N/A"}</div>
-                    )}
-                  </td>
+                  <td>{model.commandes || "N/A"}</td>
                   <td>{model.description || "N/A"}</td>
                   <td>{model.puht ? `${model.puht} €` : "N/A"}</td>
                   <td className="flex flex-col">
-                    {model.commandesWithVariants && model.commandesWithVariants.length > 0 ? (
-                      model.commandesWithVariants.map((cmd, i) => (
+                    {model.variants && model.variants.length > 0 ? (
+                      model.variants.map((v, i) => (
                         <div key={i} className="mb-1">
-                          {cmd.variants && cmd.variants.length > 0 ? (
-                            cmd.variants.map((v, j) => (
-                              <span key={j} className="mr-2">
-                                {v.name} ({v.qte_variante})
-                              </span>
-                            ))
-                          ) : (
-                            "N/A"
-                          )}
-                          {i < model.commandesWithVariants.length - 1 && (
-                            <hr className="border-t border-gray-300 my-1 w-12" />
-                          )}
+                          {v.name || "N/A"} ({v.qte_variante ?? "N/A"})
                         </div>
                       ))
-                    ) : model.variants && model.variants.length > 0 ? (
-                      model.variants.map((v, i) => {
-                        const variantName = v.name.includes(':') ? v.name.split(':')[1] : v.name;
-                        return (
-                          <div key={i} className="mr-1">
-                            {variantName} ({v.qte_variante})
-                          </div>
-                        );
-                      })
                     ) : (
                       "N/A"
                     )}
@@ -407,7 +336,6 @@ export default function ClientModelPage() {
           </div>
         )}
 
-        {/* Modal with smooth transition */}
         <dialog className={`modal ${isModalOpen ? 'modal-open' : ''}`} open={isModalOpen}>
           <div className="modal-box max-w-3xl w-full sm:w-11/12 md:w-3/4 lg:w-2/3 transition-all duration-300 ease-in-out transform translate-y-0">
             <h3 className="font-bold text-lg mb-4">
@@ -426,7 +354,7 @@ export default function ClientModelPage() {
               >
                 <option value="">Select Client</option>
                 {clients.map(client => (
-                  <option key={client.id} value={client.id}>{client.name}</option>
+                  <option key={client.id} value={client.id}>{client.name || "N/A"}</option>
                 ))}
               </select>
 
@@ -437,6 +365,14 @@ export default function ClientModelPage() {
                 value={formData.name || ''}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 required={!formData.id}
+              />
+
+              <input
+                type="text"
+                placeholder="Commandes (comma-separated, e.g., 33, 44)"
+                className="input input-bordered w-full"
+                value={formData.commandes || ''}
+                onChange={e => setFormData({ ...formData, commandes: e.target.value })}
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -473,111 +409,47 @@ export default function ClientModelPage() {
 
               <div className="border rounded-lg p-4">
                 <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-bold">Commandes & Variants</h4>
+                  <h4 className="font-bold">Variants</h4>
                   <button
                     type="button"
                     className="btn btn-sm btn-secondary"
-                    onClick={() => setCommandesWithVariants([...commandesWithVariants, { value: '', variants: [{ name: '', qte_variante: 0 }] }])}
+                    onClick={() => setVariants([...variants, { name: '', qte_variante: 0 }])}
                   >
-                    Add Commande
+                    Add Variant
                   </button>
                 </div>
-                {commandesWithVariants.map((cmd, cmdIndex) => (
-                  <div key={cmdIndex} className="mb-4 border-b pb-2">
-                    <div className="flex gap-2 items-center mb-2">
-                      <input
-                        type="text"
-                        placeholder="Commande (e.g., 33)"
-                        className="input input-bordered w-full"
-                        value={cmd.value}
-                        onChange={(e) => setCommandesWithVariants(v =>
-                          v.map((item, i) =>
-                            i === cmdIndex ? { ...item, value: e.target.value } : item
-                          )
-                        )}
-                      />
-                      <button
-                        type="button"
-                        className="btn btn-error btn-sm"
-                        onClick={() => setCommandesWithVariants(v => v.filter((_, i) => i !== cmdIndex))}
-                        disabled={commandesWithVariants.length === 1}
-                      >
-                        ×
-                      </button>
-                    </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-semibold">Variants for {cmd.value || 'this commande'}</span>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-secondary"
-                        onClick={() => setCommandesWithVariants(v =>
-                          v.map((item, i) =>
-                            i === cmdIndex
-                              ? { ...item, variants: [...item.variants, { name: '', qte_variante: 0 }] }
-                              : item
-                          )
-                        )}
-                      >
-                        Add Variant
-                      </button>
-                    </div>
-                    {cmd.variants.map((variant, varIndex) => (
-                      <div key={varIndex} className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          placeholder="Variant Name"
-                          className="input input-bordered flex-1"
-                          value={variant.name}
-                          onChange={e => setCommandesWithVariants(v =>
-                            v.map((item, i) =>
-                              i === cmdIndex
-                                ? {
-                                    ...item,
-                                    variants: item.variants.map((v, j) =>
-                                      j === varIndex ? { ...v, name: e.target.value } : v
-                                    )
-                                  }
-                                : item
-                            )
-                          )}
-                        />
-                        <input
-                          type="number"
-                          placeholder="Qte"
-                          className="input input-bordered w-20"
-                          value={variant.qte_variante}
-                          onChange={e => setCommandesWithVariants(v =>
-                            v.map((item, i) =>
-                              i === cmdIndex
-                                ? {
-                                    ...item,
-                                    variants: item.variants.map((v, j) =>
-                                      j === varIndex ? { ...v, qte_variante: Number(e.target.value) } : v
-                                    )
-                                  }
-                                : item
-                            )
-                          )}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-error btn-sm"
-                          onClick={() => setCommandesWithVariants(v =>
-                            v.map((item, i) =>
-                              i === cmdIndex
-                                ? {
-                                    ...item,
-                                    variants: item.variants.filter((_, j) => j !== varIndex)
-                                  }
-                                : item
-                            )
-                          )}
-                          disabled={cmd.variants.length === 1}
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                {variants.map((variant, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Variant Name"
+                      className="input input-bordered flex-1"
+                      value={variant.name || ''}
+                      onChange={e => setVariants(v =>
+                        v.map((item, i) =>
+                          i === index ? { ...item, name: e.target.value } : item
+                        )
+                      )}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Qte"
+                      className="input input-bordered w-20"
+                      value={variant.qte_variante || 0}
+                      onChange={e => setVariants(v =>
+                        v.map((item, i) =>
+                          i === index ? { ...item, qte_variante: Number(e.target.value) } : item
+                        )
+                      )}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-error btn-sm"
+                      onClick={() => setVariants(v => v.filter((_, i) => i !== index))}
+                      disabled={variants.length === 1}
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
@@ -593,13 +465,12 @@ export default function ClientModelPage() {
                       name: '',
                       description: '',
                       commandes: '',
-                      commandesWithVariants: [],
                       lotto: '',
                       ordine: '',
                       puht: 0,
                       clientId: '',
                     });
-                    setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
+                    setVariants([{ name: '', qte_variante: 0 }]);
                   }}
                 >
                   Cancel

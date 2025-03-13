@@ -1,17 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 
-// Define interfaces at the top for TypeScript
 interface Variant {
   id?: string;
-  name: string;
-  qte_variante: number;
+  name?: string | null;
+  qte_variante?: number | null;
 }
 
 interface Commande {
   value: string;
   variants: Variant[];
+}
+
+interface ClientModel {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  commandes?: string | null;
+  commandesWithVariants?: Prisma.InputJsonValue; // Use Prisma.InputJsonValue
+  lotto?: string | null;
+  ordine?: string | null;
+  puht?: number | null;
+  clientId: string;
+  variants?: Variant[];
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export async function GET(request: NextRequest) {
@@ -61,10 +76,7 @@ export async function GET(request: NextRequest) {
 
     const models = await prisma.clientModel.findMany({
       where,
-      include: {
-        client: true,
-        variants: true,
-      },
+      include: { client: true, variants: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -79,6 +91,58 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    // Sync handler for offline data
+    if (body.isSync) {
+      const models: ClientModel[] = Array.isArray(body.models) ? body.models : [body];
+      const results = await Promise.all(
+        models.map(async (model: ClientModel) => {
+          return prisma.clientModel.upsert({
+            where: { id: model.id },
+            update: {
+              name: model.name,
+              description: model.description,
+              commandes: model.commandes,
+              commandesWithVariants: model.commandesWithVariants ?? Prisma.JsonNull, // Ensure JSON compatibility
+              lotto: model.lotto,
+              ordine: model.ordine,
+              puht: model.puht,
+              clientId: model.clientId,
+              variants: {
+                deleteMany: {},
+                create: (model.variants || []).map((v: Variant) => ({
+                  name: v.name || null,
+                  qte_variante: v.qte_variante || null,
+                })),
+              },
+            },
+            create: {
+              id: model.id,
+              name: model.name,
+              description: model.description,
+              commandes: model.commandes,
+              commandesWithVariants: model.commandesWithVariants ?? Prisma.JsonNull, // Ensure JSON compatibility
+              lotto: model.lotto,
+              ordine: model.ordine,
+              puht: model.puht,
+              clientId: model.clientId,
+              variants: {
+                create: (model.variants || []).map((v: Variant) => ({
+                  name: v.name || null,
+                  qte_variante: v.qte_variante || null,
+                })),
+              },
+              createdAt: new Date(model.createdAt || Date.now()),
+              updatedAt: new Date(model.updatedAt || Date.now()),
+            },
+            include: { variants: true, client: true },
+          });
+        })
+      );
+      return NextResponse.json(results, { status: 201 });
+    }
+
+    // Normal online POST
     const { email, commandesWithVariants, variants, ...modelData } = body;
 
     console.log('POST /api/client-model request body:', body);
@@ -91,7 +155,7 @@ export async function POST(request: NextRequest) {
       : '';
 
     const combinedVariants = Array.isArray(commandesWithVariants)
-      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
+      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name && v.name.trim() !== ''))
       : (Array.isArray(variants) ? variants : []);
 
     const newModel = await prisma.clientModel.create({
@@ -99,7 +163,7 @@ export async function POST(request: NextRequest) {
         name: modelData.name || null,
         description: modelData.description || null,
         commandes: combinedCommandes || null,
-        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : [],
+        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : Prisma.JsonNull,
         lotto: modelData.lotto || null,
         ordine: modelData.ordine || null,
         puht: modelData.puht ? parseFloat(modelData.puht) : null,
@@ -139,7 +203,7 @@ export async function PUT(request: NextRequest) {
       : '';
 
     const combinedVariants = Array.isArray(commandesWithVariants)
-      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
+      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name && v.name.trim() !== ''))
       : (Array.isArray(variants) ? variants : []);
 
     const updatedModel = await prisma.clientModel.update({
@@ -148,7 +212,7 @@ export async function PUT(request: NextRequest) {
         name: modelData.name !== undefined ? modelData.name : existingModel.name,
         description: modelData.description !== undefined ? modelData.description : null,
         commandes: combinedCommandes || null,
-        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : [],
+        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : Prisma.JsonNull,
         lotto: modelData.lotto !== undefined ? modelData.lotto : null,
         ordine: modelData.ordine !== undefined ? modelData.ordine : null,
         puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
@@ -166,7 +230,7 @@ export async function PUT(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
-    console.log(`Updated ClientModel: ${id}, clientId: ${updatedModel.clientId}, name: ${updatedModel.name}, description: ${modelData.description}, commandes: ${combinedCommandes}, variants: ${JSON.stringify(combinedVariants)}`);
+    console.log(`Updated ClientModel: ${id}, clientId: ${updatedModel.clientId}, name: ${updatedModel.name}`);
     return NextResponse.json(updatedModel);
   } catch (error) {
     console.error('Error updating client model:', error);

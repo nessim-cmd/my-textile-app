@@ -4,27 +4,26 @@
 import Wrapper from '@/components/Wrapper';
 import { Edit, Trash } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useOfflineAuth } from '@/lib/useOfflineAuth';
-import { getClients, createClient, updateClient, deleteClient, syncClients } from '@/lib/clientApi';
+import { useAuth } from "@clerk/nextjs";
 
 interface Client {
   id: string;
-  name?: string | null;
-  email?: string | null;
-  phone1?: string | null;
-  phone2?: string | null;
-  fix?: string | null;
-  address?: string | null;
-  matriculeFiscale?: string | null;
-  soumission?: string | null;
-  dateDebutSoumission?: string | null;
-  dateFinSoumission?: string | null;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
+  name: string | null;
+  email: string | null;
+  phone1: string | null;
+  phone2: string | null;
+  fix: string | null;
+  address: string | null;
+  matriculeFiscale: string | null;
+  soumission: string | null;
+  dateDebutSoumission: string | null;
+  dateFinSoumission: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export default function ClientPage() {
-  const { userId, isLoaded } = useOfflineAuth(); // Use custom hook for auth
+  const { getToken } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<Client>>({
@@ -37,33 +36,22 @@ export default function ClientPage() {
     matriculeFiscale: '',
     soumission: '',
     dateDebutSoumission: '',
-    dateFinSoumission: '',
+    dateFinSoumission: ''
   });
   const [modalError, setModalError] = useState<string | null>(null);
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     fetchClients();
-
-    // Listen for online/offline changes
-    const handleOnline = () => {
-      setIsOffline(false);
-      syncClients().then(fetchClients); // Sync and refresh when back online
-    };
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
   const fetchClients = async () => {
     try {
-      const data = await getClients();
+      const token = await getToken();
+      const response = await fetch('/api/client', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch clients');
+      const data = await response.json();
       setClients(data);
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -72,28 +60,35 @@ export default function ClientPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const method = formData.id ? 'Update' : 'Create';
+    const method = formData.id ? 'PUT' : 'POST';
     setModalError(null);
 
     try {
-      if (method === 'Create') {
-        const newClient = await createClient(formData);
-        setClients((prev) => [...prev, newClient]);
-      } else {
-        const updatedClient = await updateClient(formData);
-        setClients((prev) =>
-          prev.map((client) => (client.id === updatedClient.id ? updatedClient : client))
-        );
+      const token = await getToken();
+      const response = await fetch('/api/client', {
+        method,
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData),
+        signal: AbortSignal.timeout(30000)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save client');
       }
 
       setIsModalOpen(false);
-      setFormData({
+      setFormData({ 
         name: '', email: '', phone1: '', phone2: '', fix: '',
         address: '', matriculeFiscale: '', soumission: '',
-        dateDebutSoumission: '', dateFinSoumission: '',
+        dateDebutSoumission: '', dateFinSoumission: ''
       });
+      await fetchClients();
     } catch (error) {
-      console.error(`Error ${method.toLowerCase()}ing client:`, error);
+      console.error('Error saving client:', error);
       setModalError(error instanceof Error ? error.message : 'An error occurred');
     }
   };
@@ -101,28 +96,30 @@ export default function ClientPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this client?')) {
       try {
-        await deleteClient(id);
-        setClients((prev) => prev.filter((client) => client.id !== id));
+        const token = await getToken();
+        await fetch('/api/client', {
+          method: 'DELETE',
+          headers: { 
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ id })
+        });
+        await fetchClients();
       } catch (error) {
         console.error('Error deleting client:', error);
       }
     }
   };
 
-  if (!isLoaded) return <div>Loading...</div>;
-
   return (
     <Wrapper>
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Clients {isOffline && '(Offline Mode)'}</h1>
-        <button
-          className="btn btn-primary"
-          onClick={() => setIsModalOpen(true)}
-          disabled={!userId && !isOffline} // Disable if no user and not offline
-        >
-          Add Client
-        </button>
-      </div>
+      <button 
+        className="btn btn-primary mb-4"
+        onClick={() => setIsModalOpen(true)}
+      >
+        Add Client
+      </button>
 
       <dialog id="client_modal" className="modal" open={isModalOpen}>
         <div className="modal-box">
@@ -131,92 +128,40 @@ export default function ClientPage() {
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             {modalError && (
-              <div className="alert alert-error mb-4">{modalError}</div>
+              <div className="alert alert-error mb-4">
+                {modalError}
+              </div>
             )}
-            <input
-              type="text"
-              placeholder="Name"
-              className="input input-bordered w-full"
-              value={formData.name || ''}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              className="input input-bordered w-full"
-              value={formData.email || ''}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-            <input
-              type="tel"
-              placeholder="Phone"
-              className="input input-bordered w-full"
-              value={formData.phone1 || ''}
-              onChange={(e) => setFormData({ ...formData, phone1: e.target.value })}
-            />
-            <input
-              type="tel"
-              placeholder="Phone2"
-              className="input input-bordered w-full"
-              value={formData.phone2 || ''}
-              onChange={(e) => setFormData({ ...formData, phone2: e.target.value })}
-            />
-            <input
-              type="tel"
-              placeholder="Fix"
-              className="input input-bordered w-full"
-              value={formData.fix || ''}
-              onChange={(e) => setFormData({ ...formData, fix: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Address"
-              className="input input-bordered w-full"
-              value={formData.address || ''}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Matricule Fiscale"
-              className="input input-bordered w-full"
-              value={formData.matriculeFiscale || ''}
-              onChange={(e) => setFormData({ ...formData, matriculeFiscale: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="Soumission"
-              className="input input-bordered w-full"
-              value={formData.soumission || ''}
-              onChange={(e) => setFormData({ ...formData, soumission: e.target.value })}
-            />
-            <input
-              type="date"
-              placeholder="Date Début Soumission"
-              className="input input-bordered w-full"
-              value={formData.dateDebutSoumission || ''}
-              onChange={(e) => setFormData({ ...formData, dateDebutSoumission: e.target.value })}
-            />
-            <input
-              type="date"
-              placeholder="Date Fin Soumission"
-              className="input input-bordered w-full"
-              value={formData.dateFinSoumission || ''}
-              onChange={(e) => setFormData({ ...formData, dateFinSoumission: e.target.value })}
-            />
+            <input type="text" placeholder="Name" className="input input-bordered w-full"
+              value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+            <input type="email" placeholder="Email" className="input input-bordered w-full"
+              value={formData.email || ''} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+            <input type="tel" placeholder="Phone" className="input input-bordered w-full"
+              value={formData.phone1 || ''} onChange={(e) => setFormData({ ...formData, phone1: e.target.value })} />
+            <input type="tel" placeholder="Phone2" className="input input-bordered w-full"
+              value={formData.phone2 || ''} onChange={(e) => setFormData({ ...formData, phone2: e.target.value })} />
+            <input type="tel" placeholder="Fix" className="input input-bordered w-full"
+              value={formData.fix || ''} onChange={(e) => setFormData({ ...formData, fix: e.target.value })} />
+            <input type="text" placeholder="Address" className="input input-bordered w-full"
+              value={formData.address || ''} onChange={(e) => setFormData({ ...formData, address: e.target.value })} />
+            <input type="text" placeholder="Matricule Fiscale" className="input input-bordered w-full"
+              value={formData.matriculeFiscale || ''} onChange={(e) => setFormData({ ...formData, matriculeFiscale: e.target.value })} />
+            <input type="text" placeholder="Soumission" className="input input-bordered w-full"
+              value={formData.soumission || ''} onChange={(e) => setFormData({ ...formData, soumission: e.target.value })} />
+            <input type="date" placeholder="Date Début Soumission" className="input input-bordered w-full"
+              value={formData.dateDebutSoumission || ''} onChange={(e) => setFormData({ ...formData, dateDebutSoumission: e.target.value })} />
+            <input type="date" placeholder="Date Fin Soumission" className="input input-bordered w-full"
+              value={formData.dateFinSoumission || ''} onChange={(e) => setFormData({ ...formData, dateFinSoumission: e.target.value })} />
             <div className="modal-action">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setModalError(null);
-                  setFormData({
-                    name: '', email: '', phone1: '', phone2: '', fix: '',
-                    address: '', matriculeFiscale: '', soumission: '',
-                    dateDebutSoumission: '', dateFinSoumission: '',
-                  });
-                }}
-              >
+              <button type="button" className="btn" onClick={() => {
+                setIsModalOpen(false);
+                setModalError(null);
+                setFormData({
+                  name: '', email: '', phone1: '', phone2: '', fix: '',
+                  address: '', matriculeFiscale: '', soumission: '',
+                  dateDebutSoumission: '', dateFinSoumission: ''
+                });
+              }}>
                 Close
               </button>
               <button type="submit" className="btn btn-primary">
@@ -250,19 +195,13 @@ export default function ClientPage() {
                 <td>{client.dateDebutSoumission || '-'}</td>
                 <td>{client.dateFinSoumission || '-'}</td>
                 <td>
-                  <button
-                    className="btn btn-sm btn-info mr-2"
-                    onClick={() => {
-                      setFormData(client);
-                      setIsModalOpen(true);
-                    }}
-                  >
+                  <button className="btn btn-sm btn-info mr-2" onClick={() => {
+                    setFormData(client);
+                    setIsModalOpen(true);
+                  }}>
                     <Edit className='w-4'/>
                   </button>
-                  <button
-                    className="btn btn-sm btn-error"
-                    onClick={() => handleDelete(client.id)}
-                  >
+                  <button className="btn btn-sm btn-error" onClick={() => handleDelete(client.id)}>
                     <Trash className='w-4'/>
                   </button>
                 </td>

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import Wrapper from "@/components/Wrapper";
 import { Search, Printer } from "lucide-react";
 import { useParams } from "next/navigation";
-import jsPDF from "jspdf"
+import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 interface EtatDeclarationData {

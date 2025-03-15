@@ -2,7 +2,6 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Define interfaces at the top for TypeScript
 interface Variant {
   id?: string;
   name: string;
@@ -17,18 +16,12 @@ interface Commande {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
     const dateDebut = searchParams.get('dateDebut');
     const dateFin = searchParams.get('dateFin');
     const searchTerm = searchParams.get('search');
     const client = searchParams.get('client');
 
-    console.log('GET /api/client-model params:', { email, dateDebut, dateFin, client });
-
-    if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    console.log('GET /api/client-model params:', { dateDebut, dateFin, client });
 
     const where: any = {};
 
@@ -79,12 +72,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, commandesWithVariants, variants, ...modelData } = body;
+    const { commandesWithVariants, variants, ...modelData } = body;
 
     console.log('POST /api/client-model request body:', body);
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const combinedCommandes = Array.isArray(commandesWithVariants)
       ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')

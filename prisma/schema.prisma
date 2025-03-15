@@ -23,6 +23,7 @@ model Client {
   dateFinSoumission   String?
   clientModels       ClientModel[]
   livraisonEntrees   LivraisonEntree[]
+  ficheProductions    FicheProduction[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -39,6 +40,7 @@ model ClientModel {
   ordine              String?
   puht                Float?
   variants            Variant[]
+  ficheProductions    FicheProduction[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
@@ -357,3 +359,32 @@ model ExportLine {
   exportId    String
   exporte     DeclarationExport? @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
 }
+
+
+
+model FicheProduction {
+  id            String             @id @default(uuid())
+  clientId      String
+  client        Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  modelId       String
+  model         ClientModel        @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  commande      String
+  quantity      Int                // Total ordered quantity
+  production    ProductionEntry[]  // Hourly production per day
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model ProductionEntry {
+  id              String          @id @default(uuid())
+  ficheId         String
+  fiche           FicheProduction @relation(fields: [ficheId], references: [id], onDelete: Cascade)
+  week            String
+  day             String          // e.g., "Lun", "Mar"
+  hour            String          // e.g., "8:00", "9:00"
+  quantityCreated Int             // How much created this hour
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+

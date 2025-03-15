@@ -1,10 +1,9 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Define the type for a variant
 type VariantInput = {
   name?: string | null;
-  qte_variante?: string | number | null; // Accept string since it’s parsed to number
+  qte_variante?: string | number | null;
 };
 
 export async function PUT(
@@ -15,7 +14,6 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
     
-    // Delete existing variants and update the model with new data
     const updated = await prisma.clientModel.update({
       where: { id },
       data: {
@@ -26,14 +24,14 @@ export async function PUT(
         ordine: data.ordine || null,
         puht: data.puht ? parseFloat(data.puht) : null,
         variants: {
-          deleteMany: {}, // Remove all existing variants
+          deleteMany: {},
           create: (data.variants || []).map((v: VariantInput) => ({
             name: v.name || null,
             qte_variante: v.qte_variante ? parseInt(v.qte_variante as string) : null,
           })),
         },
       },
-      include: { variants: true, client: true }, // Return updated data with variants
+      include: { variants: true, client: true },
     });
     
     return NextResponse.json(updated, { status: 200 });

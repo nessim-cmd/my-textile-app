@@ -2,7 +2,7 @@
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -37,9 +37,7 @@ interface ClientModel {
 }
 
 export default function ClientModelPage() {
-  const { user } = useUser();
   const { getToken } = useAuth();
-  const email = user?.primaryEmailAddress?.emailAddress;
   const [models, setModels] = useState<ClientModel[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -65,21 +63,27 @@ export default function ClientModelPage() {
   const itemsPerPage = 8;
 
   const fetchData = useCallback(async () => {
-    if (!email) return;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams({ email });
+    const params = new URLSearchParams();
     if (dateDebut) params.append('dateDebut', dateDebut);
     if (dateFin) params.append('dateFin', dateFin);
     if (searchTerm) params.append('search', searchTerm);
 
     try {
       const token = await getToken();
+      console.log("Fetching data, Token:", token); // Debug
       const res = await fetch(`/api/client-model?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          setModels([]);
+          return;
+        }
+        throw new Error(`Failed to fetch: ${res.status}`);
+      }
       const data = await res.json();
       setModels(data);
     } catch (err) {
@@ -88,7 +92,7 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  }, [email, dateDebut, dateFin, searchTerm, getToken]);
+  }, [dateDebut, dateFin, searchTerm, getToken]);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -96,6 +100,7 @@ export default function ClientModelPage() {
       const res = await fetch('/api/client', {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error(`Failed to fetch clients: ${res.status}`);
       const data = await res.json();
       setClients(data);
     } catch (error) {
@@ -104,11 +109,9 @@ export default function ClientModelPage() {
   }, [getToken]);
 
   useEffect(() => {
-    if (email) {
-      fetchData();
-      fetchClients();
-    }
-  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
+    fetchData();
+    fetchClients();
+  }, [dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +133,7 @@ export default function ClientModelPage() {
     try {
       const token = await getToken();
       const payload = {
-        ...(formData.id ? { id: formData.id } : { email }),
+        ...(formData.id ? { id: formData.id } : {}),
         name: formData.name || null,
         description: formData.description || null,
         commandes: combinedCommandes || null,
@@ -244,7 +247,6 @@ export default function ClientModelPage() {
   return (
     <Wrapper>
       <div className="flex flex-col gap-4 mb-4">
-        {/* Mobile-friendly top section */}
         <div className="flex flex-col gap-4 p-4">
           <button 
             className="btn btn-primary w-full sm:w-auto"
@@ -407,7 +409,6 @@ export default function ClientModelPage() {
           </div>
         )}
 
-        {/* Modal with smooth transition */}
         <dialog className={`modal ${isModalOpen ? 'modal-open' : ''}`} open={isModalOpen}>
           <div className="modal-box max-w-3xl w-full sm:w-11/12 md:w-3/4 lg:w-2/3 transition-all duration-300 ease-in-out transform translate-y-0">
             <h3 className="font-bold text-lg mb-4">

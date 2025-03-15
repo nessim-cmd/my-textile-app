@@ -2,9 +2,33 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
-  const { clientId, modelId, commande, quantity, production } = await request.json();
+// Define the expected shape of the request body
+interface ProductionEntry {
+  week: string;
+  day: string;
+  hour: string;
+  quantityCreated: number;
+}
+
+interface FicheProductionRequest {
+  clientId: string;
+  modelId: string;
+  commande: string;
+  quantity: number;
+  production: ProductionEntry[];
+}
+
+// Define the context type for dynamic route params
+interface RouteContext {
+  params: {
+    id: string;
+  };
+}
+
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const { id } = context.params;
+  const body: FicheProductionRequest = await request.json();
+  const { clientId, modelId, commande, quantity, production } = body;
 
   if (!id) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -20,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         quantity,
         production: {
           deleteMany: {}, // Delete existing production entries
-          create: production.map((entry: any) => ({
+          create: production.map((entry) => ({
             week: entry.week,
             day: entry.day,
             hour: entry.hour,

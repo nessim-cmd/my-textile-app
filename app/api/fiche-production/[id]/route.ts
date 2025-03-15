@@ -18,15 +18,8 @@ interface FicheProductionRequest {
   production: ProductionEntry[];
 }
 
-// Define the context type for dynamic route params
-interface RouteContext {
-  params: {
-    id: string;
-  };
-}
-
-export async function PUT(request: NextRequest, context: RouteContext) {
-  const { id } = context.params;
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const { id } = params;
   const body: FicheProductionRequest = await request.json();
   const { clientId, modelId, commande, quantity, production } = body;
 

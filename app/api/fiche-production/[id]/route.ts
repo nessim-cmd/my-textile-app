@@ -18,14 +18,16 @@ interface FicheProductionRequest {
   production: ProductionEntry[];
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
-  const body: FicheProductionRequest = await request.json();
-  const { clientId, modelId, commande, quantity, production } = body;
+export async function PUT(request: NextRequest) {
+  // Extract the id from the URL pathname
+  const id = request.nextUrl.pathname.split('/').pop();
 
   if (!id) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
+
+  const body: FicheProductionRequest = await request.json();
+  const { clientId, modelId, commande, quantity, production } = body;
 
   try {
     const fiche = await prisma.ficheProduction.update({

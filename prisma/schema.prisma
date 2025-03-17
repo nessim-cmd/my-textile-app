@@ -22,6 +22,7 @@ model Client {
   dateDebutSoumission String?
   dateFinSoumission   String?
   clientModels       ClientModel[]
+  FicheCoupes          FicheCoupe[]
   livraisonEntrees   LivraisonEntree[]
   ficheProductions    FicheProduction[]
   createdAt          DateTime @default(now())
@@ -41,6 +42,7 @@ model ClientModel {
   puht                Float?
   variants            Variant[]
   ficheProductions    FicheProduction[]
+  ficheCoupes          FicheCoupe[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
@@ -388,3 +390,24 @@ model ProductionEntry {
 }
 
 
+model FicheCoupe {
+  id            String         @id @default(uuid())
+  clientId      String
+  modelId       String
+  commande      String
+  quantity      Int
+  coupe         CoupeEntry[]
+  createdAt     DateTime       @default(now())
+  client        Client         @relation(fields: [clientId], references: [id])
+  model         ClientModel    @relation(fields: [modelId], references: [id])
+}
+
+model CoupeEntry {
+  id              String      @id @default(uuid())
+  ficheCoupeId    String
+  week            String
+  day             String
+  category        String
+  quantityCreated Int
+  ficheCoupe      FicheCoupe  @relation(fields: [ficheCoupeId], references: [id], onDelete: Cascade)
+}

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -53,6 +53,44 @@ export default function ProductionTable({
   const weekdays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
+  useEffect(() => {
+    const fetchFicheData = async () => {
+      if (!ficheId) return;
+      setLoading(true);
+      try {
+        const token = await getToken();
+        if (!token) throw new Error('No authentication token');
+        const res = await fetch(`/api/fiche-production/${ficheId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(`Failed to fetch fiche: ${errorText}`);
+        }
+        const fiche = await res.json();
+        console.log('Fetched fiche data:', JSON.stringify(fiche, null, 2)); // Detailed log
+        const newProductionData: Record<string, number> = fiche.production.reduce(
+          (acc: Record<string, number>, entry: any) => {
+            const key = `${entry.week}-${entry.day}-${entry.hour}`;
+            acc[key] = entry.quantityCreated;
+            return acc;
+          },
+          {}
+        );
+        console.log('Constructed productionData:', JSON.stringify(newProductionData, null, 2));
+        setProductionData(newProductionData);
+        console.log('productionData state after set:', JSON.stringify(productionData, null, 2)); // This might log old state due to async
+      } catch (error) {
+        console.error('Error fetching fiche data:', error);
+        setError('Failed to load production data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFicheData();
+  }, [ficheId, getToken, setProductionData, setError]);
+
   const handleProductionChange = (day: string, hour: string, value: string) => {
     const numValue = Math.max(0, parseInt(value) || 0);
     const key = `${currentWeek}-${day}-${hour}`;
@@ -71,6 +109,7 @@ export default function ProductionTable({
     }
 
     setProductionData(newProductionData);
+    console.log('Updated productionData after input:', JSON.stringify(newProductionData, null, 2));
   };
 
   const getDailyTotal = (day: string) => {
@@ -99,7 +138,6 @@ export default function ProductionTable({
     });
 
     const payload = {
-      id: ficheId,
       clientId,
       modelId,
       commande,
@@ -108,7 +146,7 @@ export default function ProductionTable({
     };
 
     try {
-      console.log('Sending PUT request to:', `/api/fiche-production/${ficheId}`, 'with payload:', payload);
+      console.log('Saving fiche with payload:', JSON.stringify(payload, null, 2));
       const res = await fetch(`/api/fiche-production/${ficheId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -117,17 +155,17 @@ export default function ProductionTable({
 
       if (!res.ok) {
         const text = await res.text();
-        console.error('Raw response:', text);
+        console.error('Save failed with response:', text);
         throw new Error(`Failed to save fiche: ${res.status} ${res.statusText}`);
       }
 
       const data = await res.json();
-      console.log('Save successful, response:', data);
+      console.log('Save successful, response:', JSON.stringify(data, null, 2));
       await fetchFiches();
       toast.success('Fiche saved successfully!', { duration: 3000 });
     } catch (error) {
       console.error('Error saving fiche:', error);
-   
+      setError('Failed to save fiche');
     } finally {
       setLoading(false);
     }
@@ -135,8 +173,6 @@ export default function ProductionTable({
 
   const downloadPDF = () => {
     const doc = new jsPDF();
-
-    // Header (semi-bold, smaller font)
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     doc.text('MS Tailors', 14, 15);
@@ -144,24 +180,21 @@ export default function ProductionTable({
     doc.text('Confection et Industrie du textile', 14, 22);
     doc.text('Avenue de l\'environnement El Mida', 14, 29);
 
-    // Title (centered, bold)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(24);
     const title = 'Fiche Production';
     const pageWidth = doc.internal.pageSize.getWidth();
     const titleWidth = doc.getTextWidth(title);
-    const titleX = (pageWidth - titleWidth) / 2; // Center horizontally
+    const titleX = (pageWidth - titleWidth) / 2;
     doc.text(title, titleX, 40);
 
-    // Details section with smaller spacing (reset to normal font)
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`Client: ${clientName}`, 14, 55); // Space after title
-    doc.text(`Modele: ${modelName}`, 14, 61); // 6mm gap
-    doc.text(`Commande: ${commande}`, 14, 67); // 6mm gap
-    doc.text(`Quantite: ${quantity}`, 14, 73); // 6mm gap
+    doc.text(`Client: ${clientName}`, 14, 55);
+    doc.text(`Modele: ${modelName}`, 14, 61);
+    doc.text(`Commande: ${commande}`, 14, 67);
+    doc.text(`Quantite: ${quantity}`, 14, 73);
 
-    // Table
     const headers = ['Week', 'Hour', ...weekdays, 'Total'];
     const weeks = [...new Set(Object.keys(productionData).map((key) => key.split('-')[0]))];
     const body = weeks.flatMap((week) =>
@@ -178,7 +211,7 @@ export default function ProductionTable({
     (doc as any).autoTable({
       head: [headers],
       body: body,
-      startY: 83, // Start table after the details with some space
+      startY: 83,
       theme: 'striped',
       headStyles: {
         fillColor: [100, 100, 100],
@@ -200,6 +233,7 @@ export default function ProductionTable({
 
   return (
     <div className="space-y-6">
+      {loading && <div className="text-center"><span className="loading loading-spinner"></span> Loading...</div>}
       <div className="flex justify-between items-center">
         <button
           className="btn btn-outline btn-sm"
@@ -223,15 +257,46 @@ export default function ProductionTable({
         </button>
       </div>
 
-      {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="table table-zebra w-full">
-          <thead><tr className="bg-gray-200"><th className="text-gray-700 font-bold">Horaire</th>{weekdays.map((day) => (<th key={day} className="text-gray-700 font-bold">{day}</th>))}<th className="text-gray-700 font-bold">Total</th></tr></thead>
-          <tbody>{timeSlots.map((slot) => (<tr key={slot}><td className="font-medium">{slot}</td>{weekdays.map((day) => (<td key={`${day}-${slot}`}><input type="text" value={productionData[`${currentWeek}-${day}-${slot}`] || ''} onChange={(e) => handleProductionChange(day, slot, e.target.value)} className="input input-bordered w-16 text-center" placeholder="0" /></td>))}<td className="font-bold">{getTimeSlotTotal(slot)}</td></tr>))}<tr className="bg-gray-50"><td className="font-bold">Total</td>{weekdays.map((day) => (<td key={day} className="font-bold">{getDailyTotal(day)}</td>))}<td className="font-bold">{totalSewn}</td></tr></tbody>
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="text-gray-700 font-bold">Horaire</th>
+              {weekdays.map((day) => (
+                <th key={day} className="text-gray-700 font-bold">{day}</th>
+              ))}
+              <th className="text-gray-700 font-bold">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {timeSlots.map((slot) => (
+              <tr key={slot}>
+                <td className="font-medium">{slot}</td>
+                {weekdays.map((day) => (
+                  <td key={`${day}-${slot}`}>
+                    <input
+                      type="text"
+                      value={productionData[`${currentWeek}-${day}-${slot}`] || ''}
+                      onChange={(e) => handleProductionChange(day, slot, e.target.value)}
+                      className="input input-bordered w-16 text-center"
+                      placeholder="0"
+                    />
+                  </td>
+                ))}
+                <td className="font-bold">{getTimeSlotTotal(slot)}</td>
+              </tr>
+            ))}
+            <tr className="bg-gray-50">
+              <td className="font-bold">Total</td>
+              {weekdays.map((day) => (
+                <td key={day} className="font-bold">{getDailyTotal(day)}</td>
+              ))}
+              <td className="font-bold">{totalSewn}</td>
+            </tr>
+          </tbody>
         </table>
       </div>
 
-      {/* Mobile Table */}
       <div className="md:hidden space-y-4">
         <div className="flex justify-between items-center">
           <button
@@ -250,10 +315,26 @@ export default function ProductionTable({
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <div className="space-y-2">{timeSlots.map((slot) => (<div key={slot} className="flex justify-between items-center"><span className="font-medium">{slot}</span><input type="text" value={productionData[`${currentWeek}-${weekdays[currentDayIndex]}-${slot}`] || ''} onChange={(e) => handleProductionChange(weekdays[currentDayIndex], slot, e.target.value)} className="input input-bordered w-20 text-center" placeholder="0" /></div>))}<div className="flex justify-between font-bold"><span>Total</span><span>{getDailyTotal(weekdays[currentDayIndex])}</span></div></div>
+        <div className="space-y-2">
+          {timeSlots.map((slot) => (
+            <div key={slot} className="flex justify-between items-center">
+              <span className="font-medium">{slot}</span>
+              <input
+                type="text"
+                value={productionData[`${currentWeek}-${weekdays[currentDayIndex]}-${slot}`] || ''}
+                onChange={(e) => handleProductionChange(weekdays[currentDayIndex], slot, e.target.value)}
+                className="input input-bordered w-20 text-center"
+                placeholder="0"
+              />
+            </div>
+          ))}
+          <div className="flex justify-between font-bold">
+            <span>Total</span>
+            <span>{getDailyTotal(weekdays[currentDayIndex])}</span>
+          </div>
+        </div>
       </div>
 
-      {/* Total Sewn and Buttons */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="bg-blue-100 text-blue-800 p-3 rounded-lg shadow">
           <span className="font-semibold">Total Sewn: </span>

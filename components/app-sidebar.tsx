@@ -48,7 +48,7 @@ const items = [
     title: "Coupe ",
     icon: Scissors,
     subItems: [
-      { title: "Fiche Etiquage Coupe", url: "/coupe" },
+      { title: "Fiches Coupe", url: "/fiche-coupe" },
     ],
   },
   {

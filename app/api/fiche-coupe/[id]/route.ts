@@ -2,6 +2,21 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+interface CoupeEntry {
+  week: string;
+  day: string;
+  category: string;
+  quantityCreated: number;
+}
+
+interface FicheCoupeRequest {
+  clientId: string;
+  modelId: string;
+  commande: string;
+  quantity: number;
+  coupe: CoupeEntry[];
+}
+
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.pathname.split('/').pop();
 
@@ -10,18 +25,17 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const fiche = await prisma.ficheProduction.findUnique({
+    const fiche = await prisma.ficheCoupe.findUnique({
       where: { id },
-      include: { production: true },
+      include: { coupe: true },
     });
     if (!fiche) {
       return NextResponse.json({ error: 'Fiche not found' }, { status: 404 });
     }
-    console.log('Fetched fiche:', fiche); // Log to verify data
     return NextResponse.json(fiche);
   } catch (error) {
-    console.error('Error fetching fiche:', error);
-    return NextResponse.json({ error: 'Failed to fetch fiche' }, { status: 500 });
+    console.error('Error fetching fiche-coupe:', error);
+    return NextResponse.json({ error: 'Failed to fetch fiche-coupe' }, { status: 500 });
   }
 }
 
@@ -32,33 +46,32 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  const body = await request.json();
-  const { clientId, modelId, commande, quantity, production } = body;
+  const body: FicheCoupeRequest = await request.json();
+  const { clientId, modelId, commande, quantity, coupe } = body;
 
   try {
-    const fiche = await prisma.ficheProduction.update({
+    const fiche = await prisma.ficheCoupe.update({
       where: { id },
       data: {
         clientId,
         modelId,
         commande,
         quantity,
-        production: {
-          deleteMany: {}, // Delete existing production entries
-          create: production.map((entry: any) => ({
+        coupe: {
+          deleteMany: {},
+          create: coupe.map((entry) => ({
             week: entry.week,
             day: entry.day,
-            hour: entry.hour,
+            category: entry.category,
             quantityCreated: entry.quantityCreated,
           })),
         },
       },
-      include: { production: true },
+      include: { coupe: true },
     });
-    console.log('Updated fiche:', fiche); // Log to verify update
     return NextResponse.json(fiche);
   } catch (error) {
-    console.error('Error updating fiche:', error);
-    return NextResponse.json({ error: 'Failed to update fiche' }, { status: 500 });
+    console.error('Error updating fiche-coupe:', error);
+    return NextResponse.json({ error: 'Failed to update fiche-coupe' }, { status: 500 });
   }
 }

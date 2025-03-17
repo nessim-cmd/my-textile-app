@@ -258,7 +258,7 @@ export default function ProductionTable({
       </div>
 
       <div className="hidden md:block overflow-x-auto">
-        <table className="table table-zebra w-full">
+        <table className="table w-full">
           <thead>
             <tr className="bg-gray-200">
               <th className="text-gray-700 font-bold">Horaire</th>
@@ -272,17 +272,24 @@ export default function ProductionTable({
             {timeSlots.map((slot) => (
               <tr key={slot}>
                 <td className="font-medium">{slot}</td>
-                {weekdays.map((day) => (
-                  <td key={`${day}-${slot}`}>
-                    <input
-                      type="text"
-                      value={productionData[`${currentWeek}-${day}-${slot}`] || ''}
-                      onChange={(e) => handleProductionChange(day, slot, e.target.value)}
-                      className="input input-bordered w-16 text-center"
-                      placeholder="0"
-                    />
-                  </td>
-                ))}
+                {weekdays.map((day) => {
+                  const key = `${currentWeek}-${day}-${slot}`;
+                  const value = productionData[key];
+                  const isEmptyOrZero = value === undefined || value === 0;
+                  return (
+                    <td key={`${day}-${slot}`}>
+                      <input
+                        type="text"
+                        value={value || ''}
+                        onChange={(e) => handleProductionChange(day, slot, e.target.value)}
+                        className={`input input-bordered w-16 text-center ${
+                          isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
+                        }`}
+                        placeholder="0"
+                      />
+                    </td>
+                  );
+                })}
                 <td className="font-bold">{getTimeSlotTotal(slot)}</td>
               </tr>
             ))}
@@ -316,18 +323,25 @@ export default function ProductionTable({
           </button>
         </div>
         <div className="space-y-2">
-          {timeSlots.map((slot) => (
-            <div key={slot} className="flex justify-between items-center">
-              <span className="font-medium">{slot}</span>
-              <input
-                type="text"
-                value={productionData[`${currentWeek}-${weekdays[currentDayIndex]}-${slot}`] || ''}
-                onChange={(e) => handleProductionChange(weekdays[currentDayIndex], slot, e.target.value)}
-                className="input input-bordered w-20 text-center"
-                placeholder="0"
-              />
-            </div>
-          ))}
+          {timeSlots.map((slot) => {
+            const key = `${currentWeek}-${weekdays[currentDayIndex]}-${slot}`;
+            const value = productionData[key];
+            const isEmptyOrZero = value === undefined || value === 0;
+            return (
+              <div key={slot} className="flex justify-between items-center">
+                <span className="font-medium">{slot}</span>
+                <input
+                  type="text"
+                  value={value || ''}
+                  onChange={(e) => handleProductionChange(weekdays[currentDayIndex], slot, e.target.value)}
+                  className={`input input-bordered w-20 text-center ${
+                    isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
+                  }`}
+                  placeholder="0"
+                />
+              </div>
+            );
+          })}
           <div className="flex justify-between font-bold">
             <span>Total</span>
             <span>{getDailyTotal(weekdays[currentDayIndex])}</span>

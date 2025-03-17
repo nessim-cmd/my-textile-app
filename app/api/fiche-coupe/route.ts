@@ -54,3 +54,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create fiche-coupe' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const { id } = await request.json(); // Expecting the fiche ID in the request body
+  if (!id) {
+    return NextResponse.json({ error: 'Fiche ID is required' }, { status: 400 });
+  }
+
+  try {
+    const fiche = await prisma.ficheCoupe.delete({
+      where: { id },
+      include: { coupe: true },
+    });
+    return NextResponse.json({ message: 'Fiche deleted successfully', fiche }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting fiche-coupe:', error);
+    return NextResponse.json({ error: 'Failed to delete fiche-coupe' }, { status: 500 });
+  }
+}

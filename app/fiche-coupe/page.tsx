@@ -4,9 +4,10 @@
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { Plus, Search, ChevronLeft, ChevronRight, Eye, Trash } from 'lucide-react'; // Added Trash icon
 import CoupeTable from './CoupeTable';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
+import * as Dialog from '@radix-ui/react-dialog';
 
 interface Client {
   id: string;
@@ -50,31 +51,40 @@ interface FicheCoupe {
   createdAt: string;
 }
 
-const FicheCard: React.FC<{ fiche: FicheCoupe; onSelect: (id: string) => void; onDetails: (id: string) => void; models: ClientModel[]; coupeData: Record<string, number> }> = ({ fiche, onSelect, onDetails, models, coupeData }) => {
-    const model = models.find((m) => m.id === fiche.modelId);
-    const totalProcessed = Object.values(coupeData).reduce((sum, qty) => sum + qty, 0); // Use coupeData for consistency
-  
-    return (
-      <div className="bg-base-200/90 p-4 rounded-xl shadow space-y-2">
-        <div className="flex justify-between items-center">
-          <div className="font-bold text-accent">{model?.name || 'Unknown'} ({fiche.commande})</div>
-          <div className="flex gap-2">
-            <button className="btn btn-accent btn-sm" onClick={() => onSelect(fiche.id)}>
-              Edit
-            </button>
-            <button className="btn btn-info btn-sm" onClick={() => onDetails(fiche.id)}>
-              <Eye className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        <div>
-          <div className="stat-title uppercase text-sm">FICHE-{fiche.id.slice(0, 3)}</div>
-          <div className="stat-value">{totalProcessed} / {fiche.quantity}</div>
-          <div className="stat-desc">Total Processed / Ordered</div>
+const FicheCard: React.FC<{ fiche: FicheCoupe; onSelect: (id: string) => void; onDetails: (id: string) => void; onDelete: (id: string) => void; models: ClientModel[] }> = ({ fiche, onSelect, onDetails, onDelete, models }) => {
+  const model = models.find((m) => m.id === fiche.modelId);
+  const totalProcessed = fiche.coupe.reduce((sum, entry) => sum + entry.quantityCreated, 0);
+
+  const handleDelete = () => {
+    if (confirm('Are you sure you want to delete this fiche? This action cannot be undone.')) {
+      onDelete(fiche.id);
+    }
+  };
+
+  return (
+    <div className="bg-base-200/90 p-4 rounded-xl shadow space-y-2">
+      <div className="flex justify-between items-center">
+        <div className="font-bold text-accent">{model?.name || 'Unknown'} ({fiche.commande})</div>
+        <div className="flex gap-2">
+          <button className="btn btn-accent btn-sm" onClick={() => onSelect(fiche.id)}>
+            Edit
+          </button>
+          <button className="btn btn-info btn-sm" onClick={() => onDetails(fiche.id)}>
+            <Eye className="w-4 h-4" />
+          </button>
+          <button className="btn btn-error btn-sm" onClick={handleDelete}>
+            <Trash className="w-4 h-4" />
+          </button>
         </div>
       </div>
-    );
-  };
+      <div>
+        <div className="stat-title uppercase text-sm">FICHE-{fiche.id.slice(0, 3)}</div>
+        <div className="stat-value">{totalProcessed} / {fiche.quantity}</div>
+        <div className="stat-desc">Total Processed / Ordered</div>
+      </div>
+    </div>
+  );
+};
 
 export default function FicheCoupePage() {
   const { getToken } = useAuth();
@@ -97,6 +107,7 @@ export default function FicheCoupePage() {
   const [currentWeek, setCurrentWeek] = useState<string>('Week 1');
   const itemsPerPage = 3;
 
+  // Fetch clients
   const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
@@ -111,6 +122,7 @@ export default function FicheCoupePage() {
     }
   }, [getToken]);
 
+  // Fetch models for selected client
   const fetchModels = useCallback(async (clientId?: string) => {
     setLoading(true);
     setError(null);
@@ -130,6 +142,7 @@ export default function FicheCoupePage() {
     }
   }, [getToken]);
 
+  // Fetch fiches
   const fetchFiches = useCallback(async () => {
     setLoading(true);
     try {
@@ -137,17 +150,43 @@ export default function FicheCoupePage() {
       const res = await fetch('/api/fiche-coupe', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to fetch fiches-coupe');
+      if (!res.ok) throw new Error('Failed to fetch fiches');
       const data = await res.json();
       setFiches(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Failed to fetch fiches-coupe');
+      setError('Failed to fetch fiches');
       console.error(err);
       setFiches([]);
     } finally {
       setLoading(false);
     }
   }, [getToken]);
+
+  // Delete fiche
+  const handleDeleteFiche = async (ficheId: string) => {
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/fiche-coupe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: ficheId }),
+      });
+      if (!res.ok) throw new Error('Failed to delete fiche');
+      await fetchFiches(); // Refresh the fiche list
+      toast.success('Fiche deleted successfully!');
+      if (selectedFicheId === ficheId) {
+        setSelectedFicheId(null);
+        setSelectedClientId('');
+        setSelectedModelId('');
+        setSelectedCommande('');
+        setQuantity(0);
+        setCoupeData({});
+      }
+    } catch (error) {
+      console.error('Error deleting fiche:', error);
+      toast.error('Failed to delete fiche');
+    }
+  };
 
   useEffect(() => {
     fetchClients();
@@ -162,6 +201,7 @@ export default function FicheCoupePage() {
     }
   }, [selectedClientId, fetchModels]);
 
+  // Handle model and commande selection
   const handleModelChange = (value: string) => {
     const [modelId, commandeValue] = value.split('|');
     const selectedModel = models.find((m) => m.id === modelId);
@@ -190,8 +230,8 @@ export default function FicheCoupePage() {
     }
   };
 
-  const handleFicheSelect = async (ficheId: string) => {
-    console.log('Selecting fiche with ID:', ficheId);
+  // Handle fiche selection for editing
+  const handleFicheSelect = (ficheId: string) => {
     const fiche = fiches.find((f) => f.id === ficheId);
     if (fiche) {
       setSelectedFicheId(ficheId);
@@ -200,26 +240,15 @@ export default function FicheCoupePage() {
       setSelectedCommande(fiche.commande);
       setQuantity(fiche.quantity);
       setCurrentWeek('Week 1');
-
-      try {
-        const token = await getToken();
-        const res = await fetch(`/api/fiche-coupe/${ficheId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error('Failed to fetch fiche details');
-        const updatedFiche = await res.json();
-        const newCoupeData = updatedFiche.coupe.reduce((acc: { [x: string]: any; }, entry: { week: any; day: any; category: any; quantityCreated: any; }) => {
-          acc[`${entry.week}-${entry.day}-${entry.category}`] = entry.quantityCreated;
-          return acc;
-        }, {} as Record<string, number>);
-        setCoupeData(newCoupeData);
-      } catch (error) {
-        console.error('Error fetching fiche details:', error);
-        setError('Failed to load fiche details');
-      }
+      const newCoupeData = fiche.coupe.reduce((acc, entry) => {
+        acc[`${entry.week}-${entry.day}-${entry.category}`] = entry.quantityCreated;
+        return acc;
+      }, {} as Record<string, number>);
+      setCoupeData(newCoupeData);
     }
   };
 
+  // Handle fiche details
   const handleFicheDetails = (ficheId: string) => {
     const fiche = fiches.find((f) => f.id === ficheId);
     if (fiche) {
@@ -228,6 +257,7 @@ export default function FicheCoupePage() {
     }
   };
 
+  // Create new fiche
   const handleCreateFiche = async () => {
     if (!selectedClientId || !selectedModelId || !selectedCommande) {
       setError('Please select a client, model, and commande');
@@ -251,7 +281,7 @@ export default function FicheCoupePage() {
       });
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to create fiche-coupe');
+        throw new Error(errorData.error || 'Failed to create fiche');
       }
       const newFiche = await res.json();
       setSelectedFicheId(newFiche.id);
@@ -261,12 +291,13 @@ export default function FicheCoupePage() {
       setIsCreateModalOpen(false);
     } catch (err) {
       console.error(err);
-      setError('Failed to create fiche-coupe');
+      setError('Failed to create fiche');
     } finally {
       setLoading(false);
     }
   };
 
+  // Pagination and search for fiches
   const filteredFiches = fiches.filter((fiche) => {
     const modelName = models.find((m) => m.id === fiche.modelId)?.name || '';
     return (
@@ -285,6 +316,7 @@ export default function FicheCoupePage() {
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Fiche Coupe</h1>
 
         <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar: Saved Fiches */}
           <div className="lg:w-1/3 space-y-4">
             <div className="flex items-center space-x-2">
               <input
@@ -303,13 +335,13 @@ export default function FicheCoupePage() {
                 <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>
               ) : paginatedFiches.length > 0 ? (
                 paginatedFiches.map((fiche) => (
-                    <FicheCard
+                  <FicheCard
                     key={fiche.id}
                     fiche={fiche}
                     onSelect={handleFicheSelect}
                     onDetails={handleFicheDetails}
+                    onDelete={handleDeleteFiche}
                     models={models}
-                    coupeData={coupeData} // Pass coupeData here
                   />
                 ))
               ) : (
@@ -335,14 +367,77 @@ export default function FicheCoupePage() {
                 </button>
               </div>
             )}
-            <button
-              className="btn btn-primary w-full flex items-center justify-center gap-2 mt-4"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              <Plus className="w-5 h-5" /> New Fiche
-            </button>
+            <Dialog.Root open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+              <Dialog.Trigger asChild>
+                <button
+                  className="btn btn-primary w-full flex items-center justify-center gap-2 mt-4"
+                >
+                  <Plus className="w-5 h-5" /> New Fiche
+                </button>
+              </Dialog.Trigger>
+              <Dialog.Portal>
+                <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+                <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 w-full max-w-md">
+                  <Dialog.Title className="font-bold text-lg mb-4">Create New Fiche</Dialog.Title>
+                  {error && <div className="alert alert-error mb-4">{error}</div>}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block mb-2 font-semibold">Client</label>
+                      <select
+                        className="select select-bordered w-full"
+                        value={selectedClientId}
+                        onChange={(e) => setSelectedClientId(e.target.value)}
+                      >
+                        <option value="">Select a client</option>
+                        {clients.map((client) => (
+                          <option key={client.id} value={client.id}>{client.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-2 font-semibold">Model</label>
+                      <select
+                        className="select select-bordered w-full max-h-40 overflow-y-auto"
+                        value={selectedModelId && selectedCommande ? `${selectedModelId}|${selectedCommande}` : ''}
+                        onChange={(e) => handleModelChange(e.target.value)}
+                        disabled={!selectedClientId || loading}
+                      >
+                        <option value="">Select a model</option>
+                        {models.slice(0, 5).map((model) =>
+                          model.commandesWithVariants.map((cmd) => (
+                            <option key={`${model.id}|${cmd.value}`} value={`${model.id}|${cmd.value}`}>
+                              {model.name} ({cmd.value})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      {models.length > 5 && (
+                        <p className="text-sm text-gray-500 mt-1">Scroll for more models...</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block mb-2 font-semibold">Commande</label>
+                      <input type="text" className="input input-bordered w-full" value={selectedCommande} readOnly />
+                    </div>
+                    <div>
+                      <label className="block mb-2 font-semibold">Quantity</label>
+                      <input type="number" className="input input-bordered w-full" value={quantity} readOnly />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end gap-3">
+                    <Dialog.Close asChild>
+                      <button className="btn">Cancel</button>
+                    </Dialog.Close>
+                    <button className="btn btn-primary" onClick={handleCreateFiche} disabled={loading}>
+                      {loading ? <span className="loading loading-spinner"></span> : 'Create'}
+                    </button>
+                  </div>
+                </Dialog.Content>
+              </Dialog.Portal>
+            </Dialog.Root>
           </div>
 
+          {/* Main Content */}
           <div className="lg:w-2/3 bg-white rounded-xl shadow p-6">
             {selectedFicheId ? (
               <CoupeTable
@@ -367,103 +462,55 @@ export default function FicheCoupePage() {
           </div>
         </div>
 
-        <dialog className={`modal ${isCreateModalOpen ? 'modal-open' : ''}`} open={isCreateModalOpen}>
-          <div className="modal-box">
-            <h3 className="font-bold text-lg mb-4">Create New Fiche Coupe</h3>
-            {error && <div className="alert alert-error mb-4">{error}</div>}
-            <div className="space-y-4">
-              <div>
-                <label className="block mb-2 font-semibold">Client</label>
-                <select
-                  className="select select-bordered w-full"
-                  value={selectedClientId}
-                  onChange={(e) => setSelectedClientId(e.target.value)}
-                >
-                  <option value="">Select a client</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>{client.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 font-semibold">Model</label>
-                <select
-                  className="select select-bordered w-full max-h-40 overflow-y-auto"
-                  value={selectedModelId && selectedCommande ? `${selectedModelId}|${selectedCommande}` : ''}
-                  onChange={(e) => handleModelChange(e.target.value)}
-                  disabled={!selectedClientId || loading}
-                >
-                  <option value="">Select a model</option>
-                  {models.slice(0, 5).map((model) =>
-                    model.commandesWithVariants.map((cmd) => (
-                      <option key={`${model.id}|${cmd.value}`} value={`${model.id}|${cmd.value}`}>
-                        {model.name} ({cmd.value})
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="block mb-2 font-semibold">Commande</label>
-                <input type="text" className="input input-bordered w-full" value={selectedCommande} readOnly />
-              </div>
-              <div>
-                <label className="block mb-2 font-semibold">Quantity</label>
-                <input type="number" className="input input-bordered w-full" value={quantity} readOnly />
-              </div>
-            </div>
-            <div className="modal-action">
-              <button className="btn" onClick={() => setIsCreateModalOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleCreateFiche} disabled={loading}>
-                {loading ? <span className="loading loading-spinner"></span> : 'Create'}
-              </button>
-            </div>
-          </div>
-        </dialog>
-
-        <dialog className={`modal ${isDetailsModalOpen ? 'modal-open' : ''}`} open={isDetailsModalOpen}>
-          <div className="modal-box max-w-4xl">
-            <h3 className="font-bold text-lg mb-4">Fiche Coupe Details</h3>
-            {selectedDetailsFiche && (
-              <div className="space-y-4">
-                <p><strong>ID:</strong> {selectedDetailsFiche.id}</p>
-                <p><strong>Client:</strong> {clients.find(c => c.id === selectedDetailsFiche.clientId)?.name || 'Unknown'}</p>
-                <p><strong>Model:</strong> {models.find(m => m.id === selectedDetailsFiche.modelId)?.name || 'Unknown'}</p>
-                <p><strong>Commande:</strong> {selectedDetailsFiche.commande}</p>
-                <p><strong>Quantity Ordered:</strong> {selectedDetailsFiche.quantity}</p>
-                <p><strong>Total Processed:</strong> {selectedDetailsFiche.coupe.reduce((sum, entry) => sum + entry.quantityCreated, 0)}</p>
-                <div>
-                  <h4 className="font-semibold">Coupe Entries:</h4>
-                  <div className="overflow-x-auto">
-                    <table className="table table-zebra w-full">
-                      <thead>
-                        <tr>
-                          <th>Week</th>
-                          <th>Day</th>
-                          <th>Category</th>
-                          <th>Quantity Created</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedDetailsFiche.coupe.map((entry, index) => (
-                          <tr key={index}>
-                            <td>{entry.week}</td>
-                            <td>{entry.day}</td>
-                            <td>{entry.category}</td>
-                            <td>{entry.quantityCreated}</td>
+        {/* Details Modal */}
+        <Dialog.Root open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 bg-black/50" />
+            <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 w-full max-w-4xl">
+              <Dialog.Title className="font-bold text-lg mb-4">Fiche Details</Dialog.Title>
+              {selectedDetailsFiche && (
+                <div className="space-y-4">
+                  <p><strong>ID:</strong> {selectedDetailsFiche.id}</p>
+                  <p><strong>Client:</strong> {clients.find(c => c.id === selectedDetailsFiche.clientId)?.name || 'Unknown'}</p>
+                  <p><strong>Model:</strong> {models.find(m => m.id === selectedDetailsFiche.modelId)?.name || 'Unknown'}</p>
+                  <p><strong>Commande:</strong> {selectedDetailsFiche.commande}</p>
+                  <p><strong>Quantity Ordered:</strong> {selectedDetailsFiche.quantity}</p>
+                  <p><strong>Total Processed:</strong> {selectedDetailsFiche.coupe.reduce((sum, entry) => sum + entry.quantityCreated, 0)}</p>
+                  <div>
+                    <h4 className="font-semibold">Coupe Entries:</h4>
+                    <div className="overflow-x-auto">
+                      <table className="table table-zebra w-full">
+                        <thead>
+                          <tr>
+                            <th>Week</th>
+                            <th>Day</th>
+                            <th>Category</th>
+                            <th>Quantity Created</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {selectedDetailsFiche.coupe.map((entry, index) => (
+                            <tr key={index}>
+                              <td>{entry.week}</td>
+                              <td>{entry.day}</td>
+                              <td>{entry.category}</td>
+                              <td>{entry.quantityCreated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
+              )}
+              <div className="mt-6 flex justify-end">
+                <Dialog.Close asChild>
+                  <button className="btn">Close</button>
+                </Dialog.Close>
               </div>
-            )}
-            <div className="modal-action">
-              <button className="btn" onClick={() => setIsDetailsModalOpen(false)}>Close</button>
-            </div>
-          </div>
-        </dialog>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       </div>
     </Wrapper>
   );

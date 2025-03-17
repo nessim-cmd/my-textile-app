@@ -8,11 +8,10 @@ export async function GET() {
       include: { production: true },
       orderBy: { createdAt: 'desc' },
     });
-    console.log('API returning fiches:', fiches);
     return NextResponse.json(fiches);
   } catch (error) {
-    console.error('Error fetching fiches:', error);
-    return NextResponse.json({ error: 'Failed to fetch fiches' }, { status: 500 });
+    console.error('Error fetching fiches-production:', error);
+    return NextResponse.json({ error: 'Failed to fetch fiches-production' }, { status: 500 });
   }
 }
 
@@ -23,7 +22,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Check if a fiche already exists for this modelId and commande
     const existingFiche = await prisma.ficheProduction.findFirst({
       where: { modelId, commande },
       include: { production: true },
@@ -52,7 +50,25 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(fiche, { status: 201 });
   } catch (error) {
-    console.error('Error creating fiche:', error);
-    return NextResponse.json({ error: 'Failed to create fiche' }, { status: 500 });
+    console.error('Error creating fiche-production:', error);
+    return NextResponse.json({ error: 'Failed to create fiche-production' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const { id } = await request.json(); // Expecting the fiche ID in the request body
+  if (!id) {
+    return NextResponse.json({ error: 'Fiche ID is required' }, { status: 400 });
+  }
+
+  try {
+    const fiche = await prisma.ficheProduction.delete({
+      where: { id },
+      include: { production: true },
+    });
+    return NextResponse.json({ message: 'Fiche deleted successfully', fiche }, { status: 200 });
+  } catch (error) {
+    console.error('Error deleting fiche-production:', error);
+    return NextResponse.json({ error: 'Failed to delete fiche-production' }, { status: 500 });
   }
 }

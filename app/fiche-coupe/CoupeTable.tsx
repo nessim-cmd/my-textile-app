@@ -78,7 +78,7 @@ export default function CoupeTable({
     };
 
     loadCoupeData();
-  }, [ficheId, getToken, setCoupeData, setError]); // Removed currentWeek from dependencies to prevent overwriting
+  }, [ficheId, getToken, setCoupeData, setError]);
 
   const handleCoupeChange = (day: string, category: string, value: string) => {
     const numValue = Math.max(0, parseInt(value) || 0);
@@ -260,7 +260,7 @@ export default function CoupeTable({
       ) : (
         <>
           <div className="hidden md:block overflow-x-auto">
-            <table className="table table-zebra w-full">
+            <table className="table w-full">
               <thead>
                 <tr className="bg-gray-200">
                   <th className="text-gray-700 font-bold">Catégorie</th>
@@ -274,17 +274,24 @@ export default function CoupeTable({
                 {categories.map((cat) => (
                   <tr key={cat}>
                     <td className="font-medium">{cat}</td>
-                    {days.map((day) => (
-                      <td key={`${day}-${cat}`}>
-                        <input
-                          type="text"
-                          value={coupeData[`${currentWeek}-${day}-${cat}`] || ''}
-                          onChange={(e) => handleCoupeChange(day, cat, e.target.value)}
-                          className="input input-bordered w-16 text-center"
-                          placeholder="0"
-                        />
-                      </td>
-                    ))}
+                    {days.map((day) => {
+                      const key = `${currentWeek}-${day}-${cat}`;
+                      const value = coupeData[key];
+                      const isEmptyOrZero = value === undefined || value === 0;
+                      return (
+                        <td key={`${day}-${cat}`}>
+                          <input
+                            type="text"
+                            value={value || ''}
+                            onChange={(e) => handleCoupeChange(day, cat, e.target.value)}
+                            className={`input input-bordered w-16 text-center ${
+                              isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
+                            }`} // Conditional background color
+                            placeholder="0"
+                          />
+                        </td>
+                      );
+                    })}
                     <td className="font-bold">{getCategoryTotal(cat)}</td>
                   </tr>
                 ))}
@@ -318,18 +325,25 @@ export default function CoupeTable({
               </button>
             </div>
             <div className="space-y-2">
-              {categories.map((cat) => (
-                <div key={cat} className="flex justify-between items-center">
-                  <span className="font-medium">{cat}</span>
-                  <input
-                    type="text"
-                    value={coupeData[`${currentWeek}-${days[currentDayIndex]}-${cat}`] || ''}
-                    onChange={(e) => handleCoupeChange(days[currentDayIndex], cat, e.target.value)}
-                    className="input input-bordered w-20 text-center"
-                    placeholder="0"
-                  />
-                </div>
-              ))}
+              {categories.map((cat) => {
+                const key = `${currentWeek}-${days[currentDayIndex]}-${cat}`;
+                const value = coupeData[key];
+                const isEmptyOrZero = value === undefined || value === 0;
+                return (
+                  <div key={cat} className="flex justify-between items-center">
+                    <span className="font-medium">{cat}</span>
+                    <input
+                      type="text"
+                      value={value || ''}
+                      onChange={(e) => handleCoupeChange(days[currentDayIndex], cat, e.target.value)}
+                      className={`input input-bordered w-20 text-center ${
+                        isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
+                      }`} // Conditional background color for mobile view
+                      placeholder="0"
+                    />
+                  </div>
+                );
+              })}
               <div className="flex justify-between font-bold">
                 <span>Total</span>
                 <span>{getDailyTotal(days[currentDayIndex])}</span>

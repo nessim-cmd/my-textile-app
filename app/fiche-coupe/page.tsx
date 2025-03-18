@@ -4,7 +4,7 @@
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Search, ChevronLeft, ChevronRight, Eye, Trash } from 'lucide-react'; // Added Trash icon
+import { Plus, Search, ChevronLeft, ChevronRight, Eye, Trash } from 'lucide-react';
 import CoupeTable from './CoupeTable';
 import { Toaster, toast } from 'react-hot-toast';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -105,9 +105,9 @@ export default function FicheCoupePage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedDetailsFiche, setSelectedDetailsFiche] = useState<FicheCoupe | null>(null);
   const [currentWeek, setCurrentWeek] = useState<string>('Week 1');
+  const [availableCommandes, setAvailableCommandes] = useState<Commande[]>([]);
   const itemsPerPage = 3;
 
-  // Fetch clients
   const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
@@ -122,17 +122,18 @@ export default function FicheCoupePage() {
     }
   }, [getToken]);
 
-  // Fetch models for selected client
-  const fetchModels = useCallback(async (clientId?: string) => {
+  const fetchModels = useCallback(async (clientName?: string) => {
     setLoading(true);
     setError(null);
     try {
       const token = await getToken();
-      const url = clientId ? `/api/client-model?clientId=${clientId}` : '/api/client-model';
+      const url = clientName ? `/api/client-model?client=${clientName}` : '/api/client-model';
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to fetch models');
       const data = await res.json();
       setModels(Array.isArray(data) ? data : []);
+      setSelectedModelId(''); // Reset model selection
+      setAvailableCommandes([]); // Reset commandes
     } catch (err) {
       setError('Failed to fetch models');
       console.error(err);
@@ -142,7 +143,6 @@ export default function FicheCoupePage() {
     }
   }, [getToken]);
 
-  // Fetch fiches
   const fetchFiches = useCallback(async () => {
     setLoading(true);
     try {
@@ -162,7 +162,6 @@ export default function FicheCoupePage() {
     }
   }, [getToken]);
 
-  // Delete fiche
   const handleDeleteFiche = async (ficheId: string) => {
     try {
       const token = await getToken();
@@ -172,7 +171,7 @@ export default function FicheCoupePage() {
         body: JSON.stringify({ id: ficheId }),
       });
       if (!res.ok) throw new Error('Failed to delete fiche');
-      await fetchFiches(); // Refresh the fiche list
+      await fetchFiches();
       toast.success('Fiche deleted successfully!');
       if (selectedFicheId === ficheId) {
         setSelectedFicheId(null);
@@ -195,28 +194,29 @@ export default function FicheCoupePage() {
 
   useEffect(() => {
     if (selectedClientId) {
-      fetchModels(selectedClientId);
+      const selectedClient = clients.find(c => c.id === selectedClientId);
+      if (selectedClient) {
+        fetchModels(selectedClient.name); // Pass client name instead of clientId
+      }
     } else {
       setModels([]);
+      setSelectedModelId('');
+      setAvailableCommandes([]);
     }
-  }, [selectedClientId, fetchModels]);
+  }, [selectedClientId, fetchModels, clients]);
 
-  // Handle model and commande selection
   const handleModelChange = (value: string) => {
-    const [modelId, commandeValue] = value.split('|');
+    const modelId = value;
     const selectedModel = models.find((m) => m.id === modelId);
     if (selectedModel) {
       setSelectedModelId(modelId);
-      setSelectedCommande(commandeValue);
-      const selectedCmd = selectedModel.commandesWithVariants.find((c) => c.value === commandeValue);
-      const totalQuantity = selectedCmd && Array.isArray(selectedCmd.variants)
-        ? selectedCmd.variants.reduce((sum, v) => sum + (v.qte_variante || 0), 0)
-        : 0;
-      setQuantity(totalQuantity);
+      setAvailableCommandes(selectedModel.commandesWithVariants); // Set commandes for the selected model
+      setSelectedCommande(''); // Reset commande selection
+      setQuantity(0); // Reset quantity until a commande is selected
       setCoupeData({});
       setCurrentWeek('Week 1');
 
-      const existingFiche = fiches.find((f) => f.modelId === modelId && f.commande === commandeValue);
+      const existingFiche = fiches.find((f) => f.modelId === modelId && f.commande === selectedCommande);
       if (existingFiche) {
         setSelectedFicheId(existingFiche.id);
         const newCoupeData = existingFiche.coupe.reduce((acc, entry) => {
@@ -230,7 +230,32 @@ export default function FicheCoupePage() {
     }
   };
 
-  // Handle fiche selection for editing
+  const handleCommandeChange = (value: string) => {
+    setSelectedCommande(value);
+    const selectedModel = models.find((m) => m.id === selectedModelId);
+    if (selectedModel) {
+      const selectedCmd = selectedModel.commandesWithVariants.find((c) => c.value === value);
+      const totalQuantity = selectedCmd && Array.isArray(selectedCmd.variants)
+        ? selectedCmd.variants.reduce((sum, v) => sum + (v.qte_variante || 0), 0)
+        : 0;
+      setQuantity(totalQuantity);
+      setCoupeData({});
+      setCurrentWeek('Week 1');
+
+      const existingFiche = fiches.find((f) => f.modelId === selectedModelId && f.commande === value);
+      if (existingFiche) {
+        setSelectedFicheId(existingFiche.id);
+        const newCoupeData = existingFiche.coupe.reduce((acc, entry) => {
+          acc[`${entry.week}-${entry.day}-${entry.category}`] = entry.quantityCreated;
+          return acc;
+        }, {} as Record<string, number>);
+        setCoupeData(newCoupeData);
+      } else {
+        setSelectedFicheId(null);
+      }
+    }
+  };
+
   const handleFicheSelect = (ficheId: string) => {
     const fiche = fiches.find((f) => f.id === ficheId);
     if (fiche) {
@@ -245,10 +270,13 @@ export default function FicheCoupePage() {
         return acc;
       }, {} as Record<string, number>);
       setCoupeData(newCoupeData);
+      const selectedClient = clients.find(c => c.id === fiche.clientId);
+      if (selectedClient) fetchModels(selectedClient.name); // Fetch models for the fiche's client
+      const selectedModel = models.find((m) => m.id === fiche.modelId);
+      if (selectedModel) setAvailableCommandes(selectedModel.commandesWithVariants);
     }
   };
 
-  // Handle fiche details
   const handleFicheDetails = (ficheId: string) => {
     const fiche = fiches.find((f) => f.id === ficheId);
     if (fiche) {
@@ -257,7 +285,6 @@ export default function FicheCoupePage() {
     }
   };
 
-  // Create new fiche
   const handleCreateFiche = async () => {
     if (!selectedClientId || !selectedModelId || !selectedCommande) {
       setError('Please select a client, model, and commande');
@@ -297,7 +324,6 @@ export default function FicheCoupePage() {
     }
   };
 
-  // Pagination and search for fiches
   const filteredFiches = fiches.filter((fiche) => {
     const modelName = models.find((m) => m.id === fiche.modelId)?.name || '';
     return (
@@ -316,7 +342,6 @@ export default function FicheCoupePage() {
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Fiche Coupe</h1>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar: Saved Fiches */}
           <div className="lg:w-1/3 space-y-4">
             <div className="flex items-center space-x-2">
               <input
@@ -398,26 +423,33 @@ export default function FicheCoupePage() {
                       <label className="block mb-2 font-semibold">Model</label>
                       <select
                         className="select select-bordered w-full max-h-40 overflow-y-auto"
-                        value={selectedModelId && selectedCommande ? `${selectedModelId}|${selectedCommande}` : ''}
+                        value={selectedModelId}
                         onChange={(e) => handleModelChange(e.target.value)}
-                        disabled={!selectedClientId || loading}
+                        disabled={!selectedClientId || loading || !models.length}
                       >
                         <option value="">Select a model</option>
-                        {models.slice(0, 5).map((model) =>
-                          model.commandesWithVariants.map((cmd) => (
-                            <option key={`${model.id}|${cmd.value}`} value={`${model.id}|${cmd.value}`}>
-                              {model.name} ({cmd.value})
-                            </option>
-                          ))
-                        )}
+                        {models.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name} ({model.commandesWithVariants[0]?.value || 'No Commande'})
+                          </option>
+                        ))}
                       </select>
-                      {models.length > 5 && (
-                        <p className="text-sm text-gray-500 mt-1">Scroll for more models...</p>
-                      )}
                     </div>
                     <div>
                       <label className="block mb-2 font-semibold">Commande</label>
-                      <input type="text" className="input input-bordered w-full" value={selectedCommande} readOnly />
+                      <select
+                        className="select select-bordered w-full"
+                        value={selectedCommande}
+                        onChange={(e) => handleCommandeChange(e.target.value)}
+                        disabled={!selectedModelId || !availableCommandes.length}
+                      >
+                        <option value="">Select a commande</option>
+                        {availableCommandes.map((cmd) => (
+                          <option key={cmd.value} value={cmd.value}>
+                            {cmd.value}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block mb-2 font-semibold">Quantity</label>
@@ -437,7 +469,6 @@ export default function FicheCoupePage() {
             </Dialog.Root>
           </div>
 
-          {/* Main Content */}
           <div className="lg:w-2/3 bg-white rounded-xl shadow p-6">
             {selectedFicheId ? (
               <CoupeTable
@@ -479,26 +510,28 @@ export default function FicheCoupePage() {
                   <div>
                     <h4 className="font-semibold">Coupe Entries:</h4>
                     <div className="overflow-x-auto">
-                      <table className="table table-zebra w-full">
-                        <thead>
-                          <tr>
-                            <th>Week</th>
-                            <th>Day</th>
-                            <th>Category</th>
-                            <th>Quantity Created</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedDetailsFiche.coupe.map((entry, index) => (
-                            <tr key={index}>
-                              <td>{entry.week}</td>
-                              <td>{entry.day}</td>
-                              <td>{entry.category}</td>
-                              <td>{entry.quantityCreated}</td>
+                      <div className="max-h-[300px] overflow-y-auto">
+                        <table className="table table-zebra w-full">
+                          <thead className="sticky top-0 bg-white">
+                            <tr>
+                              <th>Week</th>
+                              <th>Day</th>
+                              <th>Category</th>
+                              <th>Quantity Created</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {selectedDetailsFiche.coupe.map((entry, index) => (
+                              <tr key={index}>
+                                <td>{entry.week}</td>
+                                <td>{entry.day}</td>
+                                <td>{entry.category}</td>
+                                <td>{entry.quantityCreated}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </div>

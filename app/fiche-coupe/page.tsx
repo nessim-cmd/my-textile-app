@@ -51,7 +51,13 @@ interface FicheCoupe {
   createdAt: string;
 }
 
-const FicheCard: React.FC<{ fiche: FicheCoupe; onSelect: (id: string) => void; onDetails: (id: string) => void; onDelete: (id: string) => void; models: ClientModel[] }> = ({ fiche, onSelect, onDetails, onDelete, models }) => {
+const FicheCard: React.FC<{
+  fiche: FicheCoupe;
+  onSelect: (id: string) => void;
+  onDetails: (id: string) => void;
+  onDelete: (id: string) => void;
+  models: ClientModel[];
+}> = ({ fiche, onSelect, onDetails, onDelete, models }) => {
   const model = models.find((m) => m.id === fiche.modelId);
   const totalProcessed = fiche.coupe.reduce((sum, entry) => sum + entry.quantityCreated, 0);
 
@@ -316,9 +322,11 @@ export default function FicheCoupePage() {
       setCurrentWeek('Week 1');
       await fetchFiches();
       setIsCreateModalOpen(false);
+      toast.success('Fiche created successfully!');
     } catch (err) {
       console.error(err);
       setError('Failed to create fiche');
+      toast.error('Failed to create fiche');
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 "use client"
 
-import { Inbox, ChevronDown, Scissors, UserRoundPenIcon, Blocks, SendToBack, DatabaseZapIcon, Calendar, LayoutDashboard } from "lucide-react"
+import { ChevronDown, Scissors, UserRoundPenIcon, DatabaseZapIcon, Calendar, LayoutDashboard,  Eye, CircleArrowOutDownRight, CircleArrowOutUpLeft, Inbox } from "lucide-react"
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import {
@@ -15,13 +15,13 @@ const items = [
     title: "Dashboard",
     icon: LayoutDashboard,
     subItems: [
-      { title: "Dashboard", url: "/dashboard" },
+      { icon: Inbox,title: "Dashboard", url: "/dashboard" },
       { title: "Users", url: "/admin/users" },
     ],
   },
   {
     title: "Creation Entree",
-    icon: Blocks,
+    icon: CircleArrowOutDownRight ,
     subItems: [
       { title: "Declaration Import", url: "/import" },
       { title: "Bon Livraison Entree", url: "/livraisonEntree" },
@@ -37,7 +37,7 @@ const items = [
   },
   {
     title: "Creation Sortee",
-    icon: Inbox,
+    icon: CircleArrowOutUpLeft,
     subItems: [
       { title: "Declaration Export", url: "/exporte" },
       { title: "Bon Livraison", url: "/livraison" },
@@ -53,7 +53,7 @@ const items = [
   },
   {
     title: "Suivi ",
-    icon: SendToBack,
+    icon: Eye ,
     subItems: [
       { title: "Suivi Declarations", url: "/etat-import-export" },
       { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
@@ -105,10 +105,12 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar>
+    <Sidebar
+    collapsible="icon"
+    >
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-bold items-center flex justify-center text-2xl">MS Tailors</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -142,7 +144,9 @@ export function AppSidebar() {
                                   className={pathname === subItem.url ? "font-bold text-primary" : ""}
                                 >
                                   <span>{subItem.title}</span>
+                                  
                                 </a>
+                                
                               </SidebarMenuButton>
                             </SidebarMenuItem>
                           ))}

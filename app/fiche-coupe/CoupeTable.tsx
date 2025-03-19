@@ -5,6 +5,22 @@ import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+interface CoupeEntry {
+  week: string;
+  day: string;
+  category: string;
+  quantityCreated: number;
+}
+
+interface FicheCoupe {
+  id: string;
+  clientId: string;
+  modelId: string;
+  commande: string;
+  quantity: number;
+  coupe: CoupeEntry[];
+}
+
 interface CoupeTableProps {
   ficheId: string;
   clientId: string;
@@ -51,27 +67,29 @@ export default function CoupeTable({
       try {
         const token = await getToken();
         if (!token) throw new Error('Authentication token is missing');
-        console.log('Fetching fiche-coupe with ID:', ficheId);
-        const res = await fetch(`/api/fiche-coupe/${ficheId}`, {
+        console.log(`[LOAD COUPE DATA] Fetching fiche-coupe with ID: ${ficheId}`);
+        // Add cache-busting query parameter to ensure fresh data
+        const res = await fetch(`/api/fiche-coupe/${ficheId}?t=${new Date().getTime()}`, {
           headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store', // Prevent caching
         });
         if (!res.ok) {
           const errorText = await res.text();
-          console.error('Fetch failed with status:', res.status, 'Response:', errorText);
+          console.error(`[LOAD COUPE DATA] Fetch failed with status: ${res.status}, Response: ${errorText}`);
           throw new Error(`Failed to fetch fiche-coupe data: ${res.status} - ${errorText}`);
         }
-        const fiche = await res.json();
-        console.log('Fetched fiche data:', JSON.stringify(fiche, null, 2));
-        const newCoupeData = fiche.coupe.reduce((acc: Record<string, number>, entry: any) => {
+        const fiche: FicheCoupe = await res.json();
+        console.log(`[LOAD COUPE DATA] Fetched fiche data:`, JSON.stringify(fiche, null, 2));
+        const newCoupeData = fiche.coupe.reduce((acc: Record<string, number>, entry: CoupeEntry) => {
           const key = `${entry.week}-${entry.day}-${entry.category}`;
           acc[key] = entry.quantityCreated;
           return acc;
         }, {});
-        console.log('Constructed coupeData:', JSON.stringify(newCoupeData, null, 2));
+        console.log(`[LOAD COUPE DATA] Constructed coupeData:`, JSON.stringify(newCoupeData, null, 2));
         setCoupeData(newCoupeData);
       } catch (error) {
-        console.error('Error loading coupe data:', error);
-        
+        console.error('[LOAD COUPE DATA] Error loading coupe data:', error);
+        setError('Failed to load coupe data');
       } finally {
         setLoading(false);
       }
@@ -98,7 +116,7 @@ export default function CoupeTable({
     }
 
     setCoupeData(newCoupeData);
-    console.log('Updated coupeData after input:', JSON.stringify(newCoupeData, null, 2));
+    console.log(`[HANDLE COUPE CHANGE] Updated coupeData after input:`, JSON.stringify(newCoupeData, null, 2));
   };
 
   const getDailyTotal = (day: string) => {
@@ -106,7 +124,7 @@ export default function CoupeTable({
       const key = `${currentWeek}-${day}-${cat}`;
       return sum + (coupeData[key] || 0);
     }, 0);
-    console.log(`Daily total for ${day} in ${currentWeek}: ${total}`);
+    console.log(`[GET DAILY TOTAL] Daily total for ${day} in ${currentWeek}: ${total}`);
     return total;
   };
 
@@ -118,7 +136,7 @@ export default function CoupeTable({
   };
 
   const totalProcessed = Object.values(coupeData).reduce((sum, qty) => sum + qty, 0);
-  console.log(`Total processed: ${totalProcessed}`);
+  console.log(`[TOTAL PROCESSED] Total processed: ${totalProcessed}`);
 
   const saveFiche = async () => {
     setLoading(true);
@@ -144,7 +162,7 @@ export default function CoupeTable({
     };
 
     try {
-      console.log('Saving fiche with payload:', JSON.stringify(payload, null, 2));
+      console.log(`[SAVE FICHE] Saving fiche with payload:`, JSON.stringify(payload, null, 2));
       const res = await fetch(`/api/fiche-coupe/${ficheId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -153,17 +171,21 @@ export default function CoupeTable({
 
       if (!res.ok) {
         const text = await res.text();
-        console.error('Save failed with response:', text);
+        console.error(`[SAVE FICHE] Save failed with response: ${text}`);
         throw new Error(`Failed to save fiche-coupe: ${res.status} ${res.statusText}`);
       }
 
       const data = await res.json();
-      console.log('Save successful, response:', JSON.stringify(data, null, 2));
+      console.log(`[SAVE FICHE] Save successful, response:`, JSON.stringify(data, null, 2));
       await fetchFiches();
       toast.success('Fiche Coupe saved successfully!', { duration: 3000 });
+
+      // Add a small delay to ensure the database is updated before the next fetch
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (error) {
-      console.error('Error saving fiche-coupe:', error);
+      console.error('[SAVE FICHE] Error saving fiche-coupe:', error);
       setError('Failed to save fiche-coupe');
+      toast.error('Failed to save fiche-coupe');
     } finally {
       setLoading(false);
     }

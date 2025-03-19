@@ -398,8 +398,12 @@ model FicheCoupe {
   quantity      Int
   coupe         CoupeEntry[]
   createdAt     DateTime       @default(now())
-  client        Client         @relation(fields: [clientId], references: [id])
-  model         ClientModel    @relation(fields: [modelId], references: [id])
+  updatedAt     DateTime       @updatedAt
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  model         ClientModel    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([modelId])
 }
 
 model CoupeEntry {
@@ -409,5 +413,10 @@ model CoupeEntry {
   day             String
   category        String
   quantityCreated Int
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
   ficheCoupe      FicheCoupe  @relation(fields: [ficheCoupeId], references: [id], onDelete: Cascade)
+
+  @@index([ficheCoupeId])
+  @@index([week, day, category])
 }

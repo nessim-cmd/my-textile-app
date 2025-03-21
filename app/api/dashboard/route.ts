@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       where: livraisonEntreeWhere,
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { lines: true, client: true },
+      include: { models: true, client: true },
     });
     const livraisonEntreeCount = await prisma.livraisonEntree.count({ where: livraisonEntreeWhere });
 

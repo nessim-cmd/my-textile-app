@@ -138,8 +138,8 @@ export default function DashboardPage() {
                 )}
                 {fields.map(field => (
                   <TableCell key={field}>
-                    {field === 'HT' ? `${(item.valeur || item.lines?.reduce((sum: number, l: any) => sum + l.quantity * l.unitPrice, 0) || 0).toFixed(2)} €` :
-                     field === 'TTC' && item.vatActive ? `${((item.valeur || item.lines?.reduce((sum: number, l: any) => sum + l.quantity * l.unitPrice, 0)) * (1 + (item.vatRate || 0) / 100)).toFixed(2)} €` :
+                    {field === 'HT' ? `${(item.valeur || item.models?.reduce((sum: number, l: any) => sum + l.quantity * l.unitPrice, 0) || 0).toFixed(2)} €` :
+                     field === 'TTC' && item.vatActive ? `${((item.valeur || item.models?.reduce((sum: number, l: any) => sum + l.quantity * l.unitPrice, 0)) * (1 + (item.vatRate || 0) / 100)).toFixed(2)} €` :
                      field === 'Name' ? item.name || 'N/A' :
                      field === 'Description' ? item.description || 'N/A' :
                      field === 'Status' ? (item.status === 2 ? 'Paid' : 'Unpaid') :
@@ -177,7 +177,7 @@ export default function DashboardPage() {
     );
 
     const livraisonItems = listeManqueData.livraisons.flatMap(livraison =>
-      livraison.lines.map(line => ({
+      livraison.models.map(line => ({
         client: livraison.client?.name || livraison.clientName || 'N/A',
         description: line.description ? `Line: ${line.description}` : 'Unnamed Line',
         quantity_manque: (line.quantityReçu && line.quantityTrouvee) ? (line.quantityReçu - line.quantityTrouvee) : 'N/A',

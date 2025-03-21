@@ -20,7 +20,8 @@ import {
 
 export interface LivraisonEntree extends PrismaLivraisonEntry {
   lines: LivraisonEntreeLine[];
-  client?: PrismaClient | null; // Use PrismaClient directly
+  models: Model[];
+  client?: PrismaClient | null;
 }
 
 // Rest of your type definitions remain unchanged
@@ -63,7 +64,12 @@ export interface DeclarationImport {
 export interface Model {
   id: string;
   name: string;
-  declarationImportId: string;
+  commande?: string;         // Added
+  description?: string;      // Added
+  quantityReçu?: number;     // Added
+  quantityTrouvee?: number;  // Added
+  declarationImportId?: string;
+  livraisonEntreeId?: string;
   accessories: Accessoire[];
   createdAt: string;
   updatedAt: string;

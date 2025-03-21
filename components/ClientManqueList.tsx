@@ -17,14 +17,18 @@ interface ClientManqueListProps {
 const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data }) => {
   const [showDetails, setShowDetails] = useState(false);
 
+  // Safeguard against undefined arrays
+  const declarations = data.declarations || [];
+  const livraisons = data.livraisons || [];
+
   const totalMissingItems =
-    data.declarations.reduce((sum, dec) =>
-      sum + dec.models.reduce((modelSum, model) =>
-        modelSum + model.accessories.reduce((accSum, acc) =>
+    declarations.reduce((sum, dec) =>
+      sum + (dec.models || []).reduce((modelSum, model) =>
+        modelSum + (model.accessories || []).reduce((accSum, acc) =>
           accSum + (acc.quantity_manque < 0 ? Math.abs(acc.quantity_manque) : 0), 0), 0), 0) +
-    data.livraisons.reduce((sum, liv) =>
-      sum + liv.lines.reduce((lineSum, line) =>
-        lineSum + (line.quantityReçu > line.quantityTrouvee ? line.quantityReçu - line.quantityTrouvee : 0), 0), 0);
+    livraisons.reduce((sum, liv) =>
+      sum + (liv.models || []).reduce((modelSum, model) =>
+        modelSum + ((model.quantityTrouvee || 0) < (model.quantityReçu || 0) ? (model.quantityReçu || 0) - (model.quantityTrouvee || 0) : 0), 0), 0);
 
   const downloadPDF = () => {
     const doc = new jsPDF("p", "mm", "a4");
@@ -53,7 +57,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
       doc.setFillColor(255, 255, 255);
       doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
       row.forEach((cell, index) => {
-        doc.setTextColor(index === 6 && isMissing ? 255 : 0, 0, 0); // Fixed syntax
+        doc.setTextColor(index === 6 && isMissing ? 255 : 0, 0, 0);
         doc.text(cell.slice(0, 15), margin + 5 + index * 27, yPosition + 6);
       });
       yPosition += 8;
@@ -63,9 +67,9 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
       }
     };
 
-    data.declarations.forEach(dec => {
-      dec.models.forEach(model => {
-        model.accessories.forEach(acc => {
+    declarations.forEach(dec => {
+      (dec.models || []).forEach(model => {
+        (model.accessories || []).forEach(acc => {
           if (acc.quantity_manque < 0) {
             addRow([
               "Déclaration",
@@ -81,17 +85,18 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
       });
     });
 
-    data.livraisons.forEach(liv => {
-      liv.lines.forEach(line => {
-        if (line.quantityReçu > line.quantityTrouvee) {
+    livraisons.forEach(liv => {
+      (liv.models || []).forEach(model => {
+        const manque = (model.quantityTrouvee || 0) - (model.quantityReçu || 0);
+        if (manque < 0) {
           addRow([
             "Livraison",
-            line.modele || "N/A",
-            line.commande || "N/A",
-            line.description || "N/A",
-            line.quantityReçu?.toString() ?? "N/A",
-            line.quantityTrouvee?.toString() ?? "N/A",
-            (line.quantityReçu && line.quantityTrouvee) ? (line.quantityReçu - line.quantityTrouvee).toString() : "N/A",
+            model.name || "N/A",
+            model.commande || "N/A",
+            model.description || "N/A",
+            model.quantityReçu?.toString() ?? "N/A",
+            model.quantityTrouvee?.toString() ?? "N/A",
+            Math.abs(manque).toString(),
           ], true);
         }
       });
@@ -158,9 +163,9 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
               </tr>
             </thead>
             <tbody>
-              {data.declarations.flatMap(dec =>
-                dec.models.flatMap(model =>
-                  model.accessories.map(acc =>
+              {declarations.flatMap(dec =>
+                (dec.models || []).flatMap(model =>
+                  (model.accessories || []).map(acc =>
                     acc.quantity_manque < 0 ? (
                       <tr key={`${dec.id}-${model.id}-${acc.id}`}>
                         <td>Déclaration</td>
@@ -180,36 +185,35 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                   )
                 )
               )}
-              {data.livraisons.flatMap(liv =>
-                liv.lines.map(line =>
-                  line.quantityReçu > line.quantityTrouvee ? (
-                    <tr key={`${liv.id}-${line.id}`}>
+              {livraisons.flatMap(liv =>
+                (liv.models || []).map(model => {
+                  const manque = (model.quantityTrouvee || 0) - (model.quantityReçu || 0);
+                  return manque < 0 ? (
+                    <tr key={`${liv.id}-${model.id}`}>
                       <td>Livraison</td>
-                      <td>{line.modele || "N/A"}</td>
-                      <td>{line.commande || "N/A"}</td>
-                      <td>{line.description || "N/A"}</td>
-                      <td>{line.quantityReçu ?? "N/A"}</td>
-                      <td>{line.quantityTrouvee ?? "N/A"}</td>
-                      <td className="text-red-500">
-                        {(line.quantityReçu !== null && line.quantityTrouvee !== null) ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
-                      </td>
+                      <td>{model.name || "N/A"}</td>
+                      <td>{model.commande || "N/A"}</td>
+                      <td>{model.description || "N/A"}</td>
+                      <td>{model.quantityReçu ?? "N/A"}</td>
+                      <td>{model.quantityTrouvee ?? "N/A"}</td>
+                      <td className="text-red-500">{Math.abs(manque)}</td>
                       <td>
                         <Link href={`/livraisonEntree/${liv.id}`} className="btn btn-xs btn-accent">
                           Voir
                         </Link>
                       </td>
                     </tr>
-                  ) : null
-                )
+                  ) : null;
+                })
               )}
             </tbody>
           </table>
 
           {/* Mobile Card Layout */}
           <div className="sm:hidden space-y-4">
-            {data.declarations.flatMap(dec =>
-              dec.models.flatMap(model =>
-                model.accessories.map(acc =>
+            {declarations.flatMap(dec =>
+              (dec.models || []).flatMap(model =>
+                (model.accessories || []).map(acc =>
                   acc.quantity_manque < 0 ? (
                     <div key={`${dec.id}-${model.id}-${acc.id}`} className="card bg-base-100 p-4 shadow">
                       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -235,33 +239,32 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                 )
               )
             )}
-            {data.livraisons.flatMap(liv =>
-              liv.lines.map(line =>
-                line.quantityReçu > line.quantityTrouvee ? (
-                  <div key={`${liv.id}-${line.id}`} className="card bg-base-100 p-4 shadow">
+            {livraisons.flatMap(liv =>
+              (liv.models || []).map(model => {
+                const manque = (model.quantityTrouvee || 0) - (model.quantityReçu || 0);
+                return manque < 0 ? (
+                  <div key={`${liv.id}-${model.id}`} className="card bg-base-100 p-4 shadow">
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <span className="font-semibold">Type:</span>
                       <span>Livraison</span>
                       <span className="font-semibold">Modèle:</span>
-                      <span>{line.modele || "N/A"}</span>
+                      <span>{model.name || "N/A"}</span>
                       <span className="font-semibold">Commande:</span>
-                      <span>{line.commande || "N/A"}</span>
+                      <span>{model.commande || "N/A"}</span>
                       <span className="font-semibold">Référence:</span>
-                      <span>{line.description || "N/A"}</span>
+                      <span>{model.description || "N/A"}</span>
                       <span className="font-semibold">Qté Reçue:</span>
-                      <span>{line.quantityReçu ?? "N/A"}</span>
+                      <span>{model.quantityReçu ?? "N/A"}</span>
                       <span className="font-semibold">Qté Trouvée:</span>
-                      <span>{line.quantityTrouvee ?? "N/A"}</span>
+                      <span>{model.quantityTrouvee ?? "N/A"}</span>
                       <span className="font-semibold">Qté Manquante:</span>
-                      <span className="text-red-500">
-                        {(line.quantityReçu !== null && line.quantityTrouvee !== null) ? (line.quantityReçu - line.quantityTrouvee) : "N/A"}
-                      </span>
+                      <span className="text-red-500">{Math.abs(manque)}</span>
                       <span className="font-semibold">Lien:</span>
                       <Link href={`/livraisonEntree/${liv.id}`} className="btn btn-xs btn-accent">Voir</Link>
                     </div>
                   </div>
-                ) : null
-              )
+                ) : null;
+              })
             )}
           </div>
         </div>

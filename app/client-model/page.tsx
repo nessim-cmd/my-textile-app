@@ -73,18 +73,20 @@ export default function ClientModelPage() {
 
     try {
       const token = await getToken();
-      console.log("Fetching data, Token:", token); // Debug
+      console.log("Fetching client models, Token:", token);
       const res = await fetch(`/api/client-model?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         if (res.status === 404) {
           setModels([]);
+          console.log("No client models found (404)");
           return;
         }
         throw new Error(`Failed to fetch: ${res.status}`);
       }
       const data = await res.json();
+      console.log("Fetched client models:", data); // Debug fetched data
       setModels(data);
     } catch (err) {
       setError("Failed to fetch client models");

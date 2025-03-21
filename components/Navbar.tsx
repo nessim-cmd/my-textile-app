@@ -10,10 +10,10 @@ import { getNotificationDays } from '@/utils/dateUtils';
 
 interface Notification {
   id: string;
-  clientName?: string; // Optional for submission notifications
-  daysRemaining?: number; // Optional for submission notifications
-  message?: string; // For manque notifications
-  link?: string; // For navigation
+  clientName?: string;
+  daysRemaining?: number;
+  message?: string;
+  link?: string;
 }
 
 const Navbar = () => {
@@ -47,7 +47,7 @@ const Navbar = () => {
                 id: `${client.id}-${client.dateFinSoumission}`,
                 clientName: client.name || 'Unknown',
                 daysRemaining: days,
-                link: 'https://mstailors.vercel.app/client', // Add link for submission notifications
+                link: 'https://mstailors.vercel.app/client',
               };
             }
             return null;
@@ -60,15 +60,40 @@ const Navbar = () => {
         });
         if (!manqueResponse.ok) throw new Error('Failed to fetch liste-manque');
         const manqueData = await manqueResponse.json();
-        const hasManques = (manqueData.declarations?.length > 0 || manqueData.livraisons?.length > 0);
-        const manqueNotification = hasManques ? [{
-          id: 'manque-notification',
-          message: 'There is a manque of accessoires',
-          link: 'https://mstailors.vercel.app/liste-manque',
-        }] : [];
+
+        const manqueNotifications: Notification[] = [];
+
+        // DeclarationImport manque notifications
+        manqueData.declarations?.forEach((declaration: any) => {
+          declaration.models.forEach((model: any) => {
+            model.accessories.forEach((acc: any) => {
+              if (acc.quantity_manque < 0) {
+                manqueNotifications.push({
+                  id: `manque-declaration-${declaration.id}-${model.id}-${acc.id}`,
+                  message: `Manque d'accessoire ${acc.reference_accessoire} (${acc.quantity_manque}) pour ${model.name} (Client: ${declaration.client})`,
+                  link: 'https://mstailors.vercel.app/liste-manque',
+                });
+              }
+            });
+          });
+        });
+
+        // LivraisonEntree manque notifications
+        manqueData.livraisons?.forEach((livraison: any) => {
+          livraison.models.forEach((model: any) => {
+            const manque = (model.quantityTrouvee || 0) - (model.quantityReçu || 0);
+            if (manque < 0) {
+              manqueNotifications.push({
+                id: `manque-livraison-${livraison.id}-${model.id}`,
+                message: `Manque de ${model.name} (${manque}) pour ${livraison.clientName || livraison.client?.name || 'Unknown'}`,
+                link: 'https://mstailors.vercel.app/liste-manque',
+              });
+            }
+          });
+        });
 
         // Combine notifications
-        const combinedNotifications = [...submissionNotifications, ...manqueNotification];
+        const combinedNotifications = [...submissionNotifications, ...manqueNotifications];
         console.log('Combined notifications:', combinedNotifications);
         setNotifications(combinedNotifications);
       } catch (error) {
@@ -88,8 +113,8 @@ const Navbar = () => {
     fetchNotifications();
     checkAndResetNotifications();
 
-    const fetchInterval = setInterval(fetchNotifications, 120000); // Refresh every minute
-    const resetInterval = setInterval(checkAndResetNotifications, 120000); // Check every 2minutes
+    const fetchInterval = setInterval(fetchNotifications, 120000);
+    const resetInterval = setInterval(checkAndResetNotifications, 120000);
 
     return () => {
       clearInterval(fetchInterval);
@@ -106,7 +131,7 @@ const Navbar = () => {
         setHideBadge(false);
         console.log('Badge reappears after 2 minutes');
         setTimeoutId(null);
-      }, 120000); // 2 minutes
+      }, 120000);
       setTimeoutId(newTimeout);
     }
   };

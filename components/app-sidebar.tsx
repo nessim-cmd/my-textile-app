@@ -57,7 +57,8 @@ const items = [
     subItems: [
       { title: "Suivi Declarations", url: "/etat-import-export" },
       { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
-      { title: "Fiche Production", url: "/fiche-production" }
+      { title: "Fiche Production", url: "/fiche-production" },
+      { title: "Planning", url: "/planning" }
     ],
   },
   {

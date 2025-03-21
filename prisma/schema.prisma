@@ -173,22 +173,24 @@ model LivraisonLine {
 }
 
 model LivraisonEntree {
-  id              String                 @id 
+  id              String      @id 
   name            String?
   clientId        String?
-  client          Client?                 @relation(fields: [clientId], references: [id])
+  client          Client?     @relation(fields: [clientId], references: [id])
   clientName      String?
   livraisonDate   String?
-  lines           LivraisonEntreeLine[]
+  models          Model[]     @relation("LivraisonEntreeModels")
   userId          String?
-  createdById     User?          @relation("UserLivraisonEntry", fields: [userId], references: [id])
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  createdById     User?       @relation("UserLivraisonEntry", fields: [userId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  LivraisonEntreeLine LivraisonEntreeLine[]
 }
 
 model LivraisonEntreeLine {
   id                  String            @id @default(uuid())
-  modele              String
+  
   commande            String
   description         String
   quantityReçu        Float
@@ -239,13 +241,21 @@ model DeclarationImport {
 }
 
 model Model {
-  id                String      @id @default(uuid())
-  name              String
-  accessories       Accessoire[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  declarationImportId String
-  declarationImport DeclarationImport @relation(fields: [declarationImportId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(uuid())
+  name                String
+  commande            String?            // Added
+  description         String?            // Added
+  quantityReçu        Float?             // Added
+  quantityTrouvee     Float?             // Added
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  declarationImportId String?            
+  declarationImport   DeclarationImport? @relation(fields: [declarationImportId], references: [id], onDelete: Cascade)
+  livraisonEntreeId   String?            
+  livraisonEntree     LivraisonEntree?   @relation("LivraisonEntreeModels", fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
+  accessories         Accessoire[]       @relation("ModelAccessoires") // Still used for DeclarationImport
+
+  Accessoire Accessoire[]
 }
 
 model Accessoire {
@@ -256,6 +266,8 @@ model Accessoire {
   quantity_manque     Float   // Changed to Float for consistency
   modelId             String
   model               Model   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  Model Model[] @relation("ModelAccessoires")
 }
 
 model SuiviProduction {

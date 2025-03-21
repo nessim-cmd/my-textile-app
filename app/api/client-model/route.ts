@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
     const searchTerm = searchParams.get('search');
     const client = searchParams.get('client');
 
-    console.log('GET /api/client-model params:', { dateDebut, dateFin, client });
 
     const where: any = {};
 
@@ -61,7 +60,6 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    console.log("ClientModels:", models);
     return NextResponse.json(models);
   } catch (error) {
     console.error('Error fetching client models:', error);
@@ -74,7 +72,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { commandesWithVariants, variants, ...modelData } = body;
 
-    console.log('POST /api/client-model request body:', body);
 
     const combinedCommandes = Array.isArray(commandesWithVariants)
       ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
@@ -116,7 +113,6 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, commandesWithVariants, variants, ...modelData } = body;
 
-    console.log('PUT /api/client-model request body:', body);
 
     const existingModel = await prisma.clientModel.findUnique({
       where: { id },
@@ -156,7 +152,6 @@ export async function PUT(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
-    console.log(`Updated ClientModel: ${id}, clientId: ${updatedModel.clientId}, name: ${updatedModel.name}, description: ${modelData.description}, commandes: ${combinedCommandes}, variants: ${JSON.stringify(combinedVariants)}`);
     return NextResponse.json(updatedModel);
   } catch (error) {
     console.error('Error updating client model:', error);

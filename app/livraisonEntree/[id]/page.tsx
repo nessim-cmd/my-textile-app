@@ -1,21 +1,22 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import LivraisonEntreeInfo from "@/components/LivraisonEntreeInfo";
-import LivraisonEntreeLines from "@/components/LivraisonEntreeLines";
-import Wrapper from "@/components/Wrapper";
-import { LivraisonEntree } from "@/type";
-import { Save, Trash } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Save, Trash } from "lucide-react";
+import { LivraisonEntree } from "@/type";
+import Wrapper from "@/components/Wrapper";
+import LivraisonEntreeLines from "@/components/LivraisonEntreeLines";
+import LivraisonEntreeInfo from "@/components/LivraisonEntreeInfo";
 import { useAuth } from "@clerk/nextjs";
 
-export default function LivraisonEntreePage() {
+export default function LivraisonEntreeDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const { getToken } = useAuth();
   const [livraisonEntree, setLivraisonEntree] = useState<LivraisonEntree | null>(null);
   const [initialLivraisonEntree, setInitialLivraisonEntree] = useState<LivraisonEntree | null>(null);
-  const [, setIsSaveDisabled] = useState(true);
+  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -36,7 +37,9 @@ export default function LivraisonEntreePage() {
   };
 
   useEffect(() => {
-    if (params.id) fetchLivraisonEntree();
+    if (params.id) {
+      fetchLivraisonEntree();
+    }
   }, [params.id]);
 
   useEffect(() => {
@@ -57,7 +60,6 @@ export default function LivraisonEntreePage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(livraisonEntree),
-        signal: AbortSignal.timeout(30000),
       });
 
       if (!response.ok) {
@@ -66,12 +68,8 @@ export default function LivraisonEntreePage() {
       }
 
       await fetchLivraisonEntree();
-
-      if (window.refreshClientModelPage) {
-        window.refreshClientModelPage();
-      }
-      if (window.refreshEtatLivraisonPage) {
-        window.refreshEtatLivraisonPage();
+      if (typeof window !== "undefined" && (window as any).refreshClientModelPage) {
+        (window as any).refreshClientModelPage();
       }
     } catch (error) {
       console.error("Error saving LivraisonEntree:", error);
@@ -82,7 +80,7 @@ export default function LivraisonEntreePage() {
   };
 
   const handleDelete = async () => {
-    const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette livraison Entree ?");
+    const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette LivraisonEntree ?");
     if (confirmed && livraisonEntree?.id) {
       try {
         const token = await getToken();
@@ -98,27 +96,26 @@ export default function LivraisonEntreePage() {
     }
   };
 
-  if (!livraisonEntree)
+  if (!livraisonEntree) {
     return (
       <div className="flex justify-center items-center h-screen w-full">
-        <span className="font-bold">Chargement de la livraison...</span>
+        <span className="font-bold">Chargement de la LivraisonEntree...</span>
       </div>
     );
+  }
 
   return (
     <Wrapper>
-      <div className="flex flex-col space-y-4">
+      <div>
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
-          <div className="flex items-center space-x-2">
-            <p className="badge badge-ghost badge-lg uppercase">
-              <span>LivraisonEntree-</span>
-              {livraisonEntree.id}
-            </p>
-          </div>
-          <div className="flex mt-2 md:mt-0">
+          <p className="badge badge-ghost badge-lg uppercase">
+            <span>L.E-</span>{livraisonEntree.id}
+          </p>
+
+          <div className="flex md:mt-0 mt-4">
             <button
               className="btn btn-sm btn-accent ml-4"
-              disabled={isLoading}
+              disabled={isSaveDisabled || isLoading}
               onClick={handleSave}
             >
               {isLoading ? (
@@ -130,22 +127,30 @@ export default function LivraisonEntreePage() {
                 </>
               )}
             </button>
-            <button onClick={handleDelete} className="btn btn-sm btn-accent ml-4">
+
+            <button
+              onClick={handleDelete}
+              className="btn btn-sm btn-accent ml-4"
+            >
               <Trash className="w-4" />
             </button>
           </div>
-        </div>
-
-        <div className="w-[500]">
-          <LivraisonEntreeInfo livraisonEntree={livraisonEntree} setLivraisonEntree={setLivraisonEntree} />
         </div>
 
         {errorMessage && (
           <div className="alert alert-error mb-4">{errorMessage}</div>
         )}
 
-        <div className="w-full">
-          <LivraisonEntreeLines livraisonEntree={livraisonEntree} setLivraisonEntree={setLivraisonEntree} />
+        <div className="flex flex-col md:flex-row w-full gap-4">
+          {/* Left Side - LivraisonEntree Info */}
+          <div className="w-full md:w-1/3">
+            <LivraisonEntreeInfo livraisonEntree={livraisonEntree} setLivraisonEntree={setLivraisonEntree} />
+          </div>
+
+          {/* Right Side - Models Table */}
+          <div className="w-full md:w-2/3">
+            <LivraisonEntreeLines livraisonEntree={livraisonEntree} setLivraisonEntree={setLivraisonEntree} />
+          </div>
         </div>
       </div>
     </Wrapper>

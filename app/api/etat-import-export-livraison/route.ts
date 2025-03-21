@@ -1,5 +1,5 @@
 import prisma from "@/lib/db";
-import {  NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 interface EtatLivraisonData {
   imports: ImportEntry[];
@@ -41,26 +41,22 @@ type CommandesWithVariantsDB = { value: string; variants: { name: string; qte_va
 
 export async function GET() {
   try {
-    console.log("Fetching all LivraisonEntree (imports)");
     const livraisonsEntree = await prisma.livraisonEntree.findMany({
-      include: { lines: true, client: true },
+      include: { models: true, client: true }, // Changed from 'lines' to 'models'
       orderBy: { createdAt: "desc" },
     });
 
-    console.log("Fetching all Livraison (exports)");
     const livraisons = await prisma.livraison.findMany({
       include: { lines: true },
       orderBy: { createdAt: "desc" },
     });
 
-    console.log("Fetching all clients with associated LivraisonEntree");
     const clients = await prisma.client.findMany({
       where: {
-        livraisonEntrees: { some: {} }, // Fetch clients with any LivraisonEntree
+        livraisonEntrees: { some: {} },
       },
     });
 
-    console.log("Clients fetched:", clients.length);
 
     const clientModels = await prisma.clientModel.findMany({
       where: {
@@ -71,18 +67,17 @@ export async function GET() {
       },
     });
 
-    console.log("ClientModels fetched:", clientModels.length);
 
     const imports: ImportEntry[] = livraisonsEntree.flatMap((le) =>
-      le.lines.map((line) => ({
-        id: `${le.id}-${line.id}-entree`,
+      le.models.map((model) => ({
+        id: `${le.id}-${model.id}-entree`,
         dateEntree: le.livraisonDate ? new Date(le.livraisonDate) : null,
         numLivraisonEntree: le.id,
         clientEntree: le.client?.name || le.clientName || "",
-        modele: line.modele,
-        commande: line.commande || "",
-        description: line.description || "",
-        quantityReçu: line.quantityReçu || 0,
+        modele: model.name || "",
+        commande: model.commande || "",
+        description: model.description || "",
+        quantityReçu: model.quantityReçu || 0,
       }))
     );
 

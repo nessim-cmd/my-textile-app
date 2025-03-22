@@ -35,7 +35,8 @@ const LivraisonEntreeLines: React.FC<Props> = ({ livraisonEntree, setLivraisonEn
       livraisonEntreeId: livraisonEntree.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      accessories: []
+      accessories: [],
+      declarationImportId: ""
     };
     setLivraisonEntree({
       ...livraisonEntree,

@@ -122,6 +122,11 @@ export default function ImportDetailsPage() {
       accessories: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      commande: "",
+      description: "",
+      quantityReçu: 0,
+      quantityTrouvee: 0,
+      livraisonEntreeId: ""
     };
     setDeclaration({
       ...declaration,

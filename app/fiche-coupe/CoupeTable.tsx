@@ -12,15 +12,6 @@ interface CoupeEntry {
   quantityCreated: number;
 }
 
-interface FicheCoupe {
-  id: string;
-  clientId: string;
-  modelId: string;
-  commande: string;
-  quantity: number;
-  coupe: CoupeEntry[];
-}
-
 interface CoupeTableProps {
   ficheId: string;
   clientId: string;
@@ -29,7 +20,6 @@ interface CoupeTableProps {
   quantity: number;
   coupeData: Record<string, number>;
   setCoupeData: (data: Record<string, number>) => void;
-  fetchFiches: () => Promise<void>;
   setError: (error: string | null) => void;
   currentWeek: string;
   setCurrentWeek: (week: string) => void;
@@ -46,7 +36,6 @@ export default function CoupeTable({
   quantity,
   coupeData,
   setCoupeData,
-  fetchFiches,
   setError,
   currentWeek,
   setCurrentWeek,
@@ -61,34 +50,36 @@ export default function CoupeTable({
 
   useEffect(() => {
     const loadCoupeData = async () => {
-      if (!ficheId) return;
-
       setLoading(true);
       try {
         const token = await getToken();
         if (!token) throw new Error('Authentication token is missing');
-        console.log(`[LOAD COUPE DATA] Fetching fiche-coupe with ID: ${ficheId}`);
-        // Add cache-busting query parameter to ensure fresh data
         const res = await fetch(`/api/fiche-coupe/${ficheId}?t=${new Date().getTime()}`, {
           headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store', // Prevent caching
+          cache: 'no-store',
         });
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error(`[LOAD COUPE DATA] Fetch failed with status: ${res.status}, Response: ${errorText}`);
-          throw new Error(`Failed to fetch fiche-coupe data: ${res.status} - ${errorText}`);
-        }
-        const fiche: FicheCoupe = await res.json();
-        console.log(`[LOAD COUPE DATA] Fetched fiche data:`, JSON.stringify(fiche, null, 2));
+        if (!res.ok) throw new Error('Failed to fetch fiche-coupe data');
+        const fiche = await res.json();
+        console.log('Fetched fiche data:', fiche);
+
+        // Map database entries to table-compatible keys
         const newCoupeData = fiche.coupe.reduce((acc: Record<string, number>, entry: CoupeEntry) => {
-          const key = `${entry.week}-${entry.day}-${entry.category}`;
-          acc[key] = entry.quantityCreated;
+          const dayFromDb = entry.day; // e.g., "lun-17" or "lun"
+          const categoryFromDb = entry.category; // e.g., "Tissu1" or "17"
+          // Find the matching day (handles both "lun" and "lun-17")
+          const matchingDay = days.find(d => d === dayFromDb) || days.find(d => d.startsWith(dayFromDb));
+          if (matchingDay) {
+            // Use the category as-is if it matches a predefined category, otherwise default to 'Tissu1' for legacy data
+            const category = categories.includes(categoryFromDb) ? categoryFromDb : 'Tissu1';
+            const key = `${entry.week}-${matchingDay}-${category}`;
+            acc[key] = (acc[key] || 0) + entry.quantityCreated; // Sum if multiple entries
+          }
           return acc;
         }, {});
-        console.log(`[LOAD COUPE DATA] Constructed coupeData:`, JSON.stringify(newCoupeData, null, 2));
+        console.log('Mapped coupeData:', newCoupeData);
         setCoupeData(newCoupeData);
       } catch (error) {
-        console.error('[LOAD COUPE DATA] Error loading coupe data:', error);
+        console.error('Error loading coupe data:', error);
         setError('Failed to load coupe data');
       } finally {
         setLoading(false);
@@ -107,36 +98,22 @@ export default function CoupeTable({
     };
 
     const totalProcessed = Object.values(newCoupeData).reduce((sum, qty) => sum + qty, 0);
-
     if (totalProcessed > quantity) {
-      toast.error(`You have exceeded the limit of ${quantity}! Total processed: ${totalProcessed}`, {
-        duration: 3000,
-        position: 'top-right',
-      });
+      toast.error(`You have exceeded the limit of ${quantity}! Total processed: ${totalProcessed}`);
     }
 
     setCoupeData(newCoupeData);
-    console.log(`[HANDLE COUPE CHANGE] Updated coupeData after input:`, JSON.stringify(newCoupeData, null, 2));
   };
 
   const getDailyTotal = (day: string) => {
-    const total = categories.reduce((sum, cat) => {
-      const key = `${currentWeek}-${day}-${cat}`;
-      return sum + (coupeData[key] || 0);
-    }, 0);
-    console.log(`[GET DAILY TOTAL] Daily total for ${day} in ${currentWeek}: ${total}`);
-    return total;
+    return categories.reduce((sum, cat) => sum + (coupeData[`${currentWeek}-${day}-${cat}`] || 0), 0);
   };
 
   const getCategoryTotal = (category: string) => {
-    return days.reduce((sum, day) => {
-      const key = `${currentWeek}-${day}-${category}`;
-      return sum + (coupeData[key] || 0);
-    }, 0);
+    return days.reduce((sum, day) => sum + (coupeData[`${currentWeek}-${day}-${category}`] || 0), 0);
   };
 
   const totalProcessed = Object.values(coupeData).reduce((sum, qty) => sum + qty, 0);
-  console.log(`[TOTAL PROCESSED] Total processed: ${totalProcessed}`);
 
   const saveFiche = async () => {
     setLoading(true);
@@ -148,8 +125,11 @@ export default function CoupeTable({
       return;
     }
 
+    // Map coupeData to coupeEntries, preserving the full day and category
     const coupeEntries = Object.entries(coupeData).map(([key, qty]) => {
-      const [week, day, category] = key.split('-');
+      const [week, ...rest] = key.split('-');
+      const day = `${rest[0]}-${rest[1]}`; // Reconstruct "sam-22"
+      const category = rest[2]; // e.g., "Autres"
       return { week, day, category, quantityCreated: qty };
     });
 
@@ -162,7 +142,6 @@ export default function CoupeTable({
     };
 
     try {
-      console.log(`[SAVE FICHE] Saving fiche with payload:`, JSON.stringify(payload, null, 2));
       const res = await fetch(`/api/fiche-coupe/${ficheId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -171,19 +150,28 @@ export default function CoupeTable({
 
       if (!res.ok) {
         const text = await res.text();
-        console.error(`[SAVE FICHE] Save failed with response: ${text}`);
-        throw new Error(`Failed to save fiche-coupe: ${res.status} ${res.statusText}`);
+        throw new Error(`Failed to save fiche-coupe: ${text}`);
       }
 
-      const data = await res.json();
-      console.log(`[SAVE FICHE] Save successful, response:`, JSON.stringify(data, null, 2));
-      await fetchFiches();
-      toast.success('Fiche Coupe saved successfully!', { duration: 3000 });
+      const updatedFiche = await res.json();
+      console.log('Saved fiche response:', updatedFiche);
 
-      // Add a small delay to ensure the database is updated before the next fetch
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Map the saved data back to coupeData
+      const newCoupeData = updatedFiche.coupe.reduce((acc: Record<string, number>, entry: CoupeEntry) => {
+        const dayFromDb = entry.day; // e.g., "sam-22"
+        const categoryFromDb = entry.category; // e.g., "Autres"
+        const matchingDay = days.find(d => d === dayFromDb);
+        if (matchingDay && categories.includes(categoryFromDb)) {
+          const key = `${entry.week}-${matchingDay}-${categoryFromDb}`;
+          acc[key] = (acc[key] || 0) + entry.quantityCreated;
+        }
+        return acc;
+      }, {});
+      console.log('Mapped coupeData after save:', newCoupeData);
+      setCoupeData(newCoupeData);
+      toast.success('Fiche Coupe saved successfully!');
     } catch (error) {
-      console.error('[SAVE FICHE] Error saving fiche-coupe:', error);
+      console.error('Error saving fiche-coupe:', error);
       setError('Failed to save fiche-coupe');
       toast.error('Failed to save fiche-coupe');
     } finally {
@@ -193,7 +181,6 @@ export default function CoupeTable({
 
   const downloadPDF = () => {
     const doc = new jsPDF();
-
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(12);
     doc.text('MS Tailors', 14, 15);
@@ -234,14 +221,8 @@ export default function CoupeTable({
       body: body,
       startY: 83,
       theme: 'striped',
-      headStyles: {
-        fillColor: [100, 100, 100],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-      },
-      styles: {
-        cellPadding: 3,
-      },
+      headStyles: { fillColor: [100, 100, 100], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { cellPadding: 3 },
       didParseCell: (data: any) => {
         if (data.row.index === body.length - 1) {
           data.cell.styles.fontStyle = 'bold';
@@ -298,17 +279,17 @@ export default function CoupeTable({
                     <td className="font-medium">{cat}</td>
                     {days.map((day) => {
                       const key = `${currentWeek}-${day}-${cat}`;
-                      const value = coupeData[key];
-                      const isEmptyOrZero = value === undefined || value === 0;
+                      const value = coupeData[key] !== undefined ? coupeData[key] : '';
+                      const isEmptyOrZero = value === '' || value === 0;
                       return (
                         <td key={`${day}-${cat}`}>
                           <input
                             type="text"
-                            value={value || ''}
+                            value={value}
                             onChange={(e) => handleCoupeChange(day, cat, e.target.value)}
                             className={`input input-bordered w-16 text-center ${
                               isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
-                            }`} // Conditional background color
+                            }`}
                             placeholder="0"
                           />
                         </td>
@@ -349,18 +330,18 @@ export default function CoupeTable({
             <div className="space-y-2">
               {categories.map((cat) => {
                 const key = `${currentWeek}-${days[currentDayIndex]}-${cat}`;
-                const value = coupeData[key];
-                const isEmptyOrZero = value === undefined || value === 0;
+                const value = coupeData[key] !== undefined ? coupeData[key] : '';
+                const isEmptyOrZero = value === '' || value === 0;
                 return (
                   <div key={cat} className="flex justify-between items-center">
                     <span className="font-medium">{cat}</span>
                     <input
                       type="text"
-                      value={value || ''}
+                      value={value}
                       onChange={(e) => handleCoupeChange(days[currentDayIndex], cat, e.target.value)}
                       className={`input input-bordered w-20 text-center ${
                         isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
-                      }`} // Conditional background color for mobile view
+                      }`}
                       placeholder="0"
                     />
                   </div>

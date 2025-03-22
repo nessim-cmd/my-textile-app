@@ -90,7 +90,7 @@ export default function ImportDetailsPage() {
       await fetchDeclaration();
     } catch (error) {
       console.error("Error saving declaration:", error);
-      setErrorMessage("Failed to save declaration. Please try again.");
+      
     } finally {
       setIsLoading(false);
     }

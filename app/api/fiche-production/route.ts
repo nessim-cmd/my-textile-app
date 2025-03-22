@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { id } = await request.json(); // Expecting the fiche ID in the request body
+  const { id } = await request.json();
   if (!id) {
     return NextResponse.json({ error: 'Fiche ID is required' }, { status: 400 });
   }

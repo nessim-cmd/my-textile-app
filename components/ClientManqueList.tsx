@@ -46,7 +46,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
     doc.setTextColor(0);
     doc.setFillColor(230, 230, 230);
     doc.rect(margin, yPosition, pageWidth - 2 * margin, 8, "F");
-    const headers = ["Type", "Modèle", "Commande", "Référence", "Qté Reçue", "Qté Trouvée", "Qté Manquante"];
+    const headers = [ "Modèle", "Commande", "Référence", "Qté Reçue", "Qté Trouvée", "Qté Manquante"];
     headers.forEach((header, index) => {
       doc.text(header, margin + 5 + index * 27, yPosition + 6);
     });
@@ -90,7 +90,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
         const manque = (model.quantityTrouvee || 0) - (model.quantityReçu || 0);
         if (manque < 0) {
           addRow([
-            "Livraison",
+            
             model.name || "N/A",
             model.commande || "N/A",
             model.description || "N/A",
@@ -152,7 +152,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
           <table className="table table-zebra w-full hidden sm:table">
             <thead>
               <tr>
-                <th>Type</th>
+                
                 <th>Modèle</th>
                 <th>Commande</th>
                 <th>Référence</th>
@@ -168,7 +168,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                   (model.accessories || []).map(acc =>
                     acc.quantity_manque < 0 ? (
                       <tr key={`${dec.id}-${model.id}-${acc.id}`}>
-                        <td>Déclaration</td>
+                        
                         <td>{model.name || "N/A"}</td>
                         <td>{dec.num_dec || "N/A"}</td>
                         <td>{acc.reference_accessoire || "N/A"}</td>
@@ -190,7 +190,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                   const manque = (model.quantityTrouvee || 0) - (model.quantityReçu || 0);
                   return manque < 0 ? (
                     <tr key={`${liv.id}-${model.id}`}>
-                      <td>Livraison</td>
+                      
                       <td>{model.name || "N/A"}</td>
                       <td>{model.commande || "N/A"}</td>
                       <td>{model.description || "N/A"}</td>
@@ -217,8 +217,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                   acc.quantity_manque < 0 ? (
                     <div key={`${dec.id}-${model.id}-${acc.id}`} className="card bg-base-100 p-4 shadow">
                       <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="font-semibold">Type:</span>
-                        <span>Déclaration</span>
+                        
                         <span className="font-semibold">Modèle:</span>
                         <span>{model.name || "N/A"}</span>
                         <span className="font-semibold">Commande:</span>
@@ -245,8 +244,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
                 return manque < 0 ? (
                   <div key={`${liv.id}-${model.id}`} className="card bg-base-100 p-4 shadow">
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <span className="font-semibold">Type:</span>
-                      <span>Livraison</span>
+                      
                       <span className="font-semibold">Modèle:</span>
                       <span>{model.name || "N/A"}</span>
                       <span className="font-semibold">Commande:</span>

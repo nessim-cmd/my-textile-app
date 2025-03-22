@@ -12,15 +12,6 @@ interface ProductionEntry {
   quantityCreated: number;
 }
 
-interface FicheProduction {
-  id: string;
-  clientId: string;
-  modelId: string;
-  commande: string;
-  quantity: number;
-  production: ProductionEntry[];
-}
-
 interface ProductionTableProps {
   ficheId: string;
   clientId: string;
@@ -29,7 +20,6 @@ interface ProductionTableProps {
   quantity: number;
   productionData: Record<string, number>;
   setProductionData: (data: Record<string, number>) => void;
-  fetchFiches: () => Promise<void>;
   setError: (error: string | null) => void;
   currentWeek: string;
   setCurrentWeek: (week: string) => void;
@@ -46,7 +36,6 @@ export default function ProductionTable({
   quantity,
   productionData,
   setProductionData,
-  fetchFiches,
   setError,
   currentWeek,
   setCurrentWeek,
@@ -56,50 +45,41 @@ export default function ProductionTable({
 }: ProductionTableProps) {
   const [loading, setLoading] = useState(false);
   const timeSlots = [
-    '8:00 - 9:00',
-    '9:00 - 10:00',
-    '10:00 - 11:00',
-    '11:00 - 12:00',
-    '12:00 - 13:00',
-    '13:00 - 14:00',
-    '14:00 - 15:00',
-    '15:00 - 16:00',
-    '15:30 - 16:30',
+    '8:00 - 9:00', '9:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00',
+    '12:00 - 13:00', '13:00 - 14:00', '14:00 - 15:00', '15:00 - 16:00', '15:30 - 16:30',
   ];
   const weekdays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
   useEffect(() => {
     const fetchFicheData = async () => {
-      if (!ficheId) return;
       setLoading(true);
       try {
         const token = await getToken();
         if (!token) throw new Error('No authentication token');
-        console.log(`[FETCH FICHE DATA] Fetching fiche-production with ID: ${ficheId}`);
         const res = await fetch(`/api/fiche-production/${ficheId}?t=${new Date().getTime()}`, {
           headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store', // Prevent caching
+          cache: 'no-store',
         });
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error(`[FETCH FICHE DATA] Fetch failed with status: ${res.status}, Response: ${errorText}`);
-          throw new Error(`Failed to fetch fiche: ${errorText}`);
-        }
-        const fiche: FicheProduction = await res.json();
-        console.log(`[FETCH FICHE DATA] Fetched fiche data:`, JSON.stringify(fiche, null, 2));
-        const newProductionData: Record<string, number> = fiche.production.reduce(
+        if (!res.ok) throw new Error('Failed to fetch fiche');
+        const fiche = await res.json();
+        console.log('Fetched fiche data:', fiche);
+
+        // Normalize hour format to match timeSlots
+        const newProductionData = fiche.production.reduce(
           (acc: Record<string, number>, entry: ProductionEntry) => {
-            const key = `${entry.week}-${entry.day}-${entry.hour}`;
+            // Convert saved hour (e.g., "8:00 ") to match timeSlots (e.g., "8:00 - 9:00")
+            const normalizedHour = timeSlots.find(slot => slot.startsWith(entry.hour.trim())) || entry.hour;
+            const key = `${entry.week}-${entry.day}-${normalizedHour}`;
             acc[key] = entry.quantityCreated;
             return acc;
           },
           {}
         );
-        console.log(`[FETCH FICHE DATA] Constructed productionData:`, JSON.stringify(newProductionData, null, 2));
+        console.log('Mapped productionData:', newProductionData);
         setProductionData(newProductionData);
       } catch (error) {
-        console.error('[FETCH FICHE DATA] Error fetching fiche data:', error);
+        console.error('Error fetching fiche data:', error);
         setError('Failed to load production data');
       } finally {
         setLoading(false);
@@ -118,32 +98,22 @@ export default function ProductionTable({
     };
 
     const totalSewn = Object.values(newProductionData).reduce((sum, qty) => sum + qty, 0);
-
     if (totalSewn > quantity) {
-      toast.error(`You have exceeded the limit of ${quantity}! Total sewn: ${totalSewn}`, {
-        duration: 3000,
-        position: 'top-right',
-      });
+      toast.error(`You have exceeded the limit of ${quantity}! Total sewn: ${totalSewn}`);
     }
 
     setProductionData(newProductionData);
-    console.log(`[HANDLE PRODUCTION CHANGE] Updated productionData after input:`, JSON.stringify(newProductionData, null, 2));
   };
 
   const getDailyTotal = (day: string) => {
-    const total = timeSlots.reduce((sum, slot) => sum + (productionData[`${currentWeek}-${day}-${slot}`] || 0), 0);
-    console.log(`[GET DAILY TOTAL] Daily total for ${day} in ${currentWeek}: ${total}`);
-    return total;
+    return timeSlots.reduce((sum, slot) => sum + (productionData[`${currentWeek}-${day}-${slot}`] || 0), 0);
   };
 
   const getTimeSlotTotal = (slot: string) => {
-    const total = weekdays.reduce((sum, day) => sum + (productionData[`${currentWeek}-${day}-${slot}`] || 0), 0);
-    console.log(`[GET TIME SLOT TOTAL] Total for time slot ${slot} in ${currentWeek}: ${total}`);
-    return total;
+    return weekdays.reduce((sum, day) => sum + (productionData[`${currentWeek}-${day}-${slot}`] || 0), 0);
   };
 
   const totalSewn = Object.values(productionData).reduce((sum, qty) => sum + qty, 0);
-  console.log(`[TOTAL SEWN] Total sewn: ${totalSewn}`);
 
   const saveFiche = async () => {
     setLoading(true);
@@ -169,7 +139,6 @@ export default function ProductionTable({
     };
 
     try {
-      console.log(`[SAVE FICHE] Saving fiche with payload:`, JSON.stringify(payload, null, 2));
       const res = await fetch(`/api/fiche-production/${ficheId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -178,19 +147,25 @@ export default function ProductionTable({
 
       if (!res.ok) {
         const text = await res.text();
-        console.error(`[SAVE FICHE] Save failed with response: ${text}`);
-        throw new Error(`Failed to save fiche: ${res.status} ${res.statusText}`);
+        throw new Error(`Failed to save fiche: ${text}`);
       }
 
-      const data = await res.json();
-      console.log(`[SAVE FICHE] Save successful, response:`, JSON.stringify(data, null, 2));
-      await fetchFiches();
-      toast.success('Fiche Production saved successfully!', { duration: 3000 });
+      const updatedFiche = await res.json();
+      console.log('Saved fiche response:', updatedFiche);
 
-      // Add a small delay to ensure the database is updated
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const newProductionData = updatedFiche.production.reduce(
+        (acc: Record<string, number>, entry: ProductionEntry) => {
+          const normalizedHour = timeSlots.find(slot => slot.startsWith(entry.hour.trim())) || entry.hour;
+          const key = `${entry.week}-${entry.day}-${normalizedHour}`;
+          acc[key] = entry.quantityCreated;
+          return acc;
+        },
+        {}
+      );
+      setProductionData(newProductionData);
+      toast.success('Fiche Production saved successfully!');
     } catch (error) {
-      console.error('[SAVE FICHE] Error saving fiche:', error);
+      console.error('Error saving fiche:', error);
       setError('Failed to save fiche');
       toast.error('Failed to save fiche');
     } finally {
@@ -240,14 +215,8 @@ export default function ProductionTable({
       body: body,
       startY: 83,
       theme: 'striped',
-      headStyles: {
-        fillColor: [100, 100, 100],
-        textColor: [255, 255, 255],
-        fontStyle: 'bold',
-      },
-      styles: {
-        cellPadding: 3,
-      },
+      headStyles: { fillColor: [100, 100, 100], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { cellPadding: 3 },
       didParseCell: (data: any) => {
         if (data.row.index === body.length - 1) {
           data.cell.styles.fontStyle = 'bold';
@@ -304,17 +273,17 @@ export default function ProductionTable({
                     <td className="font-medium">{slot}</td>
                     {weekdays.map((day) => {
                       const key = `${currentWeek}-${day}-${slot}`;
-                      const value = productionData[key];
-                      const isEmptyOrZero = value === undefined || value === 0;
+                      const value = productionData[key] !== undefined ? productionData[key] : '';
+                      const isEmptyOrZero = value === '' || value === 0;
                       return (
                         <td key={`${day}-${slot}`}>
                           <input
                             type="text"
-                            value={value || ''}
+                            value={value}
                             onChange={(e) => handleProductionChange(day, slot, e.target.value)}
                             className={`input input-bordered w-16 text-center ${
                               isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
-                            }`} // Conditional background color
+                            }`}
                             placeholder="0"
                           />
                         </td>
@@ -355,18 +324,18 @@ export default function ProductionTable({
             <div className="space-y-2">
               {timeSlots.map((slot) => {
                 const key = `${currentWeek}-${weekdays[currentDayIndex]}-${slot}`;
-                const value = productionData[key];
-                const isEmptyOrZero = value === undefined || value === 0;
+                const value = productionData[key] !== undefined ? productionData[key] : '';
+                const isEmptyOrZero = value === '' || value === 0;
                 return (
                   <div key={slot} className="flex justify-between items-center">
                     <span className="font-medium">{slot}</span>
                     <input
                       type="text"
-                      value={value || ''}
+                      value={value}
                       onChange={(e) => handleProductionChange(weekdays[currentDayIndex], slot, e.target.value)}
                       className={`input input-bordered w-20 text-center ${
                         isEmptyOrZero ? 'bg-red-100' : 'bg-green-100'
-                      }`} // Conditional background color for mobile view
+                      }`}
                       placeholder="0"
                     />
                   </div>

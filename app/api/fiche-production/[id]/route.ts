@@ -2,8 +2,8 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
-  const id = request.nextUrl.pathname.split('/').pop();
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
 
   if (!id) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     if (!fiche) {
       return NextResponse.json({ error: 'Fiche not found' }, { status: 404 });
     }
-    console.log('Fetched fiche:', fiche); // Log to verify data
+    console.log('Fetched fiche:', fiche);
     return NextResponse.json(fiche);
   } catch (error) {
     console.error('Error fetching fiche:', error);
@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
-  const id = request.nextUrl.pathname.split('/').pop();
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
 
   if (!id) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
@@ -35,11 +35,6 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { clientId, modelId, commande, quantity, production } = body;
-
-    // Validate input
-    if (!production && production !== undefined) {
-      return NextResponse.json({ error: 'Production data is required' }, { status: 400 });
-    }
 
     const existingFiche = await prisma.ficheProduction.findUnique({
       where: { id },
@@ -53,7 +48,7 @@ export async function PUT(request: NextRequest) {
     const updatedFiche = await prisma.ficheProduction.update({
       where: { id },
       data: {
-        clientId: clientId || existingFiche.clientId, // Keep existing value if not provided
+        clientId: clientId || existingFiche.clientId,
         modelId: modelId || existingFiche.modelId,
         commande: commande || existingFiche.commande,
         quantity: quantity !== undefined ? quantity : existingFiche.quantity,
@@ -72,7 +67,7 @@ export async function PUT(request: NextRequest) {
       include: { production: true },
     });
 
-    console.log('Updated fiche:', updatedFiche); // Log to verify update
+    console.log('Updated fiche:', updatedFiche);
     return NextResponse.json(updatedFiche, { status: 200 });
   } catch (error) {
     console.error('Error updating fiche:', error);

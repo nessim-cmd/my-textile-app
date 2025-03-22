@@ -65,7 +65,7 @@ export async function GET() {
           updatedAt: model.updatedAt.toISOString(),
           accessories: model.accessories.map(acc => ({
             ...acc,
-            quantity_manque: acc.quantity_trouve - acc.quantity_reçu,
+            quantity_manque: (acc.quantity_trouve ?? 0) - (acc.quantity_reçu ?? 0),
           })),
         })),
       };

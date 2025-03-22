@@ -229,10 +229,10 @@ model CommandeLine {
 
 model DeclarationImport {
   id          String      @id @default(uuid())
-  num_dec     String
+  num_dec     String?
   date_import DateTime
-  client      String
-  valeur      Float
+  client      String?
+  valeur      Float?
   userId      String?
   models      Model[]
   createdAt   DateTime    @default(now())
@@ -242,7 +242,7 @@ model DeclarationImport {
 
 model Model {
   id                  String             @id @default(uuid())
-  name                String
+  name                String?
   commande            String?            // Added
   description         String?            // Added
   quantityReçu        Float?             // Added
@@ -260,12 +260,12 @@ model Model {
 
 model Accessoire {
   id                  String  @id @default(uuid())
-  reference_accessoire String
-  quantity_reçu       Float   // Changed from Int to Float
-  quantity_trouve     Float   // Changed from Int to Float
-  quantity_manque     Float   // Changed to Float for consistency
-  modelId             String
-  model               Model   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  reference_accessoire String?
+  quantity_reçu       Float?   // Changed from Int to Float
+  quantity_trouve     Float?   // Changed from Int to Float
+  quantity_manque     Float?   // Changed to Float for consistency
+  modelId             String?
+  model               Model?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
 
   Model Model[] @relation("ModelAccessoires")
 }

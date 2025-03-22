@@ -25,6 +25,8 @@ interface PlanningEntry {
   qteTotal: number;
   qteLivree: number;
   dateImport: string;
+  entreeCoupe: string;
+  entreeChaine: string;
 }
 
 export default function PlanningPage() {
@@ -44,12 +46,18 @@ export default function PlanningPage() {
       setError(null);
 
       try {
-        // Fetch client-model data
         const clientModelResponse = await fetch("/api/client-model");
         if (!clientModelResponse.ok) throw new Error(`Error ${clientModelResponse.status}`);
         const clientModelData = await clientModelResponse.json();
 
-        // Fetch data from both export endpoints
+        const ficheCoupeResponse = await fetch("/api/fiche-coupe");
+        if (!ficheCoupeResponse.ok) throw new Error(`Error ${ficheCoupeResponse.status}`);
+        const ficheCoupeData = await ficheCoupeResponse.json();
+
+        const ficheProductionResponse = await fetch("/api/fiche-production");
+        if (!ficheProductionResponse.ok) throw new Error(`Error ${ficheProductionResponse.status}`);
+        const ficheProductionData = await ficheProductionResponse.json();
+
         const [exports1Response, exports2Response] = await Promise.all([
           fetch("/api/etat-import-export-livraison"),
           fetch("/api/etat-import-export"),
@@ -61,7 +69,6 @@ export default function PlanningPage() {
         if (!exports2Response.ok) throw new Error(`Error ${exports2Response.status}`);
         const { exports: exports2 } = await exports2Response.json();
 
-        // Combine and process exports
         const allExports = [...exports1, ...exports2];
         const deliveredMap = new Map<string, number>();
 
@@ -77,7 +84,22 @@ export default function PlanningPage() {
           deliveredMap.set(key, (deliveredMap.get(key) || 0) + quantity);
         });
 
-        // Process planning entries
+        const coupeMap = new Map<string, string>();
+        ficheCoupeData.forEach((fiche: any) => {
+          const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
+          if (fiche.createdAt) {
+            coupeMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
+          }
+        });
+
+        const chaineMap = new Map<string, string>();
+        ficheProductionData.forEach((fiche: any) => {
+          const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
+          if (fiche.createdAt) {
+            chaineMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
+          }
+        });
+
         const planningEntries: PlanningEntry[] = clientModelData.flatMap((model: any) => {
           const allVariants = (model.variants || []).map((v: any) => ({
             name: v.name || "N/A",
@@ -89,7 +111,7 @@ export default function PlanningPage() {
             : [{ value: "N/A" }];
 
           const variantsPerCommande = commandes.length > 0 ? Math.ceil(allVariants.length / commandes.length) : 0;
-          
+
           return commandes.map((commande: any, cmdIndex: number) => {
             const startIdx = cmdIndex * variantsPerCommande;
             const endIdx = Math.min(startIdx + variantsPerCommande, allVariants.length);
@@ -99,9 +121,13 @@ export default function PlanningPage() {
             const clientName = (model.client?.name || "N/A").trim().toLowerCase();
             const modeleName = (model.name || "N/A").trim().toLowerCase();
             const commandeValue = (commande.value || "N/A").trim().toLowerCase();
-            
+
             const key = `${clientName}-${modeleName}-${commandeValue}`;
             const qteLivree = deliveredMap.get(key) || 0;
+
+            const coupeKey = `${model.clientId}-${model.id}-${commandeValue}`;
+            const entreeCoupe = coupeMap.get(coupeKey) || "N/A";
+            const entreeChaine = chaineMap.get(coupeKey) || "N/A";
 
             return qteLivree < qteTotal ? {
               clientName: model.client?.name || "N/A",
@@ -114,6 +140,8 @@ export default function PlanningPage() {
               qteTotal,
               qteLivree,
               dateImport: model.createdAt ? new Date(model.createdAt).toLocaleDateString() : "N/A",
+              entreeCoupe,
+              entreeChaine,
             } : null;
           }).filter(Boolean);
         });
@@ -131,7 +159,6 @@ export default function PlanningPage() {
     fetchPlanningData();
   }, []);
 
-  // Filter data based on search, model, and date
   useEffect(() => {
     const filtered = planningData.filter((entry: PlanningEntry) => {
       const matchesSearch =
@@ -150,17 +177,14 @@ export default function PlanningPage() {
     setFilteredData(filtered);
   }, [searchTerm, selectedModels, dateDebut, dateFin, planningData]);
 
-  // Get unique models for dropdown
   const allModels = Array.from(new Set(planningData.map((entry: PlanningEntry) => entry.modele)));
 
-  // Toggle model selection in dropdown
   const toggleModelSelection = (model: string) => {
     setSelectedModels((prev: string[]) =>
       prev.includes(model) ? prev.filter((m: string) => m !== model) : [...prev, model]
     );
   };
 
-  // Group data into clusters for table rendering
   const groupIntoClusters = (data: PlanningEntry[]) => {
     const clusters = new Map<string, PlanningEntry[]>();
     data.forEach((entry: PlanningEntry) => {
@@ -176,7 +200,6 @@ export default function PlanningPage() {
     }));
   };
 
-  // Generate and download PDF
   const downloadPDF = () => {
     const pdf = new jsPDF({
       orientation: "landscape",
@@ -238,7 +261,11 @@ export default function PlanningPage() {
 
             if (entryIndex === 0 && vIndex === 0) {
               row.push(entry.dateImport);
+              row.push(entry.entreeCoupe);
+              row.push(entry.entreeChaine);
             } else {
+              row.push("");
+              row.push("");
               row.push("");
             }
 
@@ -249,7 +276,7 @@ export default function PlanningPage() {
 
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Client", "Modèle", "Commande", "Désignation", "Variant", "Qté Variant", "Qté Total", "Qté Livrée", "Date Import"]],
+        head: [["Client", "Modèle", "Commande", "Désignation", "Variant", "Qté Variant", "Qté Total", "Qté Livrée", "Date Import", "Entrée Coupe", "Entrée Chaîne"]],
         body: tableData,
         theme: "plain",
         styles: { fontSize: 10, textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.1, halign: "center" },
@@ -275,7 +302,6 @@ export default function PlanningPage() {
       <div className="flex flex-col space-y-6 py-6">
         <h1 className="text-3xl font-bold text-center text-gray-800">Planning</h1>
 
-        {/* Filters and Controls */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center space-x-2 w-full max-w-md">
             <input
@@ -354,7 +380,6 @@ export default function PlanningPage() {
           </button>
         </div>
 
-        {/* Data Display */}
         {loading ? (
           <div className="text-center">
             <span className="loading loading-spinner loading-lg text-blue-500"></span>
@@ -375,6 +400,8 @@ export default function PlanningPage() {
                   <th className="p-4 text-center align-middle">Qté Total</th>
                   <th className="p-4 text-center align-middle">Qté Livrée</th>
                   <th className="p-4 text-center align-middle">Date Import</th>
+                  <th className="p-4 text-center align-middle">Entrée Coupe</th>
+                  <th className="p-4 text-center align-middle">Entrée Chaîne</th>
                 </tr>
               </thead>
               <tbody>
@@ -437,6 +464,16 @@ export default function PlanningPage() {
                           {isFirstInCluster && (
                             <td className="p-4 text-center align-middle border" rowSpan={totalVariants}>
                               {entry.dateImport}
+                            </td>
+                          )}
+                          {isFirstInCluster && (
+                            <td className="p-4 text-center align-middle border" rowSpan={totalVariants}>
+                              {entry.entreeCoupe}
+                            </td>
+                          )}
+                          {isFirstInCluster && (
+                            <td className="p-4 text-center align-middle border" rowSpan={totalVariants}>
+                              {entry.entreeChaine}
                             </td>
                           )}
                         </tr>

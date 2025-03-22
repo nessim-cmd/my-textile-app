@@ -64,12 +64,12 @@ export interface DeclarationImport {
 export interface Model {
   id: string;
   name: string;
-  commande?: string;         // Added
-  description?: string;      // Added
-  quantityReçu?: number;     // Added
-  quantityTrouvee?: number;  // Added
-  declarationImportId?: string;
-  livraisonEntreeId?: string;
+  commande: string;         // Added
+  description: string;      // Added
+  quantityReçu: number;     // Added
+  quantityTrouvee: number;  // Added
+  declarationImportId: string;
+  livraisonEntreeId: string;
   accessories: Accessoire[];
   createdAt: string;
   updatedAt: string;

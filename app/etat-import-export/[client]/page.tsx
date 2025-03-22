@@ -1,36 +1,42 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useCallback, useEffect, useState } from "react";
 import Wrapper from "@/components/Wrapper";
-import { Search, Printer } from "lucide-react";
+import { Search, Printer, ChevronDown } from "lucide-react";
 import { useParams } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import React from "react";
 
-interface EtatDeclarationData {
-  imports: EtatDeclaration[];
-  exports: EtatDeclaration[];
+interface EtatData {
+  imports: ImportEntry[];
+  exports: ExportEntry[];
   models: ModelEntry[];
 }
 
-interface EtatDeclaration {
+interface ImportEntry {
   id: string;
-  dateImport: string | null;
-  numDecImport: string;
-  valeurImport: number;
-  clientImport: string;
+  dateEntree: string | null;
+  numLivraisonEntree: string;
+  clientEntree: string;
   modele: string;
   commande: string;
-  designation: string;
-  dateExport: string | null;
-  numDecExport: string;
-  clientExport: string;
-  valeurExport: number;
+  description: string;
+  quantityReçu: number;
+}
+
+interface ExportEntry {
+  id: string;
+  dateSortie: string | null;
+  numLivraisonSortie: string;
+  clientSortie: string;
+  modele: string;
+  commande: string;
+  description: string;
   quantityDelivered: number;
-  quantityTotal: number;
-  isExcluded?: boolean;
+  isExcluded: boolean;
 }
 
 interface ModelEntry {
@@ -45,34 +51,34 @@ interface CommandeSummary {
   commande: string;
   quantityTotal: number;
   quantityDelivered: number;
-  quantityReceived: number;
+  quantityReçu: number;
 }
 
 interface GroupedImportEntry {
-  dateImport: string | null;
-  numDecImport: string;
-  lines: EtatDeclaration[];
+  dateEntree: string | null;
+  numLivraisonEntree: string;
+  lines: ImportEntry[];
 }
 
 interface GroupedExportEntry {
-  dateExport: string | null;
-  numDecExport: string;
-  lines: EtatDeclaration[];
+  dateSortie: string | null;
+  numLivraisonSortie: string;
+  lines: ExportEntry[];
 }
 
 export default function ClientEtatImportExportPage() {
   const { user } = useUser();
-  const { getToken } = useAuth();
   const email = user?.primaryEmailAddress?.emailAddress;
   const { client } = useParams();
   const clientName = decodeURIComponent(client as string);
-  const [etatData, setEtatData] = useState<EtatDeclarationData>({ imports: [], exports: [], models: [] });
+  const [etatData, setEtatData] = useState<EtatData>({ imports: [], exports: [], models: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const fetchEtatData = useCallback(async () => {
     if (!email) return;
@@ -81,78 +87,85 @@ export default function ClientEtatImportExportPage() {
     setError(null);
 
     try {
-      const token = await getToken();
       const response = await fetch(
-        `/api/etat-import-export?email=${encodeURIComponent(email)}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        `/api/etat-import-export?email=${encodeURIComponent(email)}`
       );
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      const data: EtatDeclarationData = await response.json();
-      setEtatData({ imports: data.imports || [], exports: data.exports || [], models: data.models || [] });
+      const data: EtatData = await response.json();
+      setEtatData(data);
       console.log("Fetched EtatData:", data);
     } catch (err) {
-      setError("Failed to load declaration status");
+      setError("Failed to load import/export status");
       console.error(err);
       setEtatData({ imports: [], exports: [], models: [] });
     } finally {
       setLoading(false);
     }
-  }, [email, getToken]);
+  }, [email]);
 
   useEffect(() => {
     if (email) fetchEtatData();
   }, [email, clientName, fetchEtatData]);
 
-  const filteredImports = etatData.imports?.filter((item) => {
-    const matchesClient = item.clientImport === clientName;
+  const filteredImports = etatData?.imports?.filter((item) => {
+    const matchesClient = item.clientEntree === clientName;
     const matchesSearch =
       item.commande.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.designation || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModel = selectedModel ? item.modele === selectedModel : true;
-    const dateImport = item.dateImport ? new Date(item.dateImport) : null;
-    let matchesDate: boolean = true; // Explicitly typed as boolean
+      item.modele.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesModel = selectedModels.length > 0
+      ? selectedModels.some(m =>
+          m.toLowerCase() === item.modele.toLowerCase() ||
+          (item.description || "").toLowerCase().includes(m.toLowerCase())
+        )
+      : true;
+    const dateEntree = item.dateEntree ? new Date(item.dateEntree) : null;
+    let matchesDate: boolean = true;
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
       const end = dateFin ? new Date(dateFin) : null;
 
       matchesDate =
-        (!start || (dateImport !== null && dateImport >= start)) &&
-        (!end || (dateImport !== null && dateImport <= end));
+        (!start || (dateEntree !== null && dateEntree >= start)) &&
+        (!end || (dateEntree !== null && dateEntree <= end));
     }
 
     return matchesClient && matchesSearch && matchesModel && matchesDate;
   }) || [];
 
-  const filteredExports = etatData.exports?.filter((item) => {
-    const matchesClient = item.clientExport === clientName;
+  const filteredExports = etatData?.exports?.filter((item) => {
+    const matchesClient = item.clientSortie === clientName;
     const matchesSearch =
       item.commande.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.designation || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesModel = selectedModel ? item.modele === selectedModel : true;
-    const dateExport = item.dateExport ? new Date(item.dateExport) : null;
-    let matchesDate: boolean = true; // Explicitly typed as boolean
+      (item.description || "").toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesModel = selectedModels.length > 0
+      ? selectedModels.some(m => m.toLowerCase() === item.modele.toLowerCase())
+      : true;
+    const dateSortie = item.dateSortie ? new Date(item.dateSortie) : null;
+    let matchesDate: boolean = true;
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
       const end = dateFin ? new Date(dateFin) : null;
 
       matchesDate =
-        (!start || (dateExport !== null && dateExport >= start)) &&
-        (!end || (dateExport !== null && dateExport <= end));
+        (!start || (dateSortie !== null && dateSortie >= start)) &&
+        (!end || (dateSortie !== null && dateSortie <= end));
     }
 
     return matchesClient && matchesSearch && matchesModel && matchesDate;
   }) || [];
+
+  console.log("Filtered Imports:", filteredImports);
+  console.log("Filtered Exports:", filteredExports);
 
   const groupedImports = filteredImports.reduce((acc, item) => {
-    const key = `${item.numDecImport}-${item.dateImport || "null"}`;
+    const key = `${item.numLivraisonEntree}-${item.dateEntree || 'null'}`;
     if (!acc[key]) {
       acc[key] = {
-        dateImport: item.dateImport,
-        numDecImport: item.numDecImport,
+        dateEntree: item.dateEntree,
+        numLivraisonEntree: item.numLivraisonEntree,
         lines: [],
       };
     }
@@ -161,13 +174,14 @@ export default function ClientEtatImportExportPage() {
   }, {} as Record<string, GroupedImportEntry>);
 
   const groupedImportsArray = Object.values(groupedImports);
+  console.log("Grouped Imports Array:", groupedImportsArray);
 
   const groupedExports = filteredExports.reduce((acc, item) => {
-    const key = `${item.numDecExport}-${item.dateExport || "null"}`;
+    const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
     if (!acc[key]) {
       acc[key] = {
-        dateExport: item.dateExport,
-        numDecExport: item.numDecExport,
+        dateSortie: item.dateSortie,
+        numLivraisonSortie: item.numLivraisonSortie,
         lines: [],
       };
     }
@@ -176,20 +190,20 @@ export default function ClientEtatImportExportPage() {
   }, {} as Record<string, GroupedExportEntry>);
 
   const groupedExportsArray = Object.values(groupedExports);
+  console.log("Grouped Exports Array:", groupedExportsArray);
 
   const allModels = Array.from(
     new Set(
-      etatData.models
-        .filter((model) => model.client === clientName)
-        .map((model) => model.name)
-        .filter((name): name is string => name !== null && name !== undefined)
+      etatData?.models
+        ?.filter((model) => model.client === clientName)
+        .map((model) => model.name) || []
     )
   );
 
   console.log("All Models for dropdown:", allModels);
 
-  const commandeSummaries: CommandeSummary[] = (etatData.models || [])
-    .filter((model) => model.client === clientName)
+  const commandeSummaries: CommandeSummary[] = (etatData?.models || [])
+    .filter((model) => model.client === clientName && (selectedModels.length === 0 || selectedModels.includes(model.name)))
     .flatMap((model) => {
       const modelImports = filteredImports.filter((item) => item.modele === model.name);
       const modelExports = filteredExports.filter(
@@ -198,18 +212,18 @@ export default function ClientEtatImportExportPage() {
 
       return (model.commandesWithVariants || []).map((cmd) => {
         const quantityTotal = cmd.variants.reduce((sum, variant) => sum + (variant.qte_variante || 0), 0);
-        const quantityReceived = modelImports
+        const quantityReçu = modelImports
           .filter((item) => item.commande === cmd.value)
-          .reduce((sum, item) => sum + (item.quantityTotal || 0), 0);
+          .reduce((sum, item) => sum + item.quantityReçu, 0);
         const quantityDelivered = modelExports
           .filter((item) => item.commande === cmd.value)
-          .reduce((sum, item) => sum + (item.quantityDelivered || 0), 0);
+          .reduce((sum, item) => sum + item.quantityDelivered, 0);
 
         return {
           model: model.name,
           commande: cmd.value,
           quantityTotal,
-          quantityReceived,
+          quantityReçu,
           quantityDelivered,
         };
       });
@@ -219,15 +233,15 @@ export default function ClientEtatImportExportPage() {
 
   const totalQuantity = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityTotal, 0);
   const totalDelivered = filteredExports
-    .filter((item) => !item.isExcluded)
-    .reduce((sum, item) => sum + (item.quantityDelivered || 0), 0);
+    .filter((item) => !item.isExcluded && (selectedModels.length === 0 || selectedModels.includes(item.modele)))
+    .reduce((sum, item) => sum + item.quantityDelivered, 0);
 
   const handleDownloadPDF = () => {
     const pdf = new jsPDF("p", "mm", "a4");
     let yOffset = 10;
 
     pdf.setFontSize(20);
-    pdf.text(`État des Déclarations pour ${clientName}`, 10, yOffset);
+    pdf.text(`État des Imports/Exports pour ${clientName}`, 10, yOffset);
     yOffset += 12;
 
     pdf.setFontSize(14);
@@ -243,7 +257,7 @@ export default function ClientEtatImportExportPage() {
         }
         pdf.setFontSize(11);
         pdf.text(
-          `Commande ${cmd.commande || "N/A"}: Total ${cmd.quantityTotal} / Livré ${cmd.quantityDelivered} / Reçu ${cmd.quantityReceived}`,
+          `Commande ${cmd.commande || "N/A"}: Total ${cmd.quantityTotal} / Livré ${cmd.quantityDelivered} / Reçu ${cmd.quantityReçu}`,
           10,
           yOffset
         );
@@ -276,18 +290,30 @@ export default function ClientEtatImportExportPage() {
     if (groupedImportsArray.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Date Import", "N° Déclaration", "Modèle", "Commande", "Désignation", "Qté Total"]],
-        body: groupedImportsArray.map((group) => [
-          group.dateImport ? new Date(group.dateImport).toLocaleDateString() : "N/A",
-          group.numDecImport || "N/A",
-          group.lines.map((line) => line.modele || "N/A").join("\n"),
-          group.lines.map((line) => line.commande || "N/A").join("\n"),
-          group.lines.map((line) => line.designation || "N/A").join("\n"),
-          group.lines.map((line) => (line.quantityTotal ?? 0).toString()).join("\n"),
-        ]),
+        head: [["Date Import", "N° Livraison", "Modèle", "Commande", "Description", "Qté Reçu"]],
+        body: groupedImportsArray.flatMap((group) =>
+          group.lines.map((line, index) => [
+            index === 0 ? (group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A") : "",
+            index === 0 ? (group.numLivraisonEntree || "N/A") : "",
+            line.modele || "N/A",
+            line.commande || "N/A",
+            line.description || "N/A",
+            line.quantityReçu.toString(),
+          ])
+        ),
         theme: "striped",
         styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
+        didDrawCell: (data: { row: { index: number; }; cell: { x: number; y: number; width: any; }; }) => {
+          if (data.row.index > 0 && data.row.index < groupedImportsArray.flatMap(g => g.lines).length) {
+            const prevLine = groupedImportsArray.flatMap(g => g.lines)[data.row.index - 1];
+            const currentLine = groupedImportsArray.flatMap(g => g.lines)[data.row.index];
+            if (prevLine.numLivraisonEntree !== currentLine.numLivraisonEntree) {
+              pdf.setDrawColor(200, 200, 200);
+              pdf.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+            }
+          }
+        },
       });
       yOffset = (pdf as any).lastAutoTable.finalY + 12;
     } else {
@@ -308,36 +334,54 @@ export default function ClientEtatImportExportPage() {
     if (groupedExportsArray.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Réparation", "Date Export", "N° Déclaration", "Modèle", "Commande", "Désignation", "Qté Livrée"]],
-        body: groupedExportsArray.map((group) => [
-          group.lines.map((line) => (line.isExcluded ? "Oui" : "Non")).join("\n"),
-          group.dateExport ? new Date(group.dateExport).toLocaleDateString() : "N/A",
-          group.numDecExport || "N/A",
-          group.lines.map((line) => line.modele).join("\n"),
-          group.lines.map((line) => line.commande || "N/A").join("\n"),
-          group.lines.map((line) => line.designation || "N/A").join("\n"),
-          group.lines.map((line) => (line.quantityDelivered ?? 0).toString()).join("\n"),
-        ]),
+        head: [["Exclu", "Date Export", "N° Livraison", "Modèle", "Commande", "Description", "Qté Livrée"]],
+        body: groupedExportsArray.flatMap((group) =>
+          group.lines.map((line, index) => [
+            line.isExcluded ? "Oui" : "Non",
+            index === 0 ? (group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A") : "",
+            index === 0 ? (group.numLivraisonSortie || "N/A") : "",
+            line.modele,
+            line.commande || "N/A",
+            line.description || "N/A",
+            line.quantityDelivered.toString(),
+          ])
+        ),
         theme: "striped",
         styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
+        didDrawCell: (data) => {
+          if (data.row.index > 0 && data.row.index < groupedExportsArray.flatMap(g => g.lines).length) {
+            const prevLine = groupedExportsArray.flatMap(g => g.lines)[data.row.index - 1];
+            const currentLine = groupedExportsArray.flatMap(g => g.lines)[data.row.index];
+            if (prevLine.numLivraisonSortie !== currentLine.numLivraisonSortie) {
+              pdf.setDrawColor(200, 200, 200);
+              pdf.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
+            }
+          }
+        },
       });
     } else {
       pdf.setFontSize(11);
       pdf.text("Aucune exportation trouvée.", 10, yOffset);
     }
 
-    pdf.save(`Etat_des_Declarations_${clientName}.pdf`);
+    pdf.save(`Etat_des_Imports_Exports_${clientName}.pdf`);
+  };
+
+  const toggleModelSelection = (model: string) => {
+    setSelectedModels((prev) =>
+      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model]
+    );
   };
 
   return (
     <Wrapper>
       <div className="flex flex-col space-y-6 py-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between pt-0">
-          <h1 className="text-3xl font-bold text-gray-800">
-            État des Déclarations pour {clientName}
+          <h1 className="text-3xl font-bold text-gray-800 w-full">
+            État des Imports/Exports pour {clientName}
           </h1>
-          <div className="flex flex-col md:flex-row gap-2">
+          <div className="flex flex-col md:flex-row gap-2 w-full">
             <div
               className="border border-gray-300 outline outline-1 outline-gray-200 p-4 rounded-lg bg-white shadow-md w-full max-w-md mt-4 md:mt-0"
             >
@@ -346,12 +390,12 @@ export default function ClientEtatImportExportPage() {
                   commandeSummaries.map((cmd, index) => (
                     <div key={`${cmd.model}-${cmd.commande}`}>
                       {index === 0 || cmd.model !== commandeSummaries[index - 1].model ? (
-                        <p className="text-sm text-gray-600 font-semibold mt-2">
+                        <p className="text-sm text-gray-600 mt-2 font-bold">
                           Modèle: {cmd.model}
                         </p>
                       ) : null}
                       <p className="text-sm text-gray-600">
-                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span> 
+                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span>
                       </p>
                     </div>
                   ))
@@ -365,13 +409,6 @@ export default function ClientEtatImportExportPage() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleDownloadPDF}
-              className="btn btn-accent mt-4 md:mt-0"
-            >
-              <Printer className="w-5 h-5 mr-2" />
-              Télécharger PDF
-            </button>
           </div>
         </div>
 
@@ -379,7 +416,7 @@ export default function ClientEtatImportExportPage() {
           <div className="flex items-center space-x-2 w-full max-w-md">
             <input
               type="text"
-              placeholder="Rechercher par commande ou désignation"
+              placeholder="Rechercher par commande ou description"
               className="rounded-xl p-2 bg-gray-100 w-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -389,21 +426,37 @@ export default function ClientEtatImportExportPage() {
             </button>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <select
-              className="select select-bordered"
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
+          <div className="relative">
+            <button
+              className="btn btn-bordered flex items-center gap-2"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             >
-              <option value="">Tous les modèles</option>
-              {allModels.length > 0 ? (
-                allModels.map((model) => (
-                  <option key={model} value={model}>{model}</option>
-                ))
-              ) : (
-                <option value="" disabled>Aucun modèle trouvé</option>
-              )}
-            </select>
+              {selectedModels.length > 0
+                ? `${selectedModels.length} modèle(s) sélectionné(s)`
+                : "Tous les modèles"}
+              <ChevronDown className="w-5 h-5" />
+            </button>
+            {isDropdownOpen && (
+              <div className="absolute z-10 mt-2 w-64 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="p-2">
+                  {allModels.length > 0 ? (
+                    allModels.map((model) => (
+                      <label key={model} className="flex items-center space-x-2 p-2 hover:bg-gray-100 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedModels.includes(model)}
+                          onChange={() => toggleModelSelection(model)}
+                          className="checkbox checkbox-sm"
+                        />
+                        <span>{model}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="p-2 text-gray-500">Aucun modèle trouvé</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-2">
@@ -432,6 +485,13 @@ export default function ClientEtatImportExportPage() {
               </button>
             )}
           </div>
+          <button
+            onClick={handleDownloadPDF}
+            className="btn btn-accent mt-4 md:mt-0"
+          >
+            <Printer className="w-5 h-5 mr-2" />
+            Télécharger PDF
+          </button>
         </div>
 
         {loading ? (
@@ -442,111 +502,108 @@ export default function ClientEtatImportExportPage() {
           <div className="alert alert-error text-center">{error}</div>
         ) : (filteredImports.length > 0 || filteredExports.length > 0) ? (
           <div className="flex flex-col md:flex-row gap-6">
-            {/* Import Table (Left) */}
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-4">Importations</h2>
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr><th className="p-4 text-left">Date Import</th><th className="p-4 text-left">N° Déclaration</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Désignation</th><th className="p-4 text-left">Qté Total</th></tr>
+                    <tr>
+                      <th className="p-4 text-left">Date Import</th>
+                      <th className="p-4 text-left">N° Livraison</th>
+                      <th className="p-4 text-left">Modèle</th>
+                      <th className="p-4 text-left">Commande</th>
+                      <th className="p-4 text-left">Description</th>
+                      <th className="p-4 text-left">Qté Reçu</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {groupedImportsArray.map((group, groupIndex) => (
-                      <tr key={group.numDecImport + groupIndex} className="hover:bg-blue-100 transition-colors">
-                        <td className="p-4">
-                          {group.dateImport ? new Date(group.dateImport).toLocaleDateString() : "N/A"}
-                        </td>
-                        <td className="p-4">{group.numDecImport || "N/A"}</td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.modele || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.commande || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.designation || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.quantityTotal ?? 0}
-                            </div>
-                          ))}
-                        </td>
-                      </tr>
+                      <React.Fragment key={group.numLivraisonEntree + groupIndex}>
+                        {group.lines.map((line, lineIndex) => (
+                          <tr
+                            key={line.id}
+                            className="hover:bg-blue-100 transition-colors"
+                          >
+                            {lineIndex === 0 && (
+                              <>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A"}
+                                </td>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.numLivraisonEntree || "N/A"}
+                                </td>
+                              </>
+                            )}
+                            <td className="p-4">{line.modele || "N/A"}</td>
+                            <td className="p-4">{line.commande || "N/A"}</td>
+                            <td className="p-4">{line.description || "N/A"}</td>
+                            <td className="p-4">{line.quantityReçu}</td>
+                          </tr>
+                        ))}
+                        {groupIndex < groupedImportsArray.length - 1 && (
+                          <tr className="border-t border-gray-300">
+                            <td colSpan={6} className="p-0 h-px"></td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Export Table (Right) */}
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-4">Exportations</h2>
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr><th className="p-4 text-left"></th><th className="p-4 text-left">Date Export</th><th className="p-4 text-left">N° Déclaration</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Désignation</th><th className="p-4 text-left">Qté Livrée</th></tr>
+                    <tr>
+                      <th className="p-4 text-left"></th>
+                      <th className="p-4 text-left">Date Export</th>
+                      <th className="p-4 text-left">N° Livraison</th>
+                      <th className="p-4 text-left">Modèle</th>
+                      <th className="p-4 text-left">Commande</th>
+                      <th className="p-4 text-left">Description</th>
+                      <th className="p-4 text-left">Qté Livrée</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {groupedExportsArray.map((group, groupIndex) => (
-                      <tr key={group.numDecExport + groupIndex} className="hover:bg-blue-100 transition-colors">
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
+                      <React.Fragment key={group.numLivraisonSortie + groupIndex}>
+                        {group.lines.map((line, lineIndex) => (
+                          <tr
+                            key={line.id}
+                            className="hover:bg-blue-100 transition-colors"
+                          >
+                            <td className="p-4">
                               <input
                                 type="checkbox"
                                 checked={line.isExcluded}
                                 disabled
                               />
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.dateExport ? new Date(group.dateExport).toLocaleDateString() : "N/A"}
-                        </td>
-                        <td className="p-4">{group.numDecExport || "N/A"}</td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.modele}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.commande || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.designation || "N/A"}
-                            </div>
-                          ))}
-                        </td>
-                        <td className="p-4">
-                          {group.lines.map((line, lineIndex) => (
-                            <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
-                              {line.quantityDelivered ?? 0}
-                            </div>
-                          ))}
-                        </td>
-                      </tr>
+                            </td>
+                            {lineIndex === 0 && (
+                              <>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A"}
+                                </td>
+                                <td className="p-4" rowSpan={group.lines.length}>
+                                  {group.numLivraisonSortie || "N/A"}
+                                </td>
+                              </>
+                            )}
+                            <td className="p-4">{line.modele}</td>
+                            <td className="p-4">{line.commande || "N/A"}</td>
+                            <td className="p-4">{line.description || "N/A"}</td>
+                            <td className="p-4">{line.quantityDelivered}</td>
+                          </tr>
+                        ))}
+                        {groupIndex < groupedExportsArray.length - 1 && (
+                          <tr className="border-t border-gray-300">
+                            <td colSpan={7} className="p-0 h-px"></td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

@@ -1,34 +1,28 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/lib/db";
 import { NextResponse } from "next/server";
 
-interface EtatData {
-  imports: ImportEntry[];
-  exports: ExportEntry[];
+interface EtatDeclarationData {
+  imports: EtatDeclaration[];
+  exports: EtatDeclaration[];
   models: ModelEntry[];
 }
 
-interface ImportEntry {
+interface EtatDeclaration {
   id: string;
-  dateEntree: string | null;
-  numLivraisonEntree: string;
-  clientEntree: string;
+  dateImport: string | null;
+  numDecImport: string; // Non-nullable per schema
+  valeurImport: number; // Non-nullable per schema
+  clientImport: string; // Non-nullable per schema
   modele: string;
   commande: string;
-  description: string;
-  quantityReçu: number;
-}
-
-interface ExportEntry {
-  id: string;
-  dateSortie: string | null;
-  numLivraisonSortie: string;
-  clientSortie: string;
-  modele: string;
-  commande: string;
-  description: string;
+  designation: string;
+  dateExport: string | null;
+  numDecExport: string;
+  clientExport: string;
+  valeurExport: number;
   quantityDelivered: number;
-  isExcluded: boolean;
+  quantityTotal: number;
+  isExcluded?: boolean;
 }
 
 interface ModelEntry {
@@ -38,8 +32,11 @@ interface ModelEntry {
   commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
 }
 
+type CommandesWithVariantsDB = { value: string; variants: { name: string; qte_variante: number }[] }[] | null;
+
 export async function GET() {
   try {
+    console.log("Fetching all declaration imports");
     const declarationImports = await prisma.declarationImport.findMany({
       include: {
         models: {
@@ -49,6 +46,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
+    console.log("Fetching all declaration exports");
     const declarationExports = await prisma.declarationExport.findMany({
       include: { lines: true },
       orderBy: { createdAt: "desc" },
@@ -58,6 +56,7 @@ export async function GET() {
     const exportClients = declarationExports.map(de => de.clientName).filter((c): c is string => c !== null);
     const allClients = [...new Set([...importClients, ...exportClients])];
 
+    console.log("Fetching client models for clients:", allClients);
     const clientModels = await prisma.clientModel.findMany({
       where: {
         client: {
@@ -73,11 +72,11 @@ export async function GET() {
       let commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[] = [];
       if (model.commandesWithVariants) {
         try {
-          const parsed = model.commandesWithVariants as any;
+          const parsed = model.commandesWithVariants as CommandesWithVariantsDB;
           if (Array.isArray(parsed)) {
             commandesWithVariants = parsed.map(item => ({
               value: item.value || "",
-              variants: Array.isArray(item.variants) ? item.variants.map((v: { name: any; qte_variante: any; }) => ({
+              variants: Array.isArray(item.variants) ? item.variants.map(v => ({
                 name: v.name || "",
                 qte_variante: typeof v.qte_variante === "number" ? v.qte_variante : 0,
               })) : [],
@@ -96,7 +95,8 @@ export async function GET() {
       };
     });
 
-    const imports: ImportEntry[] = declarationImports.flatMap((di) =>
+    // Fixed imports mapping with defaults
+    const imports: EtatDeclaration[] = declarationImports.flatMap((di) =>
       di.models.map((model) => {
         const totalQuantity = model.accessories.reduce(
           (sum, acc) => sum + (acc.quantity_reçu || 0),
@@ -104,32 +104,50 @@ export async function GET() {
         );
         return {
           id: `${di.id}-${model.id}-import`,
-          dateEntree: di.date_import ? new Date(di.date_import).toISOString() : null,
-          numLivraisonEntree: di.num_dec || "",
-          clientEntree: di.client || "",
+          dateImport: di.date_import ? new Date(di.date_import).toISOString() : null,
+          numDecImport: di.num_dec || "", // Default to empty string
+          valeurImport: di.valeur || 0, // Default to 0
+          clientImport: di.client || "", // Default to empty string
           modele: model.name || "Unnamed Model",
-          commande: model.commande || "",
-          description: model.description || "",
-          quantityReçu: totalQuantity,
+          commande: "",
+          designation: "",
+          quantityTotal: totalQuantity,
+          dateExport: null,
+          numDecExport: "",
+          clientExport: "",
+          valeurExport: 0,
+          quantityDelivered: 0,
         };
       })
     );
 
-    const exports: ExportEntry[] = declarationExports.flatMap((de) =>
+    const exports: EtatDeclaration[] = declarationExports.flatMap((de) =>
       de.lines.map((line) => ({
         id: `${de.id}-${line.id}-export`,
-        dateSortie: de.exportDate ? new Date(de.exportDate).toISOString() : null,
-        numLivraisonSortie: de.num_dec || "",
-        clientSortie: de.clientName || "",
+        dateImport: null,
+        numDecImport: "",
+        valeurImport: 0,
+        clientImport: "",
         modele: line.modele || "",
         commande: line.commande || "",
-        description: line.description || "",
+        designation: line.description || "",
+        quantityTotal: 0,
+        dateExport: de.exportDate ? new Date(de.exportDate).toISOString() : null,
+        numDecExport: de.num_dec || "",
+        clientExport: de.clientName || "",
+        valeurExport: de.valeur || 0,
         quantityDelivered: line.isExcluded ? 0 : (line.quantity || 0),
         isExcluded: line.isExcluded || false,
       }))
     );
 
-    const responseData: EtatData = { imports, exports, models };
+    console.log("DeclarationImports fetched:", declarationImports.length);
+    console.log("DeclarationExports fetched:", declarationExports.length);
+    console.log("Imports processed:", imports.length);
+    console.log("Exports processed:", exports.length);
+    console.log("Models processed:", models.length);
+
+    const responseData: EtatDeclarationData = { imports, exports, models };
     return NextResponse.json(responseData, { status: 200 });
   } catch (error) {
     console.error("GET /api/etat-import-export Error:", error);

@@ -407,7 +407,7 @@ model FicheCoupe {
   clientId      String
   modelId       String
   commande      String
-  quantity      Int
+  quantity      Float
   coupe         CoupeEntry[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -424,7 +424,7 @@ model CoupeEntry {
   week            String
   day             String
   category        String
-  quantityCreated Int
+  quantityCreated Float
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   ficheCoupe      FicheCoupe  @relation(fields: [ficheCoupeId], references: [id], onDelete: Cascade)

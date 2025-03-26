@@ -44,7 +44,7 @@ export default function CoupeTable({
   clientName = 'Unknown Client',
 }: CoupeTableProps) {
   const [loading, setLoading] = useState(false);
-  const categories = ['Tissu1', 'Tissu2', 'Broderie', 'Serigraphie', 'Autres'];
+  const categories = ['Tissu1', 'Tissu2',"Veseline","Doublure", 'Broderie', 'Serigraphie', 'Autres'];
   const days = ['lun-17', 'mar-18', 'mer-19', 'jeu-20', 'ven-21', 'sam-22'];
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
 
@@ -90,7 +90,7 @@ export default function CoupeTable({
   }, [ficheId, getToken, setCoupeData, setError]);
 
   const handleCoupeChange = (day: string, category: string, value: string) => {
-    const numValue = Math.max(0, parseInt(value) || 0);
+    const numValue = Math.max(0, parseFloat(value) || 0);
     const key = `${currentWeek}-${day}-${category}`;
     const newCoupeData = {
       ...coupeData,
@@ -244,7 +244,7 @@ export default function CoupeTable({
           }}
           disabled={currentWeek === 'Week 1'}
         >
-          <ChevronLeft className="w-4 h-4" /> Prev Week
+          <ChevronLeft className="w-4 h-4" /> Prev Sem
         </button>
         <h3 className="text-lg font-semibold">{currentWeek}</h3>
         <button
@@ -254,7 +254,7 @@ export default function CoupeTable({
             setCurrentWeek(`Week ${weekNum}`);
           }}
         >
-          Next Week <ChevronRight className="w-4 h-4" />
+          Next Sem <ChevronRight className="w-4 h-4" />
         </button>
       </div>
 
@@ -284,7 +284,7 @@ export default function CoupeTable({
                       return (
                         <td key={`${day}-${cat}`}>
                           <input
-                            type="text"
+                            type="number"
                             value={value}
                             onChange={(e) => handleCoupeChange(day, cat, e.target.value)}
                             className={`input input-bordered w-16 text-center ${
@@ -336,7 +336,7 @@ export default function CoupeTable({
                   <div key={cat} className="flex justify-between items-center">
                     <span className="font-medium">{cat}</span>
                     <input
-                      type="text"
+                      type="number"
                       value={value}
                       onChange={(e) => handleCoupeChange(days[currentDayIndex], cat, e.target.value)}
                       className={`input input-bordered w-20 text-center ${

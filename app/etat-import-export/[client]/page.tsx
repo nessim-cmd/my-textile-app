@@ -112,7 +112,7 @@ export default function ClientEtatImportExportPage() {
       (item.designation || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesModel = selectedModel ? item.modele === selectedModel : true;
     const dateImport = item.dateImport ? new Date(item.dateImport) : null;
-    let matchesDate: boolean = true; // Explicitly typed as boolean
+    let matchesDate: boolean = true;
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
@@ -133,7 +133,7 @@ export default function ClientEtatImportExportPage() {
       (item.designation || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesModel = selectedModel ? item.modele === selectedModel : true;
     const dateExport = item.dateExport ? new Date(item.dateExport) : null;
-    let matchesDate: boolean = true; // Explicitly typed as boolean
+    let matchesDate: boolean = true;
 
     if (dateDebut || dateFin) {
       const start = dateDebut ? new Date(dateDebut) : null;
@@ -308,7 +308,7 @@ export default function ClientEtatImportExportPage() {
     if (groupedExportsArray.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
-        head: [["Réparation", "Date Export", "N° Déclaration", "Modèle", "Commande", "Désignation", "Qté Livrée"]],
+        head: [["Réplication", "Date Export", "N° Déclaration", "Modèle", "Commande", "Désignation", "Qté Livrée"]],
         body: groupedExportsArray.map((group) => [
           group.lines.map((line) => (line.isExcluded ? "Oui" : "Non")).join("\n"),
           group.dateExport ? new Date(group.dateExport).toLocaleDateString() : "N/A",
@@ -337,41 +337,37 @@ export default function ClientEtatImportExportPage() {
           <h1 className="text-3xl font-bold text-gray-800">
             État des Déclarations pour {clientName}
           </h1>
-          <div className="flex flex-col md:flex-row gap-2">
+          <div className="flex flex-col md:flex-row gap-2 w-full">
             <div
               className="border border-gray-300 outline outline-1 outline-gray-200 p-4 rounded-lg bg-white shadow-md w-full max-w-md mt-4 md:mt-0"
             >
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[14rem] overflow-y-auto">
                 {commandeSummaries.length > 0 ? (
                   commandeSummaries.map((cmd, index) => (
                     <div key={`${cmd.model}-${cmd.commande}`}>
                       {index === 0 || cmd.model !== commandeSummaries[index - 1].model ? (
-                        <p className="text-sm text-gray-600 font-semibold mt-2">
+                        <p className="text-sm text-gray-600 mt-2 font-bold">
                           Modèle: {cmd.model}
                         </p>
                       ) : null}
                       <p className="text-sm text-gray-600">
-                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span> 
+                        Commande {cmd.commande || "N/A"}: Total{" "}
+                        <span className="font-medium">{cmd.quantityTotal}</span> / Livré{" "}
+                        <span className="font-medium">{cmd.quantityDelivered}</span>
                       </p>
                     </div>
                   ))
                 ) : (
                   <p className="text-sm text-gray-600">Aucune commande trouvée pour ce client.</p>
                 )}
-                <div className="border-t pt-2 mt-2">
+                <div className="border-t pt-2 mt-2 sticky bottom-0 bg-white">
                   <p className="text-sm text-gray-600 font-bold">
-                    Total: <span className="font-medium">{totalQuantity}</span> / Livré: <span className="font-medium">{totalDelivered}</span>
+                    Total: <span className="font-medium">{totalQuantity}</span> / Livré:{" "}
+                    <span className="font-medium">{totalDelivered}</span>
                   </p>
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleDownloadPDF}
-              className="btn btn-accent mt-4 md:mt-0"
-            >
-              <Printer className="w-5 h-5 mr-2" />
-              Télécharger PDF
-            </button>
           </div>
         </div>
 
@@ -431,6 +427,13 @@ export default function ClientEtatImportExportPage() {
                 Effacer
               </button>
             )}
+            <button
+              onClick={handleDownloadPDF}
+              className="btn btn-accent mt-4 md:mt-0"
+            >
+              <Printer className="w-5 h-5 mr-2" />
+              Télécharger PDF
+            </button>
           </div>
         </div>
 
@@ -448,7 +451,15 @@ export default function ClientEtatImportExportPage() {
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr><th className="p-4 text-left">Date Import</th><th className="p-4 text-left">N° Déclaration</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Désignation</th><th className="p-4 text-left">Qté Total</th></tr>
+                    <tr>
+                      <th className="p-4 text-left">Date Import</th>
+                      <th className="p-4 text-left">N° Déclaration</th>
+                      <th className="p-4 text-left">Valeur Import</th>
+                      <th className="p-4 text-left">Modèle</th>
+                      <th className="p-4 text-left">Commande</th>
+                      <th className="p-4 text-left">Désignation</th>
+                      <th className="p-4 text-left">Qté Total</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {groupedImportsArray.map((group, groupIndex) => (
@@ -457,6 +468,9 @@ export default function ClientEtatImportExportPage() {
                           {group.dateImport ? new Date(group.dateImport).toLocaleDateString() : "N/A"}
                         </td>
                         <td className="p-4">{group.numDecImport || "N/A"}</td>
+                        <td className="p-4">
+                          {group.lines[0]?.valeurImport ?? 0}
+                        </td>
                         <td className="p-4">
                           {group.lines.map((line, lineIndex) => (
                             <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>
@@ -498,7 +512,16 @@ export default function ClientEtatImportExportPage() {
               <div className="overflow-x-auto rounded-lg shadow-lg bg-white">
                 <table className="table w-full">
                   <thead className="bg-blue-600 text-white">
-                    <tr><th className="p-4 text-left"></th><th className="p-4 text-left">Date Export</th><th className="p-4 text-left">N° Déclaration</th><th className="p-4 text-left">Modèle</th><th className="p-4 text-left">Commande</th><th className="p-4 text-left">Désignation</th><th className="p-4 text-left">Qté Livrée</th></tr>
+                    <tr>
+                      <th className="p-4 text-left"></th>
+                      <th className="p-4 text-left">Date Export</th>
+                      <th className="p-4 text-left">N° Déclaration</th>
+                      <th className="p-4 text-left">Valeur Export</th>
+                      <th className="p-4 text-left">Modèle</th>
+                      <th className="p-4 text-left">Commande</th>
+                      <th className="p-4 text-left">Désignation</th>
+                      <th className="p-4 text-left">Qté Livrée</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {groupedExportsArray.map((group, groupIndex) => (
@@ -518,6 +541,9 @@ export default function ClientEtatImportExportPage() {
                           {group.dateExport ? new Date(group.dateExport).toLocaleDateString() : "N/A"}
                         </td>
                         <td className="p-4">{group.numDecExport || "N/A"}</td>
+                        <td className="p-4">
+                          {group.lines[0]?.valeurExport ?? 0}
+                        </td>
                         <td className="p-4">
                           {group.lines.map((line, lineIndex) => (
                             <div key={line.id} className={lineIndex > 0 ? "mt-2" : ""}>

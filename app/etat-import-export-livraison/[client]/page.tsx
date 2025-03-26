@@ -381,11 +381,11 @@ export default function ClientEtatImportExportLivraisonPage() {
           <h1 className="text-3xl font-bold text-gray-800 w-full">
             État des Livraisons pour {clientName}
           </h1>
-          <div className="flex flex-col md:flex-row gap-2 w-full ">
+          <div className="flex flex-col md:flex-row gap-2 w-full">
             <div
               className="border border-gray-300 outline outline-1 outline-gray-200 p-4 rounded-lg bg-white shadow-md w-full max-w-md mt-4 md:mt-0"
             >
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[14rem] overflow-y-auto">
                 {commandeSummaries.length > 0 ? (
                   commandeSummaries.map((cmd, index) => (
                     <div key={`${cmd.model}-${cmd.commande}`}>
@@ -395,21 +395,23 @@ export default function ClientEtatImportExportLivraisonPage() {
                         </p>
                       ) : null}
                       <p className="text-sm text-gray-600">
-                        Commande {cmd.commande || "N/A"}: Total <span className="font-medium">{cmd.quantityTotal}</span> / Livré <span className="font-medium">{cmd.quantityDelivered}</span>
+                        Commande {cmd.commande || "N/A"}: Total{" "}
+                        <span className="font-medium">{cmd.quantityTotal}</span> / Livré{" "}
+                        <span className="font-medium">{cmd.quantityDelivered}</span>
                       </p>
                     </div>
                   ))
                 ) : (
                   <p className="text-sm text-gray-600">Aucune commande trouvée pour ce client.</p>
                 )}
-                <div className="border-t pt-2 mt-2">
+                <div className="border-t pt-2 mt-2 sticky bottom-0 bg-white">
                   <p className="text-sm text-gray-600 font-bold">
-                    Total: <span className="font-medium">{totalQuantity}</span> / Livré: <span className="font-medium">{totalDelivered}</span>
+                    Total: <span className="font-medium">{totalQuantity}</span> / Livré:{" "}
+                    <span className="font-medium">{totalDelivered}</span>
                   </p>
                 </div>
               </div>
             </div>
-            
           </div>
         </div>
 

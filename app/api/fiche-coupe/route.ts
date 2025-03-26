@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET() {
   try {
     const fiches = await prisma.ficheCoupe.findMany({
+      orderBy: { createdAt: "desc" },
       include: {
         coupe: true,
         client: true,

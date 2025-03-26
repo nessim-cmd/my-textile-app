@@ -113,7 +113,7 @@ const LivraisonEntreeLines: React.FC<Props> = ({ livraisonEntree, setLivraisonEn
                     </td>
                     <td>
                       <input
-                        type="text"
+                        type="number"
                         className="input input-bordered input-sm w-20"
                         value={model.quantityReçu ?? 0}
                         onChange={(e) => handleQuantityChange(model.id, "quantityReçu", e.target.value)}
@@ -121,7 +121,7 @@ const LivraisonEntreeLines: React.FC<Props> = ({ livraisonEntree, setLivraisonEn
                     </td>
                     <td>
                       <input
-                        type="text"
+                        type="number"
                         className="input input-bordered input-sm w-20"
                         value={model.quantityTrouvee ?? 0}
                         onChange={(e) => handleQuantityChange(model.id, "quantityTrouvee", e.target.value)}

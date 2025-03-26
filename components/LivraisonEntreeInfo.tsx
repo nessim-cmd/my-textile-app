@@ -17,6 +17,7 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
   const { getToken } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
 
+  // Fetch clients on component mount
   useEffect(() => {
     const fetchClients = async () => {
       try {
@@ -33,10 +34,12 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
     fetchClients();
   }, [getToken]);
 
+  // Handle changes to general information fields
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: string) => {
     setLivraisonEntree({ ...livraisonEntree, [field]: e.target.value });
   };
 
+  // Add a new model with a unique ID and empty name
   const addNewModel = () => {
     const newModel: Model = {
       id: `temp-${Date.now()}`,
@@ -49,7 +52,7 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       accessories: [],
-      declarationImportId: ""
+      declarationImportId: "",
     };
     setLivraisonEntree({
       ...livraisonEntree,
@@ -57,17 +60,25 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
     });
   };
 
-  const updateModel = (modelId: string, field: string, value: string) => {
+  // Update the name of all models that match the old name
+  const updateModelName = (oldName: string, newName: string) => {
     setLivraisonEntree({
       ...livraisonEntree,
       models: livraisonEntree.models.map(model =>
-        model.id === modelId ? { ...model, [field]: value } : model
+        model.name === oldName ? { ...model, name: newName } : model
       ),
     });
   };
 
+  // Calculate representative models for each unique name
+  const uniqueNames = Array.from(new Set(livraisonEntree.models.map(model => model.name)));
+  const representativeModels = uniqueNames
+    .map(name => livraisonEntree.models.find(model => model.name === name))
+    .filter((model): model is Model => model !== undefined);
+
   return (
     <div className="space-y-4">
+      {/* General Information Section */}
       <div className="card bg-base-200 p-4">
         <h3 className="font-bold mb-2">Informations Générales</h3>
         <div className="space-y-2">
@@ -111,25 +122,26 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
         </div>
       </div>
 
+      {/* Models Section */}
       <div className="card bg-base-200 p-4">
         <h3 className="font-bold mb-2">Modèles</h3>
         <button onClick={addNewModel} className="btn btn-sm btn-accent w-full">
           <Plus className="w-4 mr-2" /> Ajouter Modèle
         </button>
         <div className="mt-4 space-y-2">
-          {livraisonEntree.models.map(model => (
-            <div key={model.id} className="collapse collapse-arrow bg-base-100">
+          {representativeModels.map(repModel => (
+            <div key={repModel.id} className="collapse collapse-arrow bg-base-100">
               <input type="checkbox" />
               <div className="collapse-title font-medium">
-                {model.name || "Nouveau Modèle"}
+                {repModel.name || "Nouveau Modèle"}
               </div>
               <div className="collapse-content">
                 <input
                   type="text"
                   placeholder="Nom du modèle"
-                  className="input input-bordered w-full"
-                  value={model.name}
-                  onChange={(e) => updateModel(model.id, "name", e.target.value)}
+                  className="input input-bordered w-full min-w-[200px]"
+                  value={repModel.name}
+                  onChange={(e) => updateModelName(repModel.name, e.target.value)}
                 />
               </div>
             </div>

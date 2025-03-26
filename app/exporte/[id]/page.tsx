@@ -56,8 +56,8 @@ export default function ExportDetailsPage() {
   const [, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [dateDebut, setDateDebut] = useState("");
-  const [dateFin, setDateFin] = useState("");
+  const [dateDebut, setDateFin] = useState("");
+  const [dateFin, setDateDebut] = useState("");
 
   const fetchDeclaration = async () => {
     try {
@@ -215,34 +215,37 @@ export default function ExportDetailsPage() {
 
   return (
     <Wrapper>
-      <div>
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
-          <div className="flex items-center space-x-4">
+      <div className="p-4">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 space-y-4 md:space-y-0">
+          {/* Left Side: Export ID and Date Inputs */}
+          <div className="flex flex-col space-y-3 md:flex-row md:items-center md:space-x-4 md:space-y-0">
             <p className="badge badge-ghost badge-lg uppercase">
               <span>Export-</span>{declaration.num_dec}
             </p>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-bold">Date Début:</label>
+            <div className="flex flex-col space-y-2 md:flex-row md:items-center md:space-x-2 md:space-y-0">
+              <label className="text-sm font-bold whitespace-nowrap">Date Début:</label>
               <input
                 type="date"
                 value={dateDebut}
-                className="input input-bordered input-sm w-36"
+                className="input input-bordered input-sm w-full max-w-[150px] min-h-[48px] touch-manipulation"
                 onChange={(e) => setDateDebut(e.target.value)}
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-bold">Date Fin:</label>
+            <div className="flex flex-col space-y-2 md:flex-row md:items-center md:space-x-2 md:space-y-0">
+              <label className="text-sm font-bold whitespace-nowrap">Date Fin:</label>
               <input
                 type="date"
                 value={dateFin}
-                className="input input-bordered input-sm w-36"
+                className="input input-bordered input-sm w-full max-w-[150px] min-h-[48px] touch-manipulation"
                 onChange={(e) => setDateFin(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex md:mt-0 mt-4">
+          {/* Right Side: Selects and Buttons */}
+          <div className="flex flex-col space-y-3 md:flex-row md:items-center md:space-x-3 md:space-y-0">
             <select
-              className="select select-sm select-bordered w-full"
+              className="select select-sm select-bordered w-full max-w-[140px] min-h-[48px] touch-manipulation"
               value={declaration.modePaiment}
               onChange={handleModePaimentChange}
             >
@@ -253,7 +256,7 @@ export default function ExportDetailsPage() {
               ))}
             </select>
             <select
-              className="select select-sm select-bordered w-full ml-2"
+              className="select select-sm select-bordered w-full max-w-[140px] min-h-[48px] touch-manipulation"
               value={declaration.status}
               onChange={handleStatusChange}
             >
@@ -264,7 +267,7 @@ export default function ExportDetailsPage() {
               ))}
             </select>
             <button
-              className="btn btn-sm btn-accent ml-4"
+              className="btn btn-sm btn-accent w-full max-w-[140px] min-h-[48px] flex items-center justify-center px-2 py-2 rounded-lg text-sm font-semibold whitespace-nowrap tracking-tight touch-manipulation"
               disabled={isLoading}
               onClick={handleSave}
             >
@@ -277,19 +280,25 @@ export default function ExportDetailsPage() {
                 </>
               )}
             </button>
-            <button onClick={handleDelete} className="btn btn-sm btn-accent ml-4">
-              <Trash className="w-4" />
+            <button
+              onClick={handleDelete}
+              className="btn btn-sm btn-accent w-full max-w-[50px] min-h-[48px] flex items-center justify-center px-2 py-2 rounded-lg touch-manipulation"
+            >
+              <Trash className="w-4 h-4" />
             </button>
           </div>
         </div>
 
+        {/* Error Message */}
         {errorMessage && (
           <div className="alert alert-error mb-4">
             {errorMessage}
           </div>
         )}
 
-        <div className="flex flex-col md:flex-row w-full">
+        {/* Main Content */}
+        <div className="flex flex-col md:flex-row w-full space-y-4 md:space-y-0 md:space-x-4">
+          {/* Left Section: Totals and Export Info */}
           <div className="flex w-full md:w-1/3 flex-col">
             <div className="mb-4 bg-base-200 rounded-xl p-5">
               <div className="flex justify-between items-center mb-4">
@@ -321,7 +330,8 @@ export default function ExportDetailsPage() {
               onModelsChange={handleModelsChange}
             />
           </div>
-          <div className="flex w-full md:w-2/3 flex-col md:ml-4">
+          {/* Right Section: Export Lines and PDF */}
+          <div className="flex w-full md:w-2/3 flex-col">
             <ExportLines declaration={declaration} setDeclaration={setDeclaration} clientModels={clientModels} />
             <ExportPDF declaration={declaration} totals={totals} />
           </div>

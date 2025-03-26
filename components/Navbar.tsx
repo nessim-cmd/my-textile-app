@@ -16,6 +16,12 @@ interface Notification {
   link?: string;
 }
 
+interface Event {
+  id: number;
+  description: string;
+  date: string; // ISO string from the backend
+}
+
 const Navbar = () => {
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -92,8 +98,30 @@ const Navbar = () => {
           });
         });
 
-        // Combine notifications
-        const combinedNotifications = [...submissionNotifications, ...manqueNotifications];
+        // Fetch event notifications
+        const eventResponse = await fetch('/api/events', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!eventResponse.ok) throw new Error('Failed to fetch events');
+        const events: Event[] = await eventResponse.json();
+        const eventNotifications = events
+          .map((event: Event) => {
+            const days = getNotificationDays(event.date);
+            // Notify if the event is within 3 days (including today)
+            if (days !== null && days <= 3) {
+              return {
+                id: `event-${event.id}`,
+                message: `Event " ${event.description}" is happening ${days === 0 ? "today" : `in ${days} day${days === 1 ? '' : 's'}`}`,
+                daysRemaining: days,
+                link: 'https://mstailors.vercel.app/calendar',
+              };
+            }
+            return null;
+          })
+          .filter((notification: Notification | null) => notification !== null) as Notification[];
+
+        // Combine all notifications
+        const combinedNotifications = [...submissionNotifications, ...manqueNotifications, ...eventNotifications];
         console.log('Combined notifications:', combinedNotifications);
         setNotifications(combinedNotifications);
       } catch (error) {

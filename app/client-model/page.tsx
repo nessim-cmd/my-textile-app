@@ -527,6 +527,7 @@ export default function ClientModelPage() {
                     {cmd.variants.map((variant, varIndex) => (
                       <div key={varIndex} className="flex gap-2 mb-2">
                         <input
+                          
                           type="text"
                           placeholder="Variant Name"
                           className="input input-bordered flex-1"

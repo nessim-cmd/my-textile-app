@@ -11,16 +11,16 @@ datasource db {
 // Make all fields required in your schema:
 model Client {
   id                 String   @id @default(uuid())
-  name               String?
+  name               String?  @default("-")
   email              String?   @unique
-  phone1             String?
-  phone2             String?
-  fix                String?
-  address            String?
-  matriculeFiscale   String?
-  soumission         String?
-  dateDebutSoumission String?
-  dateFinSoumission   String?
+  phone1             String?  @default("-")
+  phone2             String?  @default("-")
+  fix                String?  @default("-")
+  address            String?  @default("-")
+  matriculeFiscale   String?  @default("-")
+  soumission         String?  @default("-")
+  dateDebutSoumission String?  @default("-")
+  dateFinSoumission   String?  @default("-")
   clientModels       ClientModel[]
   FicheCoupes          FicheCoupe[]
   livraisonEntrees   LivraisonEntree[]
@@ -35,8 +35,8 @@ model ClientModel {
   description         String?
   clientId            String      // Changed from String? to String (required)
   client              Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  commandes           String?
-  commandesWithVariants Json?    // New field to store JSON structure of commandes and variants
+  commandes           String?   @default("-")
+  commandesWithVariants Json?     @default("0") // New field to store JSON structure of commandes and variants
   lotto               String?
   ordine              String?
   puht                Float?
@@ -53,7 +53,7 @@ model Variant {
   id            String      @id @default(uuid())
   name          String?
   clientModelId String?
-  qte_variante Int?
+  qte_variante Int?  @default(0)
   
   modelId      String?
   model        ModelPlan? @relation(fields: [modelId], references: [id], onDelete: Cascade)

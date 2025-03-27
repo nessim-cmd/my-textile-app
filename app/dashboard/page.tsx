@@ -93,7 +93,7 @@ export default function DashboardPage() {
       });
       if (!res.ok) throw new Error('Failed to fetch liste manque data');
       const result = await res.json();
-      console.log("ListeManqueData:", JSON.stringify(result, null, 2));
+   
       setListeManqueData(result);
     } catch (err) {
       console.error('Error fetching liste manque:', err);

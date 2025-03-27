@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, Scissors, UserRoundPenIcon, DatabaseZapIcon, Calendar, LayoutDashboard,  Eye, CircleArrowOutDownRight, CircleArrowOutUpLeft, Inbox } from "lucide-react"
+import { ChevronDown, Scissors, UserRoundPenIcon, DatabaseZapIcon, Calendar, LayoutDashboard, Eye, CircleArrowOutDownRight, CircleArrowOutUpLeft, Inbox } from "lucide-react"
 import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import {
@@ -9,19 +9,21 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "./ui/sidebar"
+import { useUser } from "@clerk/nextjs"
 
-const items = [
+// Define all possible items
+const allItems = [
   {
     title: "Dashboard",
     icon: LayoutDashboard,
     subItems: [
-      { icon: Inbox,title: "Dashboard", url: "/dashboard" },
+      { icon: Inbox, title: "Dashboard", url: "/dashboard" },
       { title: "Users", url: "/admin/users" },
     ],
   },
   {
     title: "Creation Entree",
-    icon: CircleArrowOutDownRight ,
+    icon: CircleArrowOutDownRight,
     subItems: [
       { title: "Declaration Import", url: "/import" },
       { title: "Bon Livraison Entree", url: "/livraisonEntree" },
@@ -45,15 +47,15 @@ const items = [
     ],
   },
   {
-    title: "Coupe ",
+    title: "Coupe",
     icon: Scissors,
     subItems: [
       { title: "Fiches Coupe", url: "/fiche-coupe" },
     ],
   },
   {
-    title: "Suivi ",
-    icon: Eye ,
+    title: "Suivi",
+    icon: Eye,
     subItems: [
       { title: "Suivi Declarations", url: "/etat-import-export" },
       { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
@@ -62,7 +64,7 @@ const items = [
     ],
   },
   {
-    title: "Stock ",
+    title: "Stock",
     icon: DatabaseZapIcon,
     subItems: [
       { title: "Fournisseur", url: "/fournisseur" },
@@ -71,18 +73,74 @@ const items = [
     ],
   },
   {
-    title: "Calendar ",
+    title: "Calendar",
     icon: Calendar,
-    url: "/calendar" // Direct URL property instead of subItems
+    url: "/calendar"
   },
 ]
+
+// Function to filter items based on role
+const getItemsForRole = (role: string | undefined) => {
+  if (!role) return []; // Return empty array if no role
+
+  switch (role.toUpperCase()) {
+    case "ADMIN":
+      return allItems;
+    case "COUPEUR":
+      return allItems.filter(item => 
+        ["Coupe", "Suivi", "Stock", "Calendar"].includes(item.title)
+      );
+    case "CHEF":
+      return allItems.filter(item => 
+        ["Suivi", "Stock", "Calendar"].includes(item.title)
+      );
+    case "USER":
+      return allItems.filter(item => 
+        ["Suivi"].includes(item.title)
+      );
+    default:
+      return []; // Return empty array for unknown roles
+  }
+}
 
 export function AppSidebar() {
   const pathname = usePathname()
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set([""]))
+  const { user, isLoaded } = useUser()
+  const [userRole, setUserRole] = useState<string | undefined>(undefined)
 
+  // Fetch user role from Prisma using Clerk user ID
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      if (!user || !isLoaded) return;
+
+      try {
+        const response = await fetch(`/api/user-role?clerkUserId=${user.id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch user role');
+        }
+        
+        const data = await response.json();
+        setUserRole(data.role);
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+        setUserRole("USER"); // Fallback to USER role
+      }
+    };
+
+    fetchUserRole();
+  }, [user, isLoaded]);
+
+  // Update open menus based on current path
   useEffect(() => {
     const newOpenMenus = new Set(openMenus)
+    const items = getItemsForRole(userRole)
     
     items.forEach(item => {
       if (item.subItems?.some(subItem => subItem.url === pathname)) {
@@ -91,7 +149,7 @@ export function AppSidebar() {
     })
 
     setOpenMenus(newOpenMenus)
-  }, [pathname])
+  }, [pathname, userRole])
 
   const toggleMenu = (title: string) => {
     setOpenMenus(prev => {
@@ -105,10 +163,14 @@ export function AppSidebar() {
     })
   }
 
+  const items = getItemsForRole(userRole)
+
+  if (!isLoaded || !userRole) {
+    return <div>Loading sidebar...</div> // Or your preferred loading state
+  }
+
   return (
-    <Sidebar
-    collapsible="icon"
-    >
+    <Sidebar collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="font-bold items-center flex justify-center text-2xl">MS Tailors</SidebarGroupLabel>
@@ -145,9 +207,7 @@ export function AppSidebar() {
                                   className={pathname === subItem.url ? "font-bold text-primary" : ""}
                                 >
                                   <span>{subItem.title}</span>
-                                  
                                 </a>
-                                
                               </SidebarMenuButton>
                             </SidebarMenuItem>
                           ))}

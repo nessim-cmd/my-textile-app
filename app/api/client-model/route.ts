@@ -1,64 +1,98 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { s3Client, BUCKET_NAME } from '@/lib/s3';
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
+interface Variant {
+  id?: string;
+  name: string;
+  qte_variante: number;
+}
+
+interface Commande {
+  value: string;
+  variants: Variant[];
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const dateDebut = searchParams.get('dateDebut');
+    const dateFin = searchParams.get('dateFin');
+    const searchTerm = searchParams.get('search');
+    const client = searchParams.get('client');
+
+
+    const where: any = {};
+
+    if (dateDebut && dateFin) {
+      const startDate = new Date(dateDebut);
+      startDate.setUTCHours(0, 0, 0, 0);
+      const endDate = new Date(dateFin);
+      endDate.setUTCHours(23, 59, 59, 999);
+      where.createdAt = { gte: startDate, lte: endDate };
+    }
+
+    if (searchTerm) {
+      where.OR = [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { client: { name: { contains: searchTerm, mode: 'insensitive' } } },
+        { description: { contains: searchTerm, mode: 'insensitive' } },
+        { commandes: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
+    if (client) {
+      const clientRecord = await prisma.client.findFirst({ where: { name: client } });
+      if (clientRecord) {
+        where.clientId = clientRecord.id;
+      } else {
+        console.log(`Client "${client}" not found`);
+        return NextResponse.json([]);
+      }
+    }
+
+    const models = await prisma.clientModel.findMany({
+      where,
+      include: {
+        client: true,
+        variants: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return NextResponse.json(models);
+  } catch (error) {
+    console.error('Error fetching client models:', error);
+    return NextResponse.json({ error: 'Failed to fetch client models' }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const name = formData.get('name') as string | null;
-    const description = formData.get('description') as string | null;
-    const commandes = formData.get('commandes') as string | null;
-    const lotto = formData.get('lotto') as string | null;
-    const ordine = formData.get('ordine') as string | null;
-    const puht = formData.get('puht') ? parseFloat(formData.get('puht') as string) : null;
-    const clientId = formData.get('clientId') as string;
-    const commandesWithVariants = JSON.parse(formData.get('commandesWithVariants') as string || '[]');
-    const files = formData.getAll('files') as File[];
+    const body = await request.json();
+    const { commandesWithVariants, variants, ...modelData } = body;
 
-    console.log('Form data received:', { name, clientId, files: files.length });
-
-    // Handle file uploads to S3
-    const filePaths = await Promise.all(
-      files.map(async (file) => {
-        const fileName = `${Date.now()}-${file.name}`;
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        const command = new PutObjectCommand({
-          Bucket: BUCKET_NAME, // Use the exported constant
-          Key: `client-models/${fileName}`,
-          Body: buffer,
-          ContentType: file.type,
-        });
-
-        await s3Client.send(command);
-        return `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/client-models/${fileName}`;
-      })
-    );
 
     const combinedCommandes = Array.isArray(commandesWithVariants)
-      ? commandesWithVariants.map((c: any) => c.value).filter((v: string) => v.trim() !== '').join(',')
-      : commandes || '';
+      ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
+      : '';
 
     const combinedVariants = Array.isArray(commandesWithVariants)
-      ? commandesWithVariants.flatMap((c: any) => c.variants.filter((v: any) => v.name.trim() !== ''))
-      : [];
+      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
+      : (Array.isArray(variants) ? variants : []);
 
     const newModel = await prisma.clientModel.create({
       data: {
-        name,
-        description,
+        name: modelData.name || null,
+        description: modelData.description || null,
         commandes: combinedCommandes || null,
-        commandesWithVariants: commandesWithVariants.length > 0 ? commandesWithVariants : [],
-        lotto,
-        ordine,
-        puht,
-        clientId,
-        files: filePaths,
+        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : [],
+        lotto: modelData.lotto || null,
+        ordine: modelData.ordine || null,
+        puht: modelData.puht ? parseFloat(modelData.puht) : null,
+        clientId: modelData.clientId,
         variants: {
-          create: combinedVariants.map((v: any) => ({
+          create: combinedVariants.map((v: Variant) => ({
             name: v.name || null,
             qte_variante: v.qte_variante ? parseInt(v.qte_variante.toString()) : null,
           })),
@@ -67,16 +101,73 @@ export async function POST(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
-    console.log('Model created:', newModel);
     return NextResponse.json(newModel, { status: 201 });
-  } catch (error: any) {
-    console.error('Error creating client model:', {
-      message: error.message,
-      stack: error.stack,
+  } catch (error) {
+    console.error('Error creating client model:', error);
+    return NextResponse.json({ error: 'Failed to create client model' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, commandesWithVariants, variants, ...modelData } = body;
+
+
+    const existingModel = await prisma.clientModel.findUnique({
+      where: { id },
+      select: { clientId: true, name: true },
     });
-    return NextResponse.json(
-      { error: 'Failed to update client model', details: error.message || 'Unknown error' },
-      { status: 500 }
-    );
+    if (!existingModel) return NextResponse.json({ error: 'ClientModel not found' }, { status: 404 });
+
+    const combinedCommandes = Array.isArray(commandesWithVariants)
+      ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
+      : '';
+
+    const combinedVariants = Array.isArray(commandesWithVariants)
+      ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
+      : (Array.isArray(variants) ? variants : []);
+
+    const updatedModel = await prisma.clientModel.update({
+      where: { id },
+      data: {
+        name: modelData.name !== undefined ? modelData.name : existingModel.name,
+        description: modelData.description !== undefined ? modelData.description : null,
+        commandes: combinedCommandes || null,
+        commandesWithVariants: Array.isArray(commandesWithVariants) ? commandesWithVariants : [],
+        lotto: modelData.lotto !== undefined ? modelData.lotto : null,
+        ordine: modelData.ordine !== undefined ? modelData.ordine : null,
+        puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
+        clientId: existingModel.clientId,
+        ...(combinedVariants.length > 0 && {
+          variants: {
+            deleteMany: {},
+            create: combinedVariants.map((v: Variant) => ({
+              name: v.name || null,
+              qte_variante: v.qte_variante ? parseInt(v.qte_variante.toString()) : null,
+            })),
+          },
+        }),
+      },
+      include: { variants: true, client: true },
+    });
+
+    return NextResponse.json(updatedModel);
+  } catch (error) {
+    console.error('Error updating client model:', error);
+    return NextResponse.json({ error: 'Failed to update client model' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+
+    await prisma.clientModel.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting client model:', error);
+    return NextResponse.json({ error: 'Failed to delete client model' }, { status: 500 });
   }
 }

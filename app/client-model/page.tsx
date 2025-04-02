@@ -3,7 +3,7 @@
 
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from "@clerk/nextjs";
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Client {
@@ -17,19 +17,23 @@ interface Variant {
   qte_variante: number;
 }
 
+interface Commande {
+  value: string;
+  variants: Variant[];
+}
+
 interface ClientModel {
   id: string;
-  name: string | null;
-  description: string | null;
-  commandes: string | null;
-  commandesWithVariants: { value: string; variants: Variant[] }[] | null;
-  lotto: string | null;
-  ordine: string | null;
-  puht: number | null;
+  name: string;
+  description: string;
+  commandes: string;
+  commandesWithVariants: Commande[];
+  lotto: string;
+  ordine: string;
+  puht: number;
   clientId: string;
   client: Client;
   variants: Variant[];
-  files: string[];
 }
 
 export default function ClientModelPage() {
@@ -46,9 +50,8 @@ export default function ClientModelPage() {
     puht: 0,
     clientId: '',
     commandesWithVariants: [],
-    files: [],
   });
-  const [commandesWithVariants, setCommandesWithVariants] = useState<{ value: string; variants: Variant[] }[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
+  const [commandesWithVariants, setCommandesWithVariants] = useState<Commande[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,19 +60,17 @@ export default function ClientModelPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const itemsPerPage = 8;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-  
+
     const params = new URLSearchParams();
     if (dateDebut) params.append('dateDebut', dateDebut);
     if (dateFin) params.append('dateFin', dateFin);
     if (searchTerm) params.append('search', searchTerm);
-  
+
     try {
       const token = await getToken();
       console.log("Fetching client models, Token:", token);
@@ -77,24 +78,24 @@ export default function ClientModelPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        const errorData = await res.json();
         if (res.status === 404) {
           setModels([]);
           console.log("No client models found (404)");
           return;
         }
-        throw new Error(`Failed to fetch: ${res.status} - ${errorData.details || errorData.error || 'Unknown error'}`);
+        throw new Error(`Failed to fetch: ${res.status}`);
       }
       const data = await res.json();
-      console.log("Fetched client models:", data);
+      console.log("Fetched client models:", data); // Debug fetched data
       setModels(data);
-    } catch (err: any) {
-      setError(`Failed to fetch client models: ${err.message}`);
-      console.error('Fetch error:', err);
+    } catch (err) {
+      setError("Failed to fetch client models");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   }, [dateDebut, dateFin, searchTerm, getToken]);
+
   const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
@@ -118,77 +119,51 @@ export default function ClientModelPage() {
     e.preventDefault();
     const method = formData.id ? 'PUT' : 'POST';
     const url = '/api/client-model';
-  
+
     setModalError(null);
-  
+
+    const combinedCommandes = commandesWithVariants.map(c => c.value).filter(v => v.trim() !== '').join(',');
+    const combinedVariants = commandesWithVariants.flatMap((c: Commande) =>
+      c.variants
+        .filter((v: Variant) => v.name.trim() !== '')
+        .map((v: Variant) => ({
+          ...v,
+          name: `${c.value}:${v.name}`,
+        }))
+    );
+
     try {
-      const combinedCommandes = commandesWithVariants
-        .map(c => c.value)
-        .filter(v => v.trim() !== '')
-        .join(',');
-      const combinedVariants = commandesWithVariants.flatMap((c) =>
-        c.variants
-          .filter((v) => v.name.trim() !== '')
-          .map((v) => ({
-            ...v,
-            name: `${c.value}:${v.name}`,
-          }))
-      );
-  
       const token = await getToken();
-      if (!token) throw new Error('Authentication token not found');
-  
-      const formDataToSend = new FormData();
-      
-      formDataToSend.append('id', formData.id || '');
-      formDataToSend.append('name', formData.name || '');
-      formDataToSend.append('description', formData.description || '');
-      formDataToSend.append('commandes', combinedCommandes || '');
-      formDataToSend.append('commandesWithVariants', JSON.stringify(commandesWithVariants.filter(c => c.value.trim() !== '')));
-      formDataToSend.append('lotto', formData.lotto || '');
-      formDataToSend.append('ordine', formData.ordine || '');
-      formDataToSend.append('puht', formData.puht?.toString() || '0');
-      formDataToSend.append('clientId', formData.clientId || '');
-      formDataToSend.append('variants', JSON.stringify(combinedVariants));
-  
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-      uploadedFiles.forEach((file, index) => {
-        if (file.size > MAX_FILE_SIZE) {
-          throw new Error(`File ${file.name} exceeds maximum size of ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
-        }
-        if (file.size === 0) {
-          throw new Error(`File ${file.name} is empty`);
-        }
-        formDataToSend.append('files', file);
-        console.log(`Appending file ${index}:`, file.name, file.size);
-      });
-  
-      console.log('Submitting:', { method, url, id: formData.id, name: formData.name, filesCount: uploadedFiles.length });
-  
+      const payload = {
+        ...(formData.id ? { id: formData.id } : {}),
+        name: formData.name || null,
+        description: formData.description || null,
+        commandes: combinedCommandes || null,
+        commandesWithVariants: commandesWithVariants.filter(c => c.value.trim() !== ''),
+        variants: combinedVariants,
+        lotto: formData.lotto || null,
+        ordine: formData.ordine || null,
+        puht: formData.puht || null,
+        clientId: formData.clientId,
+      };
+
+      console.log('Submitting payload:', payload);
+
       const response = await fetch(url, {
         method,
-        headers: {
+        headers: { 
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: formDataToSend,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000),
       });
-  
-      const responseText = await response.text();
-      console.log('Response:', response.status, responseText);
-  
+
       if (!response.ok) {
-        let errorData;
-        try {
-          errorData = JSON.parse(responseText);
-          throw new Error(errorData.error || errorData.details || `HTTP ${response.status}`);
-        } catch {
-          throw new Error(responseText || `HTTP ${response.status}`);
-        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save');
       }
-  
-      const responseData = JSON.parse(responseText);
-      console.log('Success:', responseData);
-  
+
       setIsModalOpen(false);
       setFormData({
         name: '',
@@ -199,15 +174,12 @@ export default function ClientModelPage() {
         ordine: '',
         puht: 0,
         clientId: '',
-        files: [],
       });
       setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-      setUploadedFiles([]);
-      if (fileInputRef.current) fileInputRef.current.value = '';
       await fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Submission error:', error);
-      setModalError(`Failed to save client model: ${error.message}`);
+      setModalError("Failed to save client model");
     }
   };
 
@@ -215,7 +187,7 @@ export default function ClientModelPage() {
     if (confirm('Are you sure you want to delete this model?')) {
       try {
         const token = await getToken();
-        const res = await fetch(`/api/client-model`, {
+        await fetch(`/api/client-model`, {
           method: 'DELETE',
           headers: { 
             'Content-Type': 'application/json',
@@ -223,10 +195,9 @@ export default function ClientModelPage() {
           },
           body: JSON.stringify({ id }),
         });
-        if (!res.ok) throw new Error('Failed to delete');
         await fetchData();
       } catch (error) {
-        console.error('Delete error:', error);
+        console.error('Error deleting:', error);
         setError("Failed to delete client model");
       }
     }
@@ -242,8 +213,7 @@ export default function ClientModelPage() {
       lotto: model.lotto || '',
       ordine: model.ordine || '',
       puht: model.puht || 0,
-      clientId: model.clientId,
-      files: model.files || [],
+      clientId: model.clientId || '',
     });
 
     const loadedCommandesWithVariants = model.commandesWithVariants && Array.isArray(model.commandesWithVariants)
@@ -251,7 +221,6 @@ export default function ClientModelPage() {
       : [{ value: '', variants: [{ name: '', qte_variante: 0 }] }];
 
     setCommandesWithVariants(loadedCommandesWithVariants);
-    setUploadedFiles([]);
     setIsModalOpen(true);
   };
 
@@ -345,7 +314,6 @@ export default function ClientModelPage() {
                 <th>Description</th>
                 <th>PUHT</th>
                 <th>Variants/Qte</th>
-                <th>Files</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -355,11 +323,11 @@ export default function ClientModelPage() {
                   <td>{model.client?.name || "N/A"}</td>
                   <td>{model.name || "Unnamed"}</td>
                   <td className="flex flex-col">
-                    {model.commandesWithVariants != null && Array.isArray(model.commandesWithVariants) && model.commandesWithVariants.length > 0 ? (
+                    {model.commandesWithVariants && model.commandesWithVariants.length > 0 ? (
                       model.commandesWithVariants.map((cmd, i) => (
                         <div key={i} className="mb-1">
                           {cmd.value || "N/A"}
-                          {i < model.commandesWithVariants!.length - 1 && (
+                          {i < model.commandesWithVariants.length - 1 && (
                             <hr className="border-t border-gray-300 my-1 w-12" />
                           )}
                         </div>
@@ -371,7 +339,7 @@ export default function ClientModelPage() {
                   <td>{model.description || "N/A"}</td>
                   <td>{model.puht ? `${model.puht} €` : "N/A"}</td>
                   <td className="flex flex-col">
-                    {model.commandesWithVariants != null && Array.isArray(model.commandesWithVariants) && model.commandesWithVariants.length > 0 ? (
+                    {model.commandesWithVariants && model.commandesWithVariants.length > 0 ? (
                       model.commandesWithVariants.map((cmd, i) => (
                         <div key={i} className="mb-1">
                           {cmd.variants && cmd.variants.length > 0 ? (
@@ -383,7 +351,7 @@ export default function ClientModelPage() {
                           ) : (
                             "N/A"
                           )}
-                          {i < model.commandesWithVariants!.length - 1 && (
+                          {i < model.commandesWithVariants.length - 1 && (
                             <hr className="border-t border-gray-300 my-1 w-12" />
                           )}
                         </div>
@@ -399,21 +367,6 @@ export default function ClientModelPage() {
                       })
                     ) : (
                       "N/A"
-                    )}
-                  </td>
-                  <td>
-                    {model.files && model.files.length > 0 ? (
-                      <ul className="list-disc pl-5">
-                        {model.files.map((file, i) => (
-                          <li key={i}>
-                            <a href={file} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                              {file.split('/').pop()}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      "No files"
                     )}
                   </td>
                   <td>
@@ -574,6 +527,7 @@ export default function ClientModelPage() {
                     {cmd.variants.map((variant, varIndex) => (
                       <div key={varIndex} className="flex gap-2 mb-2">
                         <input
+                          
                           type="text"
                           placeholder="Variant Name"
                           className="input input-bordered flex-1"
@@ -632,44 +586,6 @@ export default function ClientModelPage() {
                 ))}
               </div>
 
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold mb-2">Files</h4>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  multiple
-                  className="file-input file-input-bordered w-full"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setUploadedFiles(files);
-                  }}
-                />
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-sm font-semibold">Selected files:</p>
-                    <ul className="list-disc pl-5">
-                      {uploadedFiles.map((file, index) => (
-                        <li key={index} className="text-sm">{file.name}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {formData.id && (
-                  <div className="mt-2">
-                    <p className="text-sm font-semibold">Existing files:</p>
-                    <ul className="list-disc pl-5">
-                      {(models.find(m => m.id === formData.id)?.files || []).map((file, index) => (
-                        <li key={index} className="text-sm">
-                          <a href={file} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
-                            {file.split('/').pop()}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
               <div className="modal-action">
                 <button 
                   type="button" 
@@ -686,11 +602,8 @@ export default function ClientModelPage() {
                       ordine: '',
                       puht: 0,
                       clientId: '',
-                      files: [],
                     });
                     setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-                    setUploadedFiles([]);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                 >
                   Cancel

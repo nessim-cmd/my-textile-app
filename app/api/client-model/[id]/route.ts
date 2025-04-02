@@ -14,8 +14,6 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
     
-    console.log('PUT /api/client-model/[id] called:', { id, data });
-
     const updated = await prisma.clientModel.update({
       where: { id },
       data: {
@@ -36,11 +34,10 @@ export async function PUT(
       include: { variants: true, client: true },
     });
     
-    console.log('Model updated:', updated.id);
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     console.error('Error updating client model:', error);
-    return NextResponse.json({ error: 'Failed to update client model', details: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update client model' }, { status: 500 });
   }
 }
 
@@ -51,10 +48,9 @@ export async function DELETE(
   try {
     const { id } = await params;
     await prisma.clientModel.delete({ where: { id } });
-    console.log('Model deleted:', id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Error deleting client model:', error);
-    return NextResponse.json({ error: 'Failed to delete client model', details: String(error) }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete client model' }, { status: 500 });
   }
 }

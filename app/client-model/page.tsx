@@ -64,15 +64,15 @@ export default function ClientModelPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-
+  
     const params = new URLSearchParams();
     if (dateDebut) params.append('dateDebut', dateDebut);
     if (dateFin) params.append('dateFin', dateFin);
     if (searchTerm) params.append('search', searchTerm);
-
+  
     try {
       const token = await getToken();
-      console.log('Fetching with token:', token);
+      console.log("Fetching client models, Token:", token);
       const res = await fetch(`/api/client-model?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -80,11 +80,13 @@ export default function ClientModelPage() {
         const errorData = await res.json();
         if (res.status === 404) {
           setModels([]);
+          console.log("No client models found (404)");
           return;
         }
-        throw new Error(`Failed to fetch: ${res.status} - ${errorData.error || 'Unknown error'}`);
+        throw new Error(`Failed to fetch: ${res.status} - ${errorData.details || errorData.error || 'Unknown error'}`);
       }
       const data = await res.json();
+      console.log("Fetched client models:", data);
       setModels(data);
     } catch (err: any) {
       setError(`Failed to fetch client models: ${err.message}`);
@@ -93,7 +95,6 @@ export default function ClientModelPage() {
       setLoading(false);
     }
   }, [dateDebut, dateFin, searchTerm, getToken]);
-
   const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();

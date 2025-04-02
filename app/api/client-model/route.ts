@@ -68,9 +68,16 @@ export async function GET(request: NextRequest) {
 
     console.log('Models fetched:', models.length);
     return NextResponse.json(models);
-  } catch (error) {
-    console.error('Error fetching client models:', error);
-    return NextResponse.json({ error: 'Failed to fetch client models', details: String(error) }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error fetching client models:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch client models', details: error.message || 'Unknown error' },
+      { status: 500 }
+    );
   }
 }
 

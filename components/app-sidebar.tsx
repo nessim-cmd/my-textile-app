@@ -69,7 +69,8 @@ const allItems = [
     subItems: [
       { title: "Fournisseur", url: "/fournisseur" },
       { title: "Bon Commande", url: "/commande" },
-      { title: "Listes des Manques", url: "/liste-manque" }
+      { title: "Listes des Manques", url: "/liste-manque" },
+      { title: "Accessoires", url: "/accessoires" }
     ],
   },
   {

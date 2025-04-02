@@ -82,6 +82,7 @@ export interface Accessoire {
   quantity_reçu: number;
   quantity_trouve: number;
   quantity_manque: number;
+  quantity_sortee: number;
   modelId: string;
   createdAt?: string;
   updatedAt?: string;

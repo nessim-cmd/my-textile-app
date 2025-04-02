@@ -23,6 +23,7 @@ export async function PUT(
         lotto: data.lotto || null,
         ordine: data.ordine || null,
         puht: data.puht ? parseFloat(data.puht) : null,
+        files: data.files || [],
         variants: {
           deleteMany: {},
           create: (data.variants || []).map((v: VariantInput) => ({

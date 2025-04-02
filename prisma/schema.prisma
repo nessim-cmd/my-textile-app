@@ -1,67 +1,64 @@
-// schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-// Make all fields required in your schema:
 model Client {
-  id                 String   @id @default(uuid())
-  name               String?  @default("-")
-  email              String?   @unique
-  phone1             String?  @default("-")
-  phone2             String?  @default("-")
-  fix                String?  @default("-")
-  address            String?  @default("-")
-  matriculeFiscale   String?  @default("-")
-  soumission         String?  @default("-")
-  dateDebutSoumission String?  @default("-")
-  dateFinSoumission   String?  @default("-")
-  clientModels       ClientModel[]
-  FicheCoupes          FicheCoupe[]
-  livraisonEntrees   LivraisonEntree[]
+  id                  String            @id @default(uuid())
+  name                String?           @default("-")
+  email               String?           @unique
+  address             String?           @default("-")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  dateDebutSoumission String?           @default("-")
+  dateFinSoumission   String?           @default("-")
+  fix                 String?           @default("-")
+  matriculeFiscale    String?           @default("-")
+  phone1              String?           @default("-")
+  phone2              String?           @default("-")
+  soumission          String?           @default("-")
+  clientModels        ClientModel[]
+  FicheCoupes         FicheCoupe[]
   ficheProductions    FicheProduction[]
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  livraisonEntrees    LivraisonEntree[]
 }
 
 model ClientModel {
-  id                  String      @id @default(uuid())
-  name                String?     // Model name from livraisonEntree or declarationImport
-  description         String?
-  clientId            String      // Changed from String? to String (required)
-  client              Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  commandes           String?   @default("-")
-  commandesWithVariants Json?     @default("0") // New field to store JSON structure of commandes and variants
-  lotto               String?
-  ordine              String?
-  puht                Float?
-  files               String[]    @default([]) // Added to store file URLs or paths           
-  variants            Variant[]
-  ficheProductions    FicheProduction[]
-  ficheCoupes         FicheCoupe[]
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                    String            @id @default(uuid())
+  name                  String?
+  description           String?
+  clientId              String
+  commandes             String?           @default("-")
+  commandesWithVariants Json?             @default("0")
+  lotto                 String?
+  ordine                String?
+  puht                  Float?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  files                 String[]          @default([])
+  client                Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  ficheCoupes           FicheCoupe[]
+  ficheProductions      FicheProduction[]
+  variants              Variant[]
 
-  @@unique([clientId, name, commandes]) // Added to ensure unique client-model combinations
+  @@unique([clientId, name, commandes])
 }
 
 model Variant {
-  id            String      @id @default(uuid())
+  id            String       @id @default(uuid())
   name          String?
   clientModelId String?
-  qte_variante Int?  @default(0)
-  
-  modelId      String?
-  model        ModelPlan? @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  qte_variante  Int?         @default(0)
+  modelId       String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   clientModel   ClientModel? @relation(fields: [clientModelId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  model         ModelPlan?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
 }
 
 model Fournisseur {
@@ -79,130 +76,121 @@ model Event {
   description String
   date        DateTime
 }
+
 model User {
-  id           String             @id @default(uuid())
-  name         String
-  email        String             @unique
-  role         Role               @default(USER) // Changed to USER
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  clerkUserId  String?            @unique
-  invoices     Invoice[]          @relation("UserInvoices")
-  livraisons   Livraison[]        @relation("UserLivraison")
-  livraisonsEntry LivraisonEntree[] @relation("UserLivraisonEntry")
-  commandes    Commande[]         @relation("UserCommande")
-  declarations DeclarationImport[] @relation("UserDeclarations")
-  suiviProductions SuiviProduction[] @relation("UserSuiviProductions")
-  plannings    Planning[]         @relation("UserPlannings")
-  exporte      DeclarationExport[] @relation("UserExport")
+  id               String              @id @default(uuid())
+  name             String
+  email            String              @unique
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  clerkUserId      String?             @unique
+  role             Role                @default(USER)
+  commandes        Commande[]          @relation("UserCommande")
+  exporte          DeclarationExport[] @relation("UserExport")
+  declarations     DeclarationImport[] @relation("UserDeclarations")
+  invoices         Invoice[]           @relation("UserInvoices")
+  livraisons       Livraison[]         @relation("UserLivraison")
+  livraisonsEntry  LivraisonEntree[]   @relation("UserLivraisonEntry")
+  plannings        Planning[]          @relation("UserPlannings")
+  suiviProductions SuiviProduction[]   @relation("UserSuiviProductions")
 }
 
-enum Role {
-  ADMIN
-  COUPEUR
-  CHEF
-  USER
-}
 model Invoice {
-  id              String        @id
-  name            String
-  issuerName      String        @default("")
-  issuerAddress   String        @default("")
-  clientName      String        @default("")
-  clientAddress   String        @default("")
-  invoiceDate     String        @default("")
-  dueDate         String        @default("")
-  vatActive       Boolean       @default(false)
-  vatRate         Float         @default(20)
-  status          Int           @default(1)
-  poidsBrut       String
-  poidsNet        String
-  nbrColis        String
-  volume          String
-  modePaiment     Int           @default(1)
-  origineTessuto  String
-  gmailemetteur   String
-  phoneemetteur   String
-  gmailclient     String
-  phoneclient     String
-  lines           InvoiceLine[] @relation("InvoiceLines")
-  userId          String?
-  createdById     User?          @relation("UserInvoices", fields: [userId], references: [id])
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id
+  name           String
+  issuerName     String        @default("")
+  issuerAddress  String        @default("")
+  clientName     String        @default("")
+  clientAddress  String        @default("")
+  invoiceDate    String        @default("")
+  dueDate        String        @default("")
+  vatActive      Boolean       @default(false)
+  vatRate        Float         @default(20)
+  status         Int           @default(1)
+  poidsBrut      String
+  poidsNet       String
+  nbrColis       String
+  volume         String
+  modePaiment    Int           @default(1)
+  origineTessuto String
+  userId         String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  gmailclient    String
+  gmailemetteur  String
+  phoneclient    String
+  phoneemetteur  String
+  createdById    User?         @relation("UserInvoices", fields: [userId], references: [id])
+  lines          InvoiceLine[] @relation("InvoiceLines")
 }
 
 model InvoiceLine {
   id          String   @id @default(uuid())
-  commande   String @default("")
-  modele String @default("")
   description String   @default("")
   quantity    Int      @default(0)
   unitPrice   Float    @default(0)
   invoiceId   String?
+  commande    String   @default("")
+  modele      String   @default("")
   invoice     Invoice? @relation("InvoiceLines", fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 model Livraison {
-  id               String          @id
-  name             String
-  issuerName       String          @default("")
-  issuerAddress    String          @default("")
-  clientName       String          @default("")
-  clientAddress    String          @default("")
-  livraisonDate    String          @default("")
-  soumission       String          @default("")
-  soumissionValable String         @default("")
-  lines            LivraisonLine[] @relation("LivraisonLines")
-  userId           String?
-  createdById      User?            @relation("UserLivraison", fields: [userId], references: [id])
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                String          @id
+  name              String
+  issuerName        String          @default("")
+  issuerAddress     String          @default("")
+  clientName        String          @default("")
+  clientAddress     String          @default("")
+  livraisonDate     String          @default("")
+  soumission        String          @default("")
+  soumissionValable String          @default("")
+  userId            String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdById       User?           @relation("UserLivraison", fields: [userId], references: [id])
+  lines             LivraisonLine[] @relation("LivraisonLines")
 }
 
-
 model LivraisonLine {
-  id                String   @id @default(uuid())
-  commande          String?
-  modele            String
-  description       String?
-  quantity          Float?
-  livraisonId       String
-  livraison         Livraison @relation("LivraisonLines",fields: [livraisonId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  isExcluded        Boolean  @default(false) // Added field for checkbox state
+  id          String    @id @default(uuid())
+  modele      String
+  commande    String?
+  description String?
+  quantity    Float?
+  livraisonId String
+  createdAt   DateTime  @default(now())
+  isExcluded  Boolean   @default(false)
+  updatedAt   DateTime  @updatedAt
+  livraison   Livraison @relation("LivraisonLines", fields: [livraisonId], references: [id], onDelete: Cascade)
 }
 
 model LivraisonEntree {
-  id              String      @id 
-  name            String?
-  clientId        String?
-  client          Client?     @relation(fields: [clientId], references: [id])
-  clientName      String?
-  livraisonDate   String?
-  models          Model[]     @relation("LivraisonEntreeModels")
-  userId          String?
-  createdById     User?       @relation("UserLivraisonEntry", fields: [userId], references: [id])
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
+  id                  String                @id
+  name                String?
+  clientId            String?
+  clientName          String?
+  livraisonDate       String?
+  userId              String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  client              Client?               @relation(fields: [clientId], references: [id])
+  createdById         User?                 @relation("UserLivraisonEntry", fields: [userId], references: [id])
   LivraisonEntreeLine LivraisonEntreeLine[]
+  models              Model[]               @relation("LivraisonEntreeModels")
 }
 
 model LivraisonEntreeLine {
-  id                  String            @id @default(uuid())
-  
-  commande            String
-  description         String
-  quantityReçu        Float
-  quantityTrouvee     Float
-  livraisonEntreeId   String
-  livraisonEntree     LivraisonEntree   @relation(fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  id                String          @id @default(uuid())
+  commande          String
+  description       String
+  quantityReçu     Float
+  quantityTrouvee   Float
+  livraisonEntreeId String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  livraisonEntree   LivraisonEntree @relation(fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
 }
-
 
 model Commande {
   id            String         @id
@@ -212,12 +200,13 @@ model Commande {
   clientName    String         @default("")
   clientAddress String         @default("")
   commandeDate  String         @default("")
-  lines         CommandeLine[] @relation("CommandeLines")
   userId        String?
-  createdById   User?          @relation("UserCommande", fields: [userId], references: [id])
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  createdById   User?          @relation("UserCommande", fields: [userId], references: [id])
+  lines         CommandeLine[] @relation("CommandeLines")
 }
+
 model CommandeLine {
   id          String    @id @default(uuid())
   reference   String
@@ -227,142 +216,124 @@ model CommandeLine {
   commande    Commande? @relation("CommandeLines", fields: [commandeId], references: [id])
 }
 
-
-
 model DeclarationImport {
-  id          String      @id @default(uuid())
+  id          String   @id @default(uuid())
   num_dec     String?
   date_import DateTime
   client      String?
   valeur      Float?
   userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User?    @relation("UserDeclarations", fields: [userId], references: [id])
   models      Model[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  user        User?        @relation("UserDeclarations", fields: [userId], references: [id])
 }
 
 model Model {
   id                  String             @id @default(uuid())
   name                String?
-  commande            String?            // Added
-  description         String?            // Added
-  quantityReçu        Float?             // Added
-  quantityTrouvee     Float?             // Added
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
-  declarationImportId String?            
+  declarationImportId String?
+  commande            String?
+  description         String?
+  livraisonEntreeId   String?
+  quantityReçu       Float?
+  quantityTrouvee     Float?
+  Accessoire          Accessoire[]
   declarationImport   DeclarationImport? @relation(fields: [declarationImportId], references: [id], onDelete: Cascade)
-  livraisonEntreeId   String?            
   livraisonEntree     LivraisonEntree?   @relation("LivraisonEntreeModels", fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
-  accessories         Accessoire[]       @relation("ModelAccessoires") // Still used for DeclarationImport
-
-  Accessoire Accessoire[]
+  accessories         Accessoire[]       @relation("ModelAccessoires")
 }
 
 model Accessoire {
-  id                  String  @id @default(uuid())
+  id                   String  @id @default(uuid())
   reference_accessoire String?
-  quantity_reçu       Float?   // Changed from Int to Float
-  quantity_trouve     Float?   // Changed from Int to Float
-  quantity_manque     Float?   // Changed to Float for consistency
-  
-  modelId             String?
-  model               Model?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  
-  Model Model[] @relation("ModelAccessoires")
+  quantity_reçu       Float?
+  quantity_trouve      Float?
+  quantity_manque      Float?
+  modelId              String?
+  model                Model?  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  Model                Model[] @relation("ModelAccessoires")
 }
 
 model SuiviProduction {
-  id          String      @id @default(uuid())
+  id          String                @id @default(uuid())
   model_name  String
   qte_total   Int
   client      String
-  lines       SuiviProductionLine[]
   userId      String?
-  createdById     User?          @relation("UserSuiviProductions", fields: [userId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  createdById User?                 @relation("UserSuiviProductions", fields: [userId], references: [id])
+  lines       SuiviProductionLine[]
 }
 
 model SuiviProductionLine {
-  id              String      @id @default(uuid())
-  commande        String
-  qte_livree      Int
-  qte_reparation  Int
+  id               String           @id @default(uuid())
+  commande         String
+  qte_livree       Int
+  qte_reparation   Int
   numero_livraison String
-  date_export     DateTime
-  suiviId         String?
-  suivi           SuiviProduction? @relation(fields: [suiviId], references: [id])
+  date_export      DateTime
+  suiviId          String?
+  suivi            SuiviProduction? @relation(fields: [suiviId], references: [id])
 }
 
-
-
-
-// schema.prisma
 model Planning {
   id          String      @id @default(uuid())
   name        String
   status      Status      @default(EN_COURS)
-  models      ModelPlan[]
   userId      String
-  createdById User        @relation("UserPlannings", fields: [userId], references: [id])
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  models      ModelPlan[]
+  createdById User        @relation("UserPlannings", fields: [userId], references: [id])
 }
 
 model ModelPlan {
-  id                  String      @id @default(uuid())
-  name                String
-  lotto               String
-  commande            String
-  ordine              String
-  faconner            String
-  designation         String
-  date_import         DateTime
-  date_export         DateTime
-  date_entre_coupe    DateTime
-  date_sortie_coupe   DateTime
-  date_entre_chaine   DateTime
-  date_sortie_chaine  DateTime
-  variantes           Variant[]
-  planningId          String
-  planning            Planning    @relation(fields: [planningId], references: [id], onDelete: Cascade)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-}
-
-
-
-enum Status {
-  EN_COURS
-  EN_PAUSE
-  EN_ATTENTE
-  FINI
+  id                 String    @id @default(uuid())
+  name               String
+  lotto              String
+  commande           String
+  ordine             String
+  faconner           String
+  designation        String
+  date_import        DateTime
+  date_export        DateTime
+  date_entre_coupe   DateTime
+  date_sortie_coupe  DateTime
+  date_entre_chaine  DateTime
+  date_sortie_chaine DateTime
+  planningId         String
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  planning           Planning  @relation(fields: [planningId], references: [id], onDelete: Cascade)
+  variantes          Variant[]
 }
 
 /// declaration export 
 model DeclarationExport {
-  id          String       @id @default(uuid())
-  num_dec     String       // Changed from name to num_dec
-  clientName  String
-  exportDate  String
-  valeur      Float        // Added valeur field
-  dueDate     String       @default("")
-  vatActive   Boolean      @default(false)
-  vatRate     Float        @default(20)
-  status      Int          @default(1)
-  poidsBrut   String
-  poidsNet    String
-  nbrColis    String
-  volume      String
-  modePaiment Int          @default(1)
+  id             String       @id @default(uuid())
+  num_dec        String
+  clientName     String
+  exportDate     String
+  valeur         Float
+  dueDate        String       @default("")
+  vatActive      Boolean      @default(false)
+  vatRate        Float        @default(20)
+  status         Int          @default(1)
+  poidsBrut      String
+  poidsNet       String
+  nbrColis       String
+  volume         String
+  modePaiment    Int          @default(1)
   origineTessuto String
-  lines       ExportLine[] @relation("ExportLines")
-  userId      String?
-  createdByUser User?     @relation("UserExport", fields: [userId], references: [id])
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  userId         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  createdByUser  User?        @relation("UserExport", fields: [userId], references: [id])
+  lines          ExportLine[] @relation("ExportLines")
 }
 
 model ExportLine {
@@ -372,66 +343,77 @@ model ExportLine {
   description String            @default("")
   quantity    Int               @default(0)
   unitPrice   Float             @default(0)
-  isExcluded  Boolean           @default(false) // New field to track exclusion
+  isExcluded  Boolean           @default(false)
   exportId    String
-  exporte     DeclarationExport? @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
+  exporte     DeclarationExport @relation("ExportLines", fields: [exportId], references: [id], onDelete: Cascade)
 }
 
-
-
 model FicheProduction {
-  id            String             @id @default(uuid())
-  clientId      String
-  client        Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  modelId       String
-  model         ClientModel        @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  commande      String
-  quantity      Int                // Total ordered quantity
-  production    ProductionEntry[]  // Hourly production per day
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id         String            @id @default(uuid())
+  clientId   String
+  modelId    String
+  commande   String
+  quantity   Int
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  client     Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  model      ClientModel       @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  production ProductionEntry[]
 }
 
 model ProductionEntry {
   id              String          @id @default(uuid())
   ficheId         String
-  fiche           FicheProduction @relation(fields: [ficheId], references: [id], onDelete: Cascade)
   week            String
-  day             String          // e.g., "Lun", "Mar"
-  hour            String          // e.g., "8:00", "9:00"
-  quantityCreated Int             // How much created this hour
+  day             String
+  hour            String
+  quantityCreated Int
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+  fiche           FicheProduction @relation(fields: [ficheId], references: [id], onDelete: Cascade)
 }
 
-
 model FicheCoupe {
-  id            String         @id @default(uuid())
-  clientId      String
-  modelId       String
-  commande      String
-  quantity      Float
-  coupe         CoupeEntry[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  model         ClientModel    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  id        String       @id @default(uuid())
+  clientId  String
+  modelId   String
+  commande  String
+  quantity  Float
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  coupe     CoupeEntry[]
+  client    Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  model     ClientModel  @relation(fields: [modelId], references: [id], onDelete: Cascade)
 
   @@index([clientId])
   @@index([modelId])
 }
 
 model CoupeEntry {
-  id              String      @id @default(uuid())
+  id              String     @id @default(uuid())
   ficheCoupeId    String
   week            String
   day             String
   category        String
   quantityCreated Float
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  ficheCoupe      FicheCoupe  @relation(fields: [ficheCoupeId], references: [id], onDelete: Cascade)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  ficheCoupe      FicheCoupe @relation(fields: [ficheCoupeId], references: [id], onDelete: Cascade)
 
   @@index([ficheCoupeId])
   @@index([week, day, category])
+}
+
+enum Role {
+  ADMIN
+  COUPEUR
+  CHEF
+  USER
+}
+
+enum Status {
+  EN_COURS
+  EN_PAUSE
+  EN_ATTENTE
+  FINI
 }

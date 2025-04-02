@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "next start"
+    "start": "next start",
+    "postinstall": "npx prisma db push --skip-generate",
+    "vercel-build": "npx prisma db push --skip-generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.779.0",

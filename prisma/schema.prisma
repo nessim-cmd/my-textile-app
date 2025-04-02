@@ -266,11 +266,10 @@ model Accessoire {
   quantity_reçu       Float?   // Changed from Int to Float
   quantity_trouve     Float?   // Changed from Int to Float
   quantity_manque     Float?   // Changed to Float for consistency
-  quantity_sortee     Float?   @default(0)  // New field to track removed quantity
+  
   modelId             String?
   model               Model?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  
   Model Model[] @relation("ModelAccessoires")
 }
 

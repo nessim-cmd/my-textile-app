@@ -1,8 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
 interface Variant {
   id?: string;
@@ -12,11 +19,14 @@ interface Variant {
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('GET /api/client-model called', request.url);
     const { searchParams } = new URL(request.url);
     const dateDebut = searchParams.get('dateDebut');
     const dateFin = searchParams.get('dateFin');
     const searchTerm = searchParams.get('search');
     const client = searchParams.get('client');
+
+    console.log('Params:', { dateDebut, dateFin, searchTerm, client });
 
     const where: any = {};
 
@@ -56,10 +66,11 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
+    console.log('Models fetched:', models.length);
     return NextResponse.json(models);
   } catch (error) {
     console.error('Error fetching client models:', error);
-    return NextResponse.json({ error: 'Failed to fetch client models' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch client models', details: String(error) }, { status: 500 });
   }
 }
 
@@ -79,17 +90,19 @@ export async function POST(request: NextRequest) {
 
     const files = formData.getAll('files') as File[];
     const filePaths: string[] = [];
-    
+
     if (files && files.length > 0) {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-      
       for (const file of files) {
-        if (file instanceof File) {
+        if (file instanceof File && file.size > 0) {
           const fileName = `${Date.now()}-${file.name}`;
-          const filePath = path.join(uploadDir, fileName);
           const bytes = await file.arrayBuffer();
-          await writeFile(filePath, Buffer.from(bytes));
-          filePaths.push(`/uploads/${fileName}`);
+          await s3Client.send(new PutObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET!,
+            Key: fileName,
+            Body: Buffer.from(bytes),
+            ContentType: file.type,
+          }));
+          filePaths.push(`https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${fileName}`);
         }
       }
     }
@@ -115,10 +128,11 @@ export async function POST(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
+    console.log('Model created:', newModel.id);
     return NextResponse.json(newModel, { status: 201 });
   } catch (error) {
     console.error('Error creating client model:', error);
-    return NextResponse.json({ error: 'Failed to create client model' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create client model', details: String(error) }, { status: 500 });
   }
 }
 
@@ -137,12 +151,7 @@ export async function PUT(request: NextRequest) {
     const clientId = formData.get('clientId') as string;
     const variantsString = formData.get('variants') as string;
 
-    console.log('PUT request received:', {
-      id,
-      name,
-      clientId,
-      filesCount: formData.getAll('files').length,
-    });
+    console.log('PUT request received:', { id, name, clientId, filesCount: formData.getAll('files').length });
 
     let commandesWithVariants;
     let variants;
@@ -167,26 +176,17 @@ export async function PUT(request: NextRequest) {
     const filePaths: string[] = existingModel.files || [];
     
     if (files && files.length > 0) {
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-      console.log('Creating directory if not exists:', uploadDir);
-      await mkdir(uploadDir, { recursive: true });
-      
       for (const file of files) {
         if (file instanceof File && file.size > 0) {
           const fileName = `${Date.now()}-${file.name}`;
-          const filePath = path.join(uploadDir, fileName);
-          console.log(`Attempting to write file: ${filePath}, size: ${file.size}`);
-          try {
-            const bytes = await file.arrayBuffer();
-            await writeFile(filePath, Buffer.from(bytes));
-            filePaths.push(`/uploads/${fileName}`);
-            console.log(`Successfully wrote file: ${filePath}`);
-          } catch (writeError) {
-            console.error(`Failed to write file ${file.name}:`, writeError);
-            throw new Error(`Failed to write file ${file.name}`);
-          }
-        } else {
-          console.warn('Skipping invalid file:', file);
+          const bytes = await file.arrayBuffer();
+          await s3Client.send(new PutObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET!,
+            Key: fileName,
+            Body: Buffer.from(bytes),
+            ContentType: file.type,
+          }));
+          filePaths.push(`https://${process.env.AWS_S3_BUCKET}.s3.amazonaws.com/${fileName}`);
         }
       }
     }
@@ -216,21 +216,11 @@ export async function PUT(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
-    console.log('Model updated successfully:', updatedModel.id);
+    console.log('Model updated:', updatedModel.id);
     return NextResponse.json(updatedModel);
-  } catch (error: any) {
-    console.error('Detailed error updating client model:', {
-      message: error.message,
-      stack: error.stack,
-      requestData: {
-        id: request.url,
-        hasFiles: !!request.headers.get('content-type')?.includes('multipart/form-data'),
-      },
-    });
-    return NextResponse.json(
-      { error: 'Failed to update client model', details: error.message },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('Error updating client model:', error);
+    return NextResponse.json({ error: 'Failed to update client model', details: String(error) }, { status: 500 });
   }
 }
 
@@ -240,9 +230,10 @@ export async function DELETE(request: NextRequest) {
     const { id } = body;
 
     await prisma.clientModel.delete({ where: { id } });
+    console.log('Model deleted:', id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting client model:', error);
-    return NextResponse.json({ error: 'Failed to delete client model' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to delete client model', details: String(error) }, { status: 500 });
   }
 }

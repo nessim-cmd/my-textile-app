@@ -72,21 +72,23 @@ export default function ClientModelPage() {
 
     try {
       const token = await getToken();
+      console.log('Fetching with token:', token);
       const res = await fetch(`/api/client-model?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
+        const errorData = await res.json();
         if (res.status === 404) {
           setModels([]);
           return;
         }
-        throw new Error(`Failed to fetch: ${res.status}`);
+        throw new Error(`Failed to fetch: ${res.status} - ${errorData.error || 'Unknown error'}`);
       }
       const data = await res.json();
       setModels(data);
-    } catch (err) {
-      setError("Failed to fetch client models");
-      console.error(err);
+    } catch (err: any) {
+      setError(`Failed to fetch client models: ${err.message}`);
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -148,7 +150,6 @@ export default function ClientModelPage() {
       formDataToSend.append('clientId', formData.clientId || '');
       formDataToSend.append('variants', JSON.stringify(combinedVariants));
   
-      // Add file size validation
       const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
       uploadedFiles.forEach((file, index) => {
         if (file.size > MAX_FILE_SIZE) {
@@ -158,17 +159,10 @@ export default function ClientModelPage() {
           throw new Error(`File ${file.name} is empty`);
         }
         formDataToSend.append('files', file);
-        console.log(`Appending file ${index}:`, file.name, file.size, file.type);
+        console.log(`Appending file ${index}:`, file.name, file.size);
       });
   
-      console.log('Sending request with data:', {
-        method,
-        url,
-        id: formData.id,
-        name: formData.name,
-        clientId: formData.clientId,
-        filesCount: uploadedFiles.length,
-      });
+      console.log('Submitting:', { method, url, id: formData.id, name: formData.name, filesCount: uploadedFiles.length });
   
       const response = await fetch(url, {
         method,
@@ -176,12 +170,10 @@ export default function ClientModelPage() {
           Authorization: `Bearer ${token}`,
         },
         body: formDataToSend,
-        signal: AbortSignal.timeout(30000),
       });
   
       const responseText = await response.text();
-      console.log('Response status:', response.status);
-      console.log('Response body:', responseText);
+      console.log('Response:', response.status, responseText);
   
       if (!response.ok) {
         let errorData;
@@ -193,9 +185,8 @@ export default function ClientModelPage() {
         }
       }
   
-      // Parse successful response to ensure it's valid
       const responseData = JSON.parse(responseText);
-      console.log('Successfully saved:', responseData);
+      console.log('Success:', responseData);
   
       setIsModalOpen(false);
       setFormData({
@@ -214,18 +205,8 @@ export default function ClientModelPage() {
       if (fileInputRef.current) fileInputRef.current.value = '';
       await fetchData();
     } catch (error: any) {
-      const errorMessage = error.message || 'Unknown error occurred';
-      console.error('Detailed submission error:', {
-        message: errorMessage,
-        stack: error.stack,
-        formData: {
-          id: formData.id,
-          name: formData.name,
-          clientId: formData.clientId,
-          files: uploadedFiles.map(f => ({ name: f.name, size: f.size })),
-        },
-      });
-      setModalError(`Failed to save client model: ${errorMessage}`);
+      console.error('Submission error:', error);
+      setModalError(`Failed to save client model: ${error.message}`);
     }
   };
 
@@ -233,7 +214,7 @@ export default function ClientModelPage() {
     if (confirm('Are you sure you want to delete this model?')) {
       try {
         const token = await getToken();
-        await fetch(`/api/client-model`, {
+        const res = await fetch(`/api/client-model`, {
           method: 'DELETE',
           headers: { 
             'Content-Type': 'application/json',
@@ -241,9 +222,10 @@ export default function ClientModelPage() {
           },
           body: JSON.stringify({ id }),
         });
+        if (!res.ok) throw new Error('Failed to delete');
         await fetchData();
       } catch (error) {
-        console.error('Error deleting:', error);
+        console.error('Delete error:', error);
         setError("Failed to delete client model");
       }
     }

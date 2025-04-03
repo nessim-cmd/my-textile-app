@@ -2,7 +2,7 @@
 
 import Wrapper from '@/components/Wrapper';
 import { useUser, useAuth } from "@clerk/nextjs";
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface Client {
   id: string;
@@ -69,12 +69,7 @@ export default function ClientModelPage() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [showProgress, setShowProgress] = useState(false);
 
-  useEffect(() => {
-    if (email) fetchData();
-    fetchClients();
-  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!email) return;
     setLoading(true);
     setError(null);
@@ -98,9 +93,9 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [email, dateDebut, dateFin, searchTerm, getToken]);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const token = await getToken();
       const res = await fetch('/api/client', {
@@ -111,7 +106,12 @@ export default function ClientModelPage() {
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  };
+  }, [getToken]);
+
+  useEffect(() => {
+    if (email) fetchData();
+    fetchClients();
+  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -328,9 +328,9 @@ export default function ClientModelPage() {
   const handleExternalRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   useEffect(() => {
-    (window as any).refreshClientModelPage = handleExternalRefresh;
+    (window as Window).refreshClientModelPage = handleExternalRefresh; // Type window explicitly
     return () => {
-      delete (window as any).refreshClientModelPage;
+      delete (window as Window).refreshClientModelPage;
     };
   }, []);
 
@@ -444,7 +444,7 @@ export default function ClientModelPage() {
                       ))
                     ) : model.variants && model.variants.length > 0 ? (
                       model.variants.map((v, i) => {
-                        const [_, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name];
+                        const [prefix, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name]; // Use prefix
                         return (
                           <div key={i} className="mr-1">
                             {variantName} ({v.qte_variante})

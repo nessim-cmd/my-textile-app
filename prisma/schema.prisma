@@ -41,6 +41,7 @@ model ClientModel {
   lotto               String?
   ordine              String?
   puht                Float?
+  files                Json?       // New field to store file data (base64 and metadata)
   variants            Variant[]
   ficheProductions    FicheProduction[]
   ficheCoupes          FicheCoupe[]

@@ -12,7 +12,9 @@ import {
   Variant as PrismaVariante,
   LivraisonEntree as PrismaLivraisonEntry,
   LivraisonEntreeLine,
-  Client as PrismaClient, // Keep the import
+  Client as PrismaClient,
+  Client,
+  Variant, // Keep the import
 } from "@prisma/client";
 
 // Remove the Client interface
@@ -185,4 +187,25 @@ export interface EtatLivraisonDeclaration {
   valeurSortie: number;
   quantityDelivered: number;
   quantityTotal: number;
+}
+
+
+
+export interface ClientModel {
+  id: string;
+  name: string | null;
+  description: string | null;
+  commandes: string | null;
+  commandesWithVariants: Commande[] | null;
+  lotto: string | null;
+  ordine: string | null;
+  puht: number | null;
+  file?: {
+    name: string;
+    type: string;
+    base64: string;
+  } | null; // Changed from | undefined to | null to match usage
+  clientId: string;
+  client: Client;
+  variants: Variant[];
 }

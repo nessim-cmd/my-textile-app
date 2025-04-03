@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useAuth } from "@clerk/nextjs";
-import { useCallback, useEffect, useState } from 'react';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useUser, useAuth } from "@clerk/nextjs";
+import { useEffect, useState } from 'react';
 
 interface Client {
   id: string;
@@ -31,13 +29,20 @@ interface ClientModel {
   lotto: string;
   ordine: string;
   puht: number;
+  files?: { 
+    name: string;
+    type: string;
+    base64: string;
+  }[] | null;
   clientId: string;
   client: Client;
   variants: Variant[];
 }
 
 export default function ClientModelPage() {
+  const { user } = useUser();
   const { getToken } = useAuth();
+  const email = user?.primaryEmailAddress?.emailAddress;
   const [models, setModels] = useState<ClientModel[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,8 +55,10 @@ export default function ClientModelPage() {
     puht: 0,
     clientId: '',
     commandesWithVariants: [],
+    files: null
   });
   const [commandesWithVariants, setCommandesWithVariants] = useState<Commande[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
+  const [files, setFiles] = useState<File[] | null>(null);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,34 +66,31 @@ export default function ClientModelPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 8;
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [showProgress, setShowProgress] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => {
+    if (email) fetchData();
+    fetchClients();
+  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger]);
+
+  const fetchData = async () => {
+    if (!email) return;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ email });
     if (dateDebut) params.append('dateDebut', dateDebut);
     if (dateFin) params.append('dateFin', dateFin);
     if (searchTerm) params.append('search', searchTerm);
 
     try {
       const token = await getToken();
-      console.log("Fetching client models, Token:", token);
       const res = await fetch(`/api/client-model?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) {
-        if (res.status === 404) {
-          setModels([]);
-          console.log("No client models found (404)");
-          return;
-        }
-        throw new Error(`Failed to fetch: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
       const data = await res.json();
-      console.log("Fetched client models:", data); // Debug fetched data
       setModels(data);
     } catch (err) {
       setError("Failed to fetch client models");
@@ -94,26 +98,63 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateDebut, dateFin, searchTerm, getToken]);
+  };
 
-  const fetchClients = useCallback(async () => {
+  const fetchClients = async () => {
     try {
       const token = await getToken();
       const res = await fetch('/api/client', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error(`Failed to fetch clients: ${res.status}`);
       const data = await res.json();
       setClients(data);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
-  }, [getToken]);
+  };
 
-  useEffect(() => {
-    fetchData();
-    fetchClients();
-  }, [dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles) {
+      setFiles(Array.from(selectedFiles));
+    }
+  };
+
+  const handleFileClick = (file: { name: string; type: string; base64: string }) => {
+    const newWindow = window.open();
+    if (newWindow) {
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${file.name}</title>
+            <style>
+              html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100vh;
+                overflow: hidden;
+              }
+              img, embed {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+              }
+            </style>
+          </head>
+          <body>
+            ${file.type.startsWith('image/') 
+              ? `<img src="${file.base64}" alt="${file.name}" />`
+              : file.type === 'application/pdf' 
+              ? `<embed src="${file.base64}" type="application/pdf" />`
+              : `<a href="${file.base64}" download="${file.name}">Download ${file.name}</a>`}
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +162,8 @@ export default function ClientModelPage() {
     const url = '/api/client-model';
 
     setModalError(null);
+    setUploadProgress(0);
+    setShowProgress(true);
 
     const combinedCommandes = commandesWithVariants.map(c => c.value).filter(v => v.trim() !== '').join(',');
     const combinedVariants = commandesWithVariants.flatMap((c: Commande) =>
@@ -132,10 +175,58 @@ export default function ClientModelPage() {
         }))
     );
 
+    let filesData: { name: string; type: string; base64: string }[] | null = null;
+    if (files && files.length > 0) {
+      const totalFiles = files.length;
+      let filesProcessed = 0;
+      
+      filesData = await Promise.all(
+        files.map(file => {
+          return new Promise<{ name: string; type: string; base64: string }>((resolve) => {
+            const reader = new FileReader();
+            
+            reader.onloadstart = () => {
+              setUploadProgress(prev => Math.min(prev + 5, 95));
+            };
+            
+            reader.onprogress = (e) => {
+              if (e.lengthComputable) {
+                const fileProgress = (e.loaded / e.total) * (90 / totalFiles);
+                setUploadProgress(prev => Math.min(prev + fileProgress, 95));
+              }
+            };
+            
+            reader.onload = () => {
+              filesProcessed++;
+              const progressIncrement = (100 - filesProcessed * (90 / totalFiles)) / (totalFiles - filesProcessed + 1);
+              setUploadProgress(prev => Math.min(prev + progressIncrement, 100));
+              resolve({
+                name: file.name,
+                type: file.type,
+                base64: reader.result as string
+              });
+            };
+            
+            reader.onerror = () => {
+              filesProcessed++;
+              setUploadProgress(100);
+              resolve({
+                name: file.name,
+                type: file.type,
+                base64: ''
+              });
+            };
+            
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+    }
+
     try {
       const token = await getToken();
       const payload = {
-        ...(formData.id ? { id: formData.id } : {}),
+        ...(formData.id ? { id: formData.id } : { email }),
         name: formData.name || null,
         description: formData.description || null,
         commandes: combinedCommandes || null,
@@ -145,18 +236,19 @@ export default function ClientModelPage() {
         ordine: formData.ordine || null,
         puht: formData.puht || null,
         clientId: formData.clientId,
+        files: filesData || formData.files || null
       };
 
-      console.log('Submitting payload:', payload);
+      setUploadProgress(95);
 
       const response = await fetch(url, {
         method,
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(30000)
       });
 
       if (!response.ok) {
@@ -164,22 +256,29 @@ export default function ClientModelPage() {
         throw new Error(errorData.error || 'Failed to save');
       }
 
-      setIsModalOpen(false);
-      setFormData({
-        name: '',
-        description: '',
-        commandes: '',
-        commandesWithVariants: [],
-        lotto: '',
-        ordine: '',
-        puht: 0,
-        clientId: '',
-      });
-      setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-      await fetchData();
+      setUploadProgress(100);
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setShowProgress(false);
+        setFormData({
+          name: '',
+          description: '',
+          commandes: '',
+          commandesWithVariants: [],
+          lotto: '',
+          ordine: '',
+          puht: 0,
+          clientId: '',
+          files: null
+        });
+        setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
+        setFiles(null);
+        fetchData();
+      }, 500);
     } catch (error) {
       console.error('Submission error:', error);
       setModalError("Failed to save client model");
+      setShowProgress(false);
     }
   };
 
@@ -191,9 +290,9 @@ export default function ClientModelPage() {
           method: 'DELETE',
           headers: { 
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}` 
           },
-          body: JSON.stringify({ id }),
+          body: JSON.stringify({ id })
         });
         await fetchData();
       } catch (error) {
@@ -214,6 +313,7 @@ export default function ClientModelPage() {
       ordine: model.ordine || '',
       puht: model.puht || 0,
       clientId: model.clientId || '',
+      files: model.files || null
     });
 
     const loadedCommandesWithVariants = model.commandesWithVariants && Array.isArray(model.commandesWithVariants)
@@ -221,6 +321,7 @@ export default function ClientModelPage() {
       : [{ value: '', variants: [{ name: '', qte_variante: 0 }] }];
 
     setCommandesWithVariants(loadedCommandesWithVariants);
+    setFiles(null);
     setIsModalOpen(true);
   };
 
@@ -235,56 +336,51 @@ export default function ClientModelPage() {
 
   const uniqueModels = Array.from(
     new Map(
-      models.map((model) => [`${model.clientId}-${model.name}`, model])
+      models.map((model) => [
+        `${model.clientId}-${model.name}`,
+        model,
+      ])
     ).values()
-  );
-
-  const totalItems = uniqueModels.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const paginatedModels = uniqueModels.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
   );
 
   return (
     <Wrapper>
       <div className="flex flex-col gap-4 mb-4">
-        <div className="flex flex-col gap-4 p-4">
+        <div className="flex gap-2 items-center justify-between">
           <button 
-            className="btn btn-primary w-full sm:w-auto"
+            className="btn btn-primary mb-4"
             onClick={() => setIsModalOpen(true)}
           >
             Add Client Model
           </button>
 
-          <div className="relative flex items-center w-full">
+          <div className="flex items-center space-x-2 mb-3.5">
             <input
               type="text"
-              placeholder="Search by client or model"
-              className="input input-bordered w-full rounded-xl pl-10 pr-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search by client or model name"
+              className="rounded-xl p-2 bg-gray-100 w-[600px] outline"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-            <Search className="absolute left-3 w-5 h-5 text-gray-500" />
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
+          <div className="flex gap-2 items-center mb-3.5 mr-24">
             <input
               type="date"
-              className="input input-bordered w-full sm:w-auto"
+              className="input input-bordered"
               value={dateDebut}
               onChange={(e) => setDateDebut(e.target.value)}
             />
-            <span className="text-gray-600">to</span>
+            <span>to</span>
             <input
               type="date"
-              className="input input-bordered w-full sm:w-auto"
+              className="input input-bordered"
               value={dateFin}
               onChange={(e) => setDateFin(e.target.value)}
             />
             {(dateDebut || dateFin) && (
               <button 
-                className="btn btn-error w-full sm:w-auto mt-2 sm:mt-0"
+                className="btn btn-error"
                 onClick={() => {
                   setDateDebut('');
                   setDateFin('');
@@ -305,20 +401,10 @@ export default function ClientModelPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         <div className="overflow-x-auto">
-          <table className="table table-zebra w-full">
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Model Name</th>
-                <th>Commande</th>
-                <th>Description</th>
-                <th>PUHT</th>
-                <th>Variants/Qte</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+          <table className="table table-zebra">
+            <thead><tr><th>Client</th><th>Model Name</th><th>Commande</th><th>Description</th><th>PUHT</th><th>Variants</th><th>Files</th><th>Actions</th></tr></thead>
             <tbody>
-              {paginatedModels.map(model => (
+              {uniqueModels.map(model => (
                 <tr key={model.id}>
                   <td>{model.client?.name || "N/A"}</td>
                   <td>{model.name || "Unnamed"}</td>
@@ -358,13 +444,30 @@ export default function ClientModelPage() {
                       ))
                     ) : model.variants && model.variants.length > 0 ? (
                       model.variants.map((v, i) => {
-                        const variantName = v.name.includes(':') ? v.name.split(':')[1] : v.name;
+                        const [_, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name];
                         return (
                           <div key={i} className="mr-1">
                             {variantName} ({v.qte_variante})
                           </div>
                         );
                       })
+                    ) : (
+                      "N/A"
+                    )}
+                  </td>
+                  <td>
+                    {model.files && model.files.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {model.files.map((file, index) => (
+                          <button
+                            key={index}
+                            className="text-blue-600 hover:underline"
+                            onClick={() => handleFileClick(file)}
+                          >
+                            {file.name}
+                          </button>
+                        ))}
+                      </div>
                     ) : (
                       "N/A"
                     )}
@@ -389,36 +492,31 @@ export default function ClientModelPage() {
           </table>
         </div>
 
-        {totalPages > 1 && (
-          <div className="flex justify-between items-center mt-4">
-            <button
-              className="btn btn-outline btn-sm flex items-center"
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Previous
-            </button>
-            <span className="text-sm">Page {currentPage} of {totalPages}</span>
-            <button
-              className="btn btn-outline btn-sm flex items-center"
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-            >
-              Next
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </button>
-          </div>
-        )}
-
-        <dialog className={`modal ${isModalOpen ? 'modal-open' : ''}`} open={isModalOpen}>
-          <div className="modal-box max-w-3xl w-full sm:w-11/12 md:w-3/4 lg:w-2/3 transition-all duration-300 ease-in-out transform translate-y-0">
+        <dialog className="modal" open={isModalOpen}>
+          <div className="modal-box max-w-3xl relative">
             <h3 className="font-bold text-lg mb-4">
               {formData.id ? 'Edit' : 'New'} Client Model
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               {modalError && (
-                <div className="alert alert-error mb-4">{modalError}</div>
+                <div className="alert alert-error mb-4">
+                  {modalError}
+                </div>
+              )}
+
+              {showProgress && (
+                <div className="w-full space-y-1">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Uploading files...</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                </div>
               )}
 
               <select
@@ -426,6 +524,7 @@ export default function ClientModelPage() {
                 value={formData.clientId || ''}
                 onChange={e => setFormData({ ...formData, clientId: e.target.value })}
                 required
+                disabled={showProgress && uploadProgress < 100}
               >
                 <option value="">Select Client</option>
                 {clients.map(client => (
@@ -440,30 +539,34 @@ export default function ClientModelPage() {
                 value={formData.name || ''}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 required={!formData.id}
+                disabled={showProgress && uploadProgress < 100}
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="Lotto"
-                  className="input input-bordered w-full"
+                  className="input input-bordered"
                   value={formData.lotto || ''}
                   onChange={e => setFormData({ ...formData, lotto: e.target.value })}
+                  disabled={showProgress && uploadProgress < 100}
                 />
                 <input
                   type="text"
                   placeholder="Ordine"
-                  className="input input-bordered w-full"
+                  className="input input-bordered"
                   value={formData.ordine || ''}
                   onChange={e => setFormData({ ...formData, ordine: e.target.value })}
+                  disabled={showProgress && uploadProgress < 100}
                 />
                 <input
                   type="number"
                   placeholder="PUHT"
-                  className="input input-bordered w-full"
+                  className="input input-bordered"
                   value={formData.puht || 0}
                   onChange={e => setFormData({ ...formData, puht: Number(e.target.value) })}
                   step="0.01"
+                  disabled={showProgress && uploadProgress < 100}
                 />
               </div>
 
@@ -472,7 +575,26 @@ export default function ClientModelPage() {
                 className="textarea textarea-bordered w-full"
                 value={formData.description || ''}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
+                disabled={showProgress && uploadProgress < 100}
               />
+
+              <input
+                type="file"
+                className="file-input file-input-bordered w-full"
+                onChange={handleFileChange}
+                multiple
+                disabled={showProgress && uploadProgress < 100}
+              />
+              {formData.files && formData.files.length > 0 && !files && (
+                <div>
+                  <p>Current files:</p>
+                  <ul>
+                    {formData.files.map((file, index) => (
+                      <li key={index}>{file.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="border rounded-lg p-4">
                 <div className="flex justify-between items-center mb-4">
@@ -481,6 +603,7 @@ export default function ClientModelPage() {
                     type="button"
                     className="btn btn-sm btn-secondary"
                     onClick={() => setCommandesWithVariants([...commandesWithVariants, { value: '', variants: [{ name: '', qte_variante: 0 }] }])}
+                    disabled={showProgress && uploadProgress < 100}
                   >
                     Add Commande
                   </button>
@@ -498,12 +621,13 @@ export default function ClientModelPage() {
                             i === cmdIndex ? { ...item, value: e.target.value } : item
                           )
                         )}
+                        disabled={showProgress && uploadProgress < 100}
                       />
                       <button
                         type="button"
                         className="btn btn-error btn-sm"
                         onClick={() => setCommandesWithVariants(v => v.filter((_, i) => i !== cmdIndex))}
-                        disabled={commandesWithVariants.length === 1}
+                        disabled={commandesWithVariants.length === 1 || (showProgress && uploadProgress < 100)}
                       >
                         ×
                       </button>
@@ -520,6 +644,7 @@ export default function ClientModelPage() {
                               : item
                           )
                         )}
+                        disabled={showProgress && uploadProgress < 100}
                       >
                         Add Variant
                       </button>
@@ -527,7 +652,6 @@ export default function ClientModelPage() {
                     {cmd.variants.map((variant, varIndex) => (
                       <div key={varIndex} className="flex gap-2 mb-2">
                         <input
-                          
                           type="text"
                           placeholder="Variant Name"
                           className="input input-bordered flex-1"
@@ -544,6 +668,7 @@ export default function ClientModelPage() {
                                 : item
                             )
                           )}
+                          disabled={showProgress && uploadProgress < 100}
                         />
                         <input
                           type="number"
@@ -562,6 +687,7 @@ export default function ClientModelPage() {
                                 : item
                             )
                           )}
+                          disabled={showProgress && uploadProgress < 100}
                         />
                         <button
                           type="button"
@@ -576,7 +702,7 @@ export default function ClientModelPage() {
                                 : item
                             )
                           )}
-                          disabled={cmd.variants.length === 1}
+                          disabled={cmd.variants.length === 1 || (showProgress && uploadProgress < 100)}
                         >
                           ×
                         </button>
@@ -602,13 +728,20 @@ export default function ClientModelPage() {
                       ordine: '',
                       puht: 0,
                       clientId: '',
+                      files: null
                     });
                     setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
+                    setFiles(null);
                   }}
+                  disabled={showProgress && uploadProgress < 100}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  disabled={showProgress && uploadProgress < 100}
+                >
                   {formData.id ? 'Update' : 'Save'}
                 </button>
               </div>

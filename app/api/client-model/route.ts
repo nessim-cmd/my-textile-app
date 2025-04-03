@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -16,13 +15,20 @@ interface Commande {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
     const dateDebut = searchParams.get('dateDebut');
     const dateFin = searchParams.get('dateFin');
     const searchTerm = searchParams.get('search');
     const client = searchParams.get('client');
 
+    console.log('GET /api/client-model params:', { email, dateDebut, dateFin, client });
 
-    const where: any = {};
+    if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    let where: any = {};
 
     if (dateDebut && dateFin) {
       const startDate = new Date(dateDebut);
@@ -60,6 +66,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
+    console.log("ClientModels:", models);
     return NextResponse.json(models);
   } catch (error) {
     console.error('Error fetching client models:', error);
@@ -70,8 +77,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { commandesWithVariants, variants, ...modelData } = body;
+    const { email, commandesWithVariants, variants, files, ...modelData } = body;
 
+    console.log('POST /api/client-model request body:', body);
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const combinedCommandes = Array.isArray(commandesWithVariants)
       ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
@@ -91,6 +102,7 @@ export async function POST(request: NextRequest) {
         ordine: modelData.ordine || null,
         puht: modelData.puht ? parseFloat(modelData.puht) : null,
         clientId: modelData.clientId,
+        files: files || null,
         variants: {
           create: combinedVariants.map((v: Variant) => ({
             name: v.name || null,
@@ -111,8 +123,9 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, commandesWithVariants, variants, ...modelData } = body;
+    const { id, commandesWithVariants, variants, files, ...modelData } = body;
 
+    console.log('PUT /api/client-model request body:', body);
 
     const existingModel = await prisma.clientModel.findUnique({
       where: { id },
@@ -139,6 +152,7 @@ export async function PUT(request: NextRequest) {
         ordine: modelData.ordine !== undefined ? modelData.ordine : null,
         puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
         clientId: existingModel.clientId,
+        files: files !== undefined ? files : null,
         ...(combinedVariants.length > 0 && {
           variants: {
             deleteMany: {},
@@ -152,6 +166,7 @@ export async function PUT(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
+    console.log(`Updated ClientModel: ${id}, clientId: ${updatedModel.clientId}, name: ${updatedModel.name}, description: ${modelData.description}, commandes: ${combinedCommandes}, variants: ${JSON.stringify(combinedVariants)}`);
     return NextResponse.json(updatedModel);
   } catch (error) {
     console.error('Error updating client model:', error);

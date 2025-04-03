@@ -12,6 +12,18 @@ interface Commande {
   variants: Variant[];
 }
 
+// Define a type for the Prisma where clause
+interface WhereClause {
+  createdAt?: { gte: Date; lte: Date };
+  OR?: Array<{
+    name?: { contains: string; mode: 'insensitive' };
+    client?: { name: { contains: string; mode: 'insensitive' } };
+    description?: { contains: string; mode: 'insensitive' };
+    commandes?: { contains: string; mode: 'insensitive' };
+  }>;
+  clientId?: string;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -28,7 +40,7 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    let where: any = {};
+    const where: WhereClause = {}; // Use const and specific type
 
     if (dateDebut && dateFin) {
       const startDate = new Date(dateDebut);
@@ -74,6 +86,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// POST, PUT, DELETE remain unchanged for now
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

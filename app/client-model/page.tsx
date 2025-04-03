@@ -117,6 +117,8 @@ export default function ClientModelPage() {
     const selectedFiles = e.target.files;
     if (selectedFiles) {
       setFiles(Array.from(selectedFiles));
+    } else {
+      setFiles(null);
     }
   };
 
@@ -236,7 +238,7 @@ export default function ClientModelPage() {
         ordine: formData.ordine || null,
         puht: formData.puht || null,
         clientId: formData.clientId,
-        files: filesData || formData.files || null
+        files: filesData || null, // Ensure files is null if no files are uploaded
       };
 
       setUploadProgress(95);
@@ -328,7 +330,7 @@ export default function ClientModelPage() {
   const handleExternalRefresh = () => setRefreshTrigger(prev => prev + 1);
 
   useEffect(() => {
-    (window as Window).refreshClientModelPage = handleExternalRefresh; // Type window explicitly
+    (window as Window).refreshClientModelPage = handleExternalRefresh;
     return () => {
       delete (window as Window).refreshClientModelPage;
     };
@@ -444,7 +446,7 @@ export default function ClientModelPage() {
                       ))
                     ) : model.variants && model.variants.length > 0 ? (
                       model.variants.map((v, i) => {
-                        const [, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name]; // Use prefix
+                        const [, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name];
                         return (
                           <div key={i} className="mr-1">
                             {variantName} ({v.qte_variante})

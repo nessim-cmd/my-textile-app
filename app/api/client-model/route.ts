@@ -12,7 +12,6 @@ interface Commande {
   variants: Variant[];
 }
 
-// Define a type for the Prisma where clause
 interface WhereClause {
   createdAt?: { gte: Date; lte: Date };
   OR?: Array<{
@@ -22,6 +21,13 @@ interface WhereClause {
     commandes?: { contains: string; mode: 'insensitive' };
   }>;
   clientId?: string;
+}
+
+// Define the expected structure of files
+interface FileData {
+  name: string;
+  type: string;
+  base64: string;
 }
 
 export async function GET(request: NextRequest) {
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    const where: WhereClause = {}; // Use const and specific type
+    const where: WhereClause = {};
 
     if (dateDebut && dateFin) {
       const startDate = new Date(dateDebut);
@@ -78,15 +84,20 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    console.log("ClientModels:", models);
-    return NextResponse.json(models);
+    // Normalize files field to avoid Prisma JSON serialization issues
+    const normalizedModels = models.map(model => ({
+      ...model,
+      files: model.files === null || (Array.isArray(model.files) && model.files.length === 0) ? null : model.files,
+    }));
+
+    console.log("ClientModels:", normalizedModels);
+    return NextResponse.json(normalizedModels);
   } catch (error) {
     console.error('Error fetching client models:', error);
     return NextResponse.json({ error: 'Failed to fetch client models' }, { status: 500 });
   }
 }
 
-// POST, PUT, DELETE remain unchanged for now
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -105,6 +116,15 @@ export async function POST(request: NextRequest) {
       ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
       : (Array.isArray(variants) ? variants : []);
 
+    // Use any to bypass strict typing, with runtime validation
+    let normalizedFiles: any = undefined; // Prisma will handle this at runtime
+    if (files && Array.isArray(files) && files.length > 0) {
+      // Validate structure and cast to FileData[]
+      normalizedFiles = files.every((f: any) => 'name' in f && 'type' in f && 'base64' in f)
+        ? files as FileData[]
+        : null;
+    }
+
     const newModel = await prisma.clientModel.create({
       data: {
         name: modelData.name || null,
@@ -115,7 +135,7 @@ export async function POST(request: NextRequest) {
         ordine: modelData.ordine || null,
         puht: modelData.puht ? parseFloat(modelData.puht) : null,
         clientId: modelData.clientId,
-        files: files || null,
+        files: normalizedFiles, // Rely on runtime behavior
         variants: {
           create: combinedVariants.map((v: Variant) => ({
             name: v.name || null,
@@ -154,6 +174,15 @@ export async function PUT(request: NextRequest) {
       ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
       : (Array.isArray(variants) ? variants : []);
 
+    // Use any to bypass strict typing, with runtime validation
+    let normalizedFiles: any = undefined; // Prisma will handle this at runtime
+    if (files && Array.isArray(files) && files.length > 0) {
+      // Validate structure and cast to FileData[]
+      normalizedFiles = files.every((f: any) => 'name' in f && 'type' in f && 'base64' in f)
+        ? files as FileData[]
+        : null;
+    }
+
     const updatedModel = await prisma.clientModel.update({
       where: { id },
       data: {
@@ -165,7 +194,7 @@ export async function PUT(request: NextRequest) {
         ordine: modelData.ordine !== undefined ? modelData.ordine : null,
         puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
         clientId: existingModel.clientId,
-        files: files !== undefined ? files : null,
+        files: normalizedFiles, // Rely on runtime behavior
         ...(combinedVariants.length > 0 && {
           variants: {
             deleteMany: {},

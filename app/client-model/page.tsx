@@ -444,7 +444,7 @@ export default function ClientModelPage() {
                       ))
                     ) : model.variants && model.variants.length > 0 ? (
                       model.variants.map((v, i) => {
-                        const [prefix, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name]; // Use prefix
+                        const [, variantName] = v.name.includes(':') ? v.name.split(':') : ['', v.name]; // Use prefix
                         return (
                           <div key={i} className="mr-1">
                             {variantName} ({v.qte_variante})

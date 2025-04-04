@@ -85,8 +85,8 @@ const FicheCard: React.FC<{
       </div>
       <div>
         <div className="stat-title uppercase text-sm">FICHE-{fiche.id.slice(0, 3)}</div>
-        <div className="stat-value">Qte = {fiche.quantity}</div>
-        <div className="stat-desc">qte Ordered</div>
+        <div className="stat-value">Qte : {fiche.quantity}</div>
+        <div className="stat-desc">Qte : Ordered</div>
       </div>
     </div>
   );
@@ -413,7 +413,7 @@ export default function FicheCoupePage() {
                   <p><strong>Model:</strong> {models.find(m => m.id === selectedDetailsFiche.modelId)?.name || 'Unknown'}</p>
                   <p><strong>Commande:</strong> {selectedDetailsFiche.commande}</p>
                   <p><strong>Quantity Ordered:</strong> {selectedDetailsFiche.quantity}</p>
-                  <p><strong>Total Processed:</strong> {selectedDetailsFiche.coupe.reduce((sum, entry) => sum + entry.quantityCreated, 0)}</p>
+                  
                   <div>
                     <h4 className="font-semibold">Coupe Entries:</h4>
                     <div className="overflow-x-auto">

@@ -78,6 +78,7 @@ export interface Model {
 }
 
 export interface Accessoire {
+  quantity_sortie: number;
   name: string;
   id: string;
   reference_accessoire: string;

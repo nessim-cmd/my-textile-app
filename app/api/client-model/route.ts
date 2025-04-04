@@ -23,13 +23,6 @@ interface WhereClause {
   clientId?: string;
 }
 
-// Define the expected structure of files
-interface FileData {
-  name: string;
-  type: string;
-  base64: string;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -38,8 +31,6 @@ export async function GET(request: NextRequest) {
     const dateFin = searchParams.get('dateFin');
     const searchTerm = searchParams.get('search');
     const client = searchParams.get('client');
-
-    console.log('GET /api/client-model params:', { email, dateDebut, dateFin, client });
 
     if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
 
@@ -70,7 +61,6 @@ export async function GET(request: NextRequest) {
       if (clientRecord) {
         where.clientId = clientRecord.id;
       } else {
-        console.log(`Client "${client}" not found`);
         return NextResponse.json([]);
       }
     }
@@ -84,14 +74,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Normalize files field to avoid Prisma JSON serialization issues
-    const normalizedModels = models.map(model => ({
-      ...model,
-      files: model.files === null || (Array.isArray(model.files) && model.files.length === 0) ? null : model.files,
-    }));
-
-    console.log("ClientModels:", normalizedModels);
-    return NextResponse.json(normalizedModels);
+    return NextResponse.json(models);
   } catch (error) {
     console.error('Error fetching client models:', error);
     return NextResponse.json({ error: 'Failed to fetch client models' }, { status: 500 });
@@ -101,12 +84,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, commandesWithVariants, variants, files, ...modelData } = body;
-
-    console.log('POST /api/client-model request body:', body);
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    const { commandesWithVariants, variants, fileUrls, ...modelData } = body;
 
     const combinedCommandes = Array.isArray(commandesWithVariants)
       ? commandesWithVariants.map((c: Commande) => c.value).filter((v: string) => v.trim() !== '').join(',')
@@ -115,15 +93,6 @@ export async function POST(request: NextRequest) {
     const combinedVariants = Array.isArray(commandesWithVariants)
       ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
       : (Array.isArray(variants) ? variants : []);
-
-    // Use any to bypass strict typing, with runtime validation
-    let normalizedFiles: any = undefined; // Prisma will handle this at runtime
-    if (files && Array.isArray(files) && files.length > 0) {
-      // Validate structure and cast to FileData[]
-      normalizedFiles = files.every((f: any) => 'name' in f && 'type' in f && 'base64' in f)
-        ? files as FileData[]
-        : null;
-    }
 
     const newModel = await prisma.clientModel.create({
       data: {
@@ -134,8 +103,8 @@ export async function POST(request: NextRequest) {
         lotto: modelData.lotto || null,
         ordine: modelData.ordine || null,
         puht: modelData.puht ? parseFloat(modelData.puht) : null,
+        fileUrls: fileUrls || [], // Changed to fileUrls
         clientId: modelData.clientId,
-        files: normalizedFiles, // Rely on runtime behavior
         variants: {
           create: combinedVariants.map((v: Variant) => ({
             name: v.name || null,
@@ -156,9 +125,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, commandesWithVariants, variants, files, ...modelData } = body;
-
-    console.log('PUT /api/client-model request body:', body);
+    const { id, commandesWithVariants, variants, fileUrls, ...modelData } = body;
 
     const existingModel = await prisma.clientModel.findUnique({
       where: { id },
@@ -174,15 +141,6 @@ export async function PUT(request: NextRequest) {
       ? commandesWithVariants.flatMap((c: Commande) => c.variants.filter((v: Variant) => v.name.trim() !== ''))
       : (Array.isArray(variants) ? variants : []);
 
-    // Use any to bypass strict typing, with runtime validation
-    let normalizedFiles: any = undefined; // Prisma will handle this at runtime
-    if (files && Array.isArray(files) && files.length > 0) {
-      // Validate structure and cast to FileData[]
-      normalizedFiles = files.every((f: any) => 'name' in f && 'type' in f && 'base64' in f)
-        ? files as FileData[]
-        : null;
-    }
-
     const updatedModel = await prisma.clientModel.update({
       where: { id },
       data: {
@@ -193,8 +151,8 @@ export async function PUT(request: NextRequest) {
         lotto: modelData.lotto !== undefined ? modelData.lotto : null,
         ordine: modelData.ordine !== undefined ? modelData.ordine : null,
         puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
+        fileUrls: fileUrls !== undefined ? fileUrls : [], // Changed to fileUrls
         clientId: existingModel.clientId,
-        files: normalizedFiles, // Rely on runtime behavior
         ...(combinedVariants.length > 0 && {
           variants: {
             deleteMany: {},
@@ -208,7 +166,6 @@ export async function PUT(request: NextRequest) {
       include: { variants: true, client: true },
     });
 
-    console.log(`Updated ClientModel: ${id}, clientId: ${updatedModel.clientId}, name: ${updatedModel.name}, description: ${modelData.description}, commandes: ${combinedCommandes}, variants: ${JSON.stringify(combinedVariants)}`);
     return NextResponse.json(updatedModel);
   } catch (error) {
     console.error('Error updating client model:', error);

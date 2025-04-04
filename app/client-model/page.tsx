@@ -2,7 +2,9 @@
 
 import Wrapper from '@/components/Wrapper';
 import { useUser, useAuth } from "@clerk/nextjs";
+import { Trash } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+ // Import trash icon from react-icons
 
 interface Client {
   id: string;
@@ -29,11 +31,7 @@ interface ClientModel {
   lotto: string;
   ordine: string;
   puht: number;
-  files?: { 
-    name: string;
-    type: string;
-    base64: string;
-  }[] | null;
+  fileUrls: string[];
   clientId: string;
   client: Client;
   variants: Variant[];
@@ -54,11 +52,11 @@ export default function ClientModelPage() {
     ordine: '',
     puht: 0,
     clientId: '',
+    fileUrls: [],
     commandesWithVariants: [],
-    files: null
   });
+  
   const [commandesWithVariants, setCommandesWithVariants] = useState<Commande[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-  const [files, setFiles] = useState<File[] | null>(null);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,7 +65,8 @@ export default function ClientModelPage() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [showProgress, setShowProgress] = useState(false);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const replaceFilesOnUpload = false; // Toggle this to true for automatic replacement
 
   const fetchData = useCallback(async () => {
     if (!email) return;
@@ -113,59 +112,12 @@ export default function ClientModelPage() {
     fetchClients();
   }, [email, dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (selectedFiles) {
-      setFiles(Array.from(selectedFiles));
-    } else {
-      setFiles(null);
-    }
-  };
-
-  const handleFileClick = (file: { name: string; type: string; base64: string }) => {
-    const newWindow = window.open();
-    if (newWindow) {
-      newWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>${file.name}</title>
-            <style>
-              html, body {
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                height: 100vh;
-                overflow: hidden;
-              }
-              img, embed {
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-              }
-            </style>
-          </head>
-          <body>
-            ${file.type.startsWith('image/') 
-              ? `<img src="${file.base64}" alt="${file.name}" />`
-              : file.type === 'application/pdf' 
-              ? `<embed src="${file.base64}" type="application/pdf" />`
-              : `<a href="${file.base64}" download="${file.name}">Download ${file.name}</a>`}
-          </body>
-        </html>
-      `);
-      newWindow.document.close();
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const method = formData.id ? 'PUT' : 'POST';
     const url = '/api/client-model';
 
     setModalError(null);
-    setUploadProgress(0);
-    setShowProgress(true);
 
     const combinedCommandes = commandesWithVariants.map(c => c.value).filter(v => v.trim() !== '').join(',');
     const combinedVariants = commandesWithVariants.flatMap((c: Commande) =>
@@ -176,54 +128,6 @@ export default function ClientModelPage() {
           name: `${c.value}:${v.name}`,
         }))
     );
-
-    let filesData: { name: string; type: string; base64: string }[] | null = null;
-    if (files && files.length > 0) {
-      const totalFiles = files.length;
-      let filesProcessed = 0;
-      
-      filesData = await Promise.all(
-        files.map(file => {
-          return new Promise<{ name: string; type: string; base64: string }>((resolve) => {
-            const reader = new FileReader();
-            
-            reader.onloadstart = () => {
-              setUploadProgress(prev => Math.min(prev + 5, 95));
-            };
-            
-            reader.onprogress = (e) => {
-              if (e.lengthComputable) {
-                const fileProgress = (e.loaded / e.total) * (90 / totalFiles);
-                setUploadProgress(prev => Math.min(prev + fileProgress, 95));
-              }
-            };
-            
-            reader.onload = () => {
-              filesProcessed++;
-              const progressIncrement = (100 - filesProcessed * (90 / totalFiles)) / (totalFiles - filesProcessed + 1);
-              setUploadProgress(prev => Math.min(prev + progressIncrement, 100));
-              resolve({
-                name: file.name,
-                type: file.type,
-                base64: reader.result as string
-              });
-            };
-            
-            reader.onerror = () => {
-              filesProcessed++;
-              setUploadProgress(100);
-              resolve({
-                name: file.name,
-                type: file.type,
-                base64: ''
-              });
-            };
-            
-            reader.readAsDataURL(file);
-          });
-        })
-      );
-    }
 
     try {
       const token = await getToken();
@@ -237,11 +141,9 @@ export default function ClientModelPage() {
         lotto: formData.lotto || null,
         ordine: formData.ordine || null,
         puht: formData.puht || null,
+        fileUrls: formData.fileUrls || [],
         clientId: formData.clientId,
-        files: filesData || null, // Ensure files is null if no files are uploaded
       };
-
-      setUploadProgress(95);
 
       const response = await fetch(url, {
         method,
@@ -258,10 +160,8 @@ export default function ClientModelPage() {
         throw new Error(errorData.error || 'Failed to save');
       }
 
-      setUploadProgress(100);
       setTimeout(() => {
         setIsModalOpen(false);
-        setShowProgress(false);
         setFormData({
           name: '',
           description: '',
@@ -271,16 +171,16 @@ export default function ClientModelPage() {
           ordine: '',
           puht: 0,
           clientId: '',
-          files: null
+          fileUrls: [],
         });
         setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-        setFiles(null);
+        setUploadProgress(0);
+        setUploading(false);
         fetchData();
       }, 500);
     } catch (error) {
       console.error('Submission error:', error);
       setModalError("Failed to save client model");
-      setShowProgress(false);
     }
   };
 
@@ -314,8 +214,8 @@ export default function ClientModelPage() {
       lotto: model.lotto || '',
       ordine: model.ordine || '',
       puht: model.puht || 0,
+      fileUrls: model.fileUrls || [],
       clientId: model.clientId || '',
-      files: model.files || null
     });
 
     const loadedCommandesWithVariants = model.commandesWithVariants && Array.isArray(model.commandesWithVariants)
@@ -323,7 +223,6 @@ export default function ClientModelPage() {
       : [{ value: '', variants: [{ name: '', qte_variante: 0 }] }];
 
     setCommandesWithVariants(loadedCommandesWithVariants);
-    setFiles(null);
     setIsModalOpen(true);
   };
 
@@ -335,6 +234,13 @@ export default function ClientModelPage() {
       delete (window as Window).refreshClientModelPage;
     };
   }, []);
+
+  const handleDeleteFile = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      fileUrls: (prev.fileUrls || []).filter((_, i) => i !== index),
+    }));
+  };
 
   const uniqueModels = Array.from(
     new Map(
@@ -404,7 +310,9 @@ export default function ClientModelPage() {
 
         <div className="overflow-x-auto">
           <table className="table table-zebra">
-            <thead><tr><th>Client</th><th>Model Name</th><th>Commande</th><th>Description</th><th>PUHT</th><th>Variants</th><th>Files</th><th>Actions</th></tr></thead>
+            <thead>
+              <tr><th>Client</th><th>Model Name</th><th>Commande</th><th>Description</th><th>PUHT</th><th>Variants/Qte</th><th>Files</th><th>Actions</th></tr>
+            </thead>
             <tbody>
               {uniqueModels.map(model => (
                 <tr key={model.id}>
@@ -458,16 +366,18 @@ export default function ClientModelPage() {
                     )}
                   </td>
                   <td>
-                    {model.files && model.files.length > 0 ? (
+                    {model.fileUrls && model.fileUrls.length > 0 ? (
                       <div className="flex flex-col gap-1">
-                        {model.files.map((file, index) => (
-                          <button
+                        {model.fileUrls.map((url, index) => (
+                          <a
                             key={index}
-                            className="text-blue-600 hover:underline"
-                            onClick={() => handleFileClick(file)}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link link-primary"
                           >
-                            {file.name}
-                          </button>
+                            File {index + 1}
+                          </a>
                         ))}
                       </div>
                     ) : (
@@ -506,27 +416,11 @@ export default function ClientModelPage() {
                 </div>
               )}
 
-              {showProgress && (
-                <div className="w-full space-y-1">
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out" 
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
-                  </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Uploading files...</span>
-                    <span>{Math.round(uploadProgress)}%</span>
-                  </div>
-                </div>
-              )}
-
               <select
                 className="select select-bordered w-full"
                 value={formData.clientId || ''}
                 onChange={e => setFormData({ ...formData, clientId: e.target.value })}
                 required
-                disabled={showProgress && uploadProgress < 100}
               >
                 <option value="">Select Client</option>
                 {clients.map(client => (
@@ -541,7 +435,6 @@ export default function ClientModelPage() {
                 value={formData.name || ''}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 required={!formData.id}
-                disabled={showProgress && uploadProgress < 100}
               />
 
               <div className="grid grid-cols-2 gap-4">
@@ -551,7 +444,6 @@ export default function ClientModelPage() {
                   className="input input-bordered"
                   value={formData.lotto || ''}
                   onChange={e => setFormData({ ...formData, lotto: e.target.value })}
-                  disabled={showProgress && uploadProgress < 100}
                 />
                 <input
                   type="text"
@@ -559,7 +451,6 @@ export default function ClientModelPage() {
                   className="input input-bordered"
                   value={formData.ordine || ''}
                   onChange={e => setFormData({ ...formData, ordine: e.target.value })}
-                  disabled={showProgress && uploadProgress < 100}
                 />
                 <input
                   type="number"
@@ -568,7 +459,6 @@ export default function ClientModelPage() {
                   value={formData.puht || 0}
                   onChange={e => setFormData({ ...formData, puht: Number(e.target.value) })}
                   step="0.01"
-                  disabled={showProgress && uploadProgress < 100}
                 />
               </div>
 
@@ -577,26 +467,97 @@ export default function ClientModelPage() {
                 className="textarea textarea-bordered w-full"
                 value={formData.description || ''}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
-                disabled={showProgress && uploadProgress < 100}
               />
 
-              <input
-                type="file"
-                className="file-input file-input-bordered w-full"
-                onChange={handleFileChange}
-                multiple
-                disabled={showProgress && uploadProgress < 100}
-              />
-              {formData.files && formData.files.length > 0 && !files && (
-                <div>
-                  <p>Current files:</p>
-                  <ul>
-                    {formData.files.map((file, index) => (
-                      <li key={index}>{file.name}</li>
+              <div>
+                <label className="label">Upload Files</label>
+                <input
+                  type="file"
+                  className="file-input file-input-bordered w-full"
+                  multiple
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const files = e.target.files;
+                    if (files && files.length > 0) {
+                      setUploading(true);
+                      setUploadProgress(0);
+                      const formData = new FormData();
+                      Array.from(files).forEach((file) => {
+                        formData.append('files', file);
+                      });
+
+                      const token = await getToken();
+                      const xhr = new XMLHttpRequest();
+
+                      xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                          const percentComplete = Math.round((event.loaded / event.total) * 100);
+                          setUploadProgress(percentComplete);
+                        }
+                      };
+
+                      xhr.onload = () => {
+                        if (xhr.status === 200) {
+                          const data = JSON.parse(xhr.responseText);
+                          if (data.urls && Array.isArray(data.urls)) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              fileUrls: replaceFilesOnUpload 
+                                ? data.urls // Replace existing files
+                                : [...(prev.fileUrls || []), ...data.urls], // Append new files
+                            }));
+                          } else {
+                            setModalError('Failed to upload files');
+                          }
+                        } else {
+                          setModalError('Failed to upload files');
+                        }
+                        setUploading(false);
+                        setUploadProgress(0);
+                      };
+
+                      xhr.onerror = () => {
+                        setModalError('Failed to upload files');
+                        setUploading(false);
+                        setUploadProgress(0);
+                      };
+
+                      xhr.open('POST', '/api/upload', true);
+                      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                      xhr.send(formData);
+                    }
+                  }}
+                />
+                {uploading && (
+                  <div className="mt-2">
+                    <progress className="progress progress-primary w-full" value={uploadProgress} max="100"></progress>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                )}
+                {formData.fileUrls && formData.fileUrls.length > 0 && !uploading && (
+                  <div className="mt-2 flex flex-col gap-1">
+                    {formData.fileUrls.map((url, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="link link-primary"
+                        >
+                          File {index + 1}
+                        </a>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs text-red-500"
+                          onClick={() => handleDeleteFile(index)}
+                        >
+                          <Trash/>
+                        </button>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
 
               <div className="border rounded-lg p-4">
                 <div className="flex justify-between items-center mb-4">
@@ -605,7 +566,6 @@ export default function ClientModelPage() {
                     type="button"
                     className="btn btn-sm btn-secondary"
                     onClick={() => setCommandesWithVariants([...commandesWithVariants, { value: '', variants: [{ name: '', qte_variante: 0 }] }])}
-                    disabled={showProgress && uploadProgress < 100}
                   >
                     Add Commande
                   </button>
@@ -623,13 +583,12 @@ export default function ClientModelPage() {
                             i === cmdIndex ? { ...item, value: e.target.value } : item
                           )
                         )}
-                        disabled={showProgress && uploadProgress < 100}
                       />
                       <button
                         type="button"
                         className="btn btn-error btn-sm"
                         onClick={() => setCommandesWithVariants(v => v.filter((_, i) => i !== cmdIndex))}
-                        disabled={commandesWithVariants.length === 1 || (showProgress && uploadProgress < 100)}
+                        disabled={commandesWithVariants.length === 1}
                       >
                         ×
                       </button>
@@ -646,7 +605,6 @@ export default function ClientModelPage() {
                               : item
                           )
                         )}
-                        disabled={showProgress && uploadProgress < 100}
                       >
                         Add Variant
                       </button>
@@ -670,7 +628,6 @@ export default function ClientModelPage() {
                                 : item
                             )
                           )}
-                          disabled={showProgress && uploadProgress < 100}
                         />
                         <input
                           type="number"
@@ -689,7 +646,6 @@ export default function ClientModelPage() {
                                 : item
                             )
                           )}
-                          disabled={showProgress && uploadProgress < 100}
                         />
                         <button
                           type="button"
@@ -704,7 +660,7 @@ export default function ClientModelPage() {
                                 : item
                             )
                           )}
-                          disabled={cmd.variants.length === 1 || (showProgress && uploadProgress < 100)}
+                          disabled={cmd.variants.length === 1}
                         >
                           ×
                         </button>
@@ -730,19 +686,19 @@ export default function ClientModelPage() {
                       ordine: '',
                       puht: 0,
                       clientId: '',
-                      files: null
+                      fileUrls: [],
                     });
                     setCommandesWithVariants([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
-                    setFiles(null);
+                    setUploadProgress(0);
+                    setUploading(false);
                   }}
-                  disabled={showProgress && uploadProgress < 100}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
                   className="btn btn-primary"
-                  disabled={showProgress && uploadProgress < 100}
+                  disabled={uploading}
                 >
                   {formData.id ? 'Update' : 'Save'}
                 </button>

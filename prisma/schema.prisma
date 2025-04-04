@@ -36,21 +36,20 @@ model ClientModel {
   description         String?
   clientId            String      // Changed from String? to String (required)
   client              Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  commandes           String?   @default("-")
+  commandes           String?     @default("-")
   commandesWithVariants Json?     @default("0") // New field to store JSON structure of commandes and variants
   lotto               String?
   ordine              String?
   puht                Float?
-  files                Json?       // New field to store file data (base64 and metadata)
+  fileUrls            String[]    // Changed from fileUrl to fileUrls (array)
   variants            Variant[]
   ficheProductions    FicheProduction[]
-  ficheCoupes          FicheCoupe[]
+  ficheCoupes         FicheCoupe[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
   @@unique([clientId, name, commandes]) // Added to ensure unique client-model combinations
 }
-
 model Variant {
   id            String      @id @default(uuid())
   name          String?

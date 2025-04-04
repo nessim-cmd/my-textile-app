@@ -263,6 +263,7 @@ model Model {
 model Accessoire {
   id                  String  @id @default(uuid())
   reference_accessoire String?
+  description           String?
   quantity_reçu       Float?   // Changed from Int to Float
   quantity_trouve     Float?   // Changed from Int to Float
   quantity_manque     Float?   // Changed to Float for consistency

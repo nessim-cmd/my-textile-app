@@ -82,6 +82,7 @@ export interface Accessoire {
   name: string;
   id: string;
   reference_accessoire: string;
+  description : string;
   quantity_reçu: number;
   quantity_trouve: number;
   quantity_manque: number;

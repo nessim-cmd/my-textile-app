@@ -33,6 +33,7 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
         const newAccessoire: Accessoire = {
           id: `temp-acc-${Date.now()}`,
           reference_accessoire: "",
+          description: "",
           quantity_reçu: 0,
           quantity_trouve: 0,
           quantity_sortie: 0,
@@ -102,6 +103,7 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
                 <thead>
                   <tr>
                     <th>Référence</th>
+                    <th>Description</th>
                     <th>Quantité Reçue</th>
                     <th>Quantité Trouvée</th>
                     <th>Quantité Manquante</th>
@@ -117,6 +119,14 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
                           className="input input-bordered input-sm"
                           value={acc.reference_accessoire}
                           onChange={(e) => updateAccessoire(model.id, acc.id, "reference_accessoire", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="input input-bordered input-sm"
+                          value={acc.description}
+                          onChange={(e) => updateAccessoire(model.id, acc.id, "description", e.target.value)}
                         />
                       </td>
                       <td>

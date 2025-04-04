@@ -139,6 +139,7 @@ export async function PUT(
               where: { id: acc.id },
               data: {
                 reference_accessoire: acc.reference_accessoire,
+                description: acc.description,
                 quantity_reçu: acc.quantity_reçu,
                 quantity_trouve: acc.quantity_trouve,
                 quantity_manque: acc.quantity_trouve - acc.quantity_reçu,
@@ -149,6 +150,7 @@ export async function PUT(
               data: {
                 id: acc.id,
                 reference_accessoire: acc.reference_accessoire,
+                description: acc.description,
                 quantity_reçu: acc.quantity_reçu,
                 quantity_trouve: acc.quantity_trouve,
                 quantity_manque: acc.quantity_trouve - acc.quantity_reçu,
@@ -169,6 +171,7 @@ export async function PUT(
               create: model.accessories.map((acc: Accessoire) => ({
                 id: acc.id,
                 reference_accessoire: acc.reference_accessoire,
+                description: acc.description,
                 quantity_reçu: acc.quantity_reçu,
                 quantity_trouve: acc.quantity_trouve,
                 quantity_manque: acc.quantity_trouve - acc.quantity_reçu,

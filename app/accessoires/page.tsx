@@ -11,6 +11,7 @@ interface AccessoryRow {
   client: string;
   model: string;
   reference: string;
+  description: string;
   quantity_reçu: number;
   quantity_trouve: number;
   quantity_manque: number;
@@ -49,6 +50,7 @@ export default function AccessoiresPage() {
             client: declaration.client || "N/A",
             model: model.name || "N/A",
             reference: acc.reference_accessoire || "N/A",
+            description: acc.description || "N/A",
             quantity_reçu: acc.quantity_reçu || 0,
             quantity_trouve: acc.quantity_trouve || 0,
             quantity_manque: acc.quantity_manque || 0,
@@ -166,10 +168,11 @@ export default function AccessoiresPage() {
                   <th className="text-left">Client</th>
                   <th className="text-left">Model</th>
                   <th className="text-left">Reference</th>
-                  <th className="text-right">Qty Received</th>
-                  <th className="text-right">Qty Found</th>
-                  <th className="text-right">Qty Missing</th>
-                  <th className="text-right">Qty Remaining</th>
+                  <th className="text-left">Description</th>
+                  <th className="text-right">Qty Reçu</th>
+                  <th className="text-right">Qty Trouvee</th>
+                  <th className="text-right">Qty Manque</th>
+                  <th className="text-right">Qty Reste</th>
                   <th className="text-center">Actions</th>
                 </tr>
               </thead>
@@ -179,6 +182,7 @@ export default function AccessoiresPage() {
                     <td>{acc.client}</td>
                     <td>{acc.model}</td>
                     <td>{acc.reference}</td>
+                    <td>{acc.description}</td>
                     <td className="text-right">{acc.quantity_reçu}</td>
                     <td className="text-right">{acc.quantity_trouve}</td>
                     <td className="text-right">
@@ -199,7 +203,7 @@ export default function AccessoiresPage() {
                           (document.getElementById("sell_modal") as HTMLDialogElement)?.showModal();
                         }}
                       >
-                        Sell
+                        Out
                       </button>
                     </td>
                   </tr>
@@ -238,11 +242,11 @@ export default function AccessoiresPage() {
             <form method="dialog">
               <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
             </form>
-            <h3 className="font-bold text-lg mb-4">Sell Accessory</h3>
+            <h3 className="font-bold text-lg mb-4">Out Accessory</h3>
             <div className="form-control space-y-4">
               <input
                 type="number"
-                placeholder="Quantity to sell"
+                placeholder="Quantity to out"
                 className="input input-bordered w-full"
                 value={quantitySortieInput}
                 onChange={(e) => setQuantitySortieInput(e.target.value)}

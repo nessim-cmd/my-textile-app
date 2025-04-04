@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useAuth, useUser } from "@clerk/nextjs"; // Added useUser
 import Wrapper from "@/components/Wrapper";
 import { Search, ChevronDown, Download } from "lucide-react";
 import jsPDF from "jspdf";
@@ -25,12 +26,14 @@ interface PlanningEntry {
   qteTotal: number;
   qteLivree: number;
   dateImport: string;
-  dateExport: string; // Added new field
+  dateExport: string;
   entreeCoupe: string;
   entreeChaine: string;
 }
 
 export default function PlanningPage() {
+  const { getToken } = useAuth();
+  const { user } = useUser(); // Added to get user email
   const [planningData, setPlanningData] = useState<PlanningEntry[]>([]);
   const [filteredData, setFilteredData] = useState<PlanningEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -41,132 +44,146 @@ export default function PlanningPage() {
   const [dateFin, setDateFin] = useState<string>("");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    const fetchPlanningData = async () => {
-      setLoading(true);
-      setError(null);
+  const fetchPlanningData = useCallback(async () => {
+    if (!user?.primaryEmailAddress?.emailAddress) {
+      setError("User email not available");
+      setLoading(false);
+      return;
+    }
 
-      try {
-        const clientModelResponse = await fetch("/api/client-model");
-        if (!clientModelResponse.ok) throw new Error(`Error ${clientModelResponse.status}`);
-        const clientModelData = await clientModelResponse.json();
+    setLoading(true);
+    setError(null);
 
-        const ficheCoupeResponse = await fetch("/api/fiche-coupe");
-        if (!ficheCoupeResponse.ok) throw new Error(`Error ${ficheCoupeResponse.status}`);
-        const ficheCoupeData = await ficheCoupeResponse.json();
+    try {
+      const token = await getToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      const email = user.primaryEmailAddress.emailAddress;
 
-        const ficheProductionResponse = await fetch("/api/fiche-production");
-        if (!ficheProductionResponse.ok) throw new Error(`Error ${ficheProductionResponse.status}`);
-        const ficheProductionData = await ficheProductionResponse.json();
-
-        const [exports1Response, exports2Response] = await Promise.all([
-          fetch("/api/etat-import-export-livraison"),
-          fetch("/api/etat-import-export"),
-        ]);
-
-        if (!exports1Response.ok) throw new Error(`Error ${exports1Response.status}`);
-        const { exports: exports1 } = await exports1Response.json();
-
-        if (!exports2Response.ok) throw new Error(`Error ${exports2Response.status}`);
-        const { exports: exports2 } = await exports2Response.json();
-
-        const allExports = [...exports1, ...exports2];
-        const deliveredMap = new Map<string, number>();
-        const exportDateMap = new Map<string, string>(); // Added for dateExport
-
-        allExports.forEach((exp: any) => {
-          if (exp.isExcluded) return;
-
-          const client = (exp.clientSortie || exp.clientExport || "").trim().toLowerCase();
-          const modele = (exp.modele || "").trim().toLowerCase();
-          const commande = (exp.commande || "").trim().toLowerCase();
-          const quantity = exp.quantityDelivered || 0;
-          const exportDate = exp.dateExport || exp.updatedAt || exp.createdAt; // Assuming possible date fields
-
-          const key = `${client}-${modele}-${commande}`;
-          deliveredMap.set(key, (deliveredMap.get(key) || 0) + quantity);
-          
-          if (exportDate) {
-            exportDateMap.set(key, new Date(exportDate).toLocaleDateString());
-          }
-        });
-
-        const coupeMap = new Map<string, string>();
-        ficheCoupeData.forEach((fiche: any) => {
-          const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
-          if (fiche.createdAt) {
-            coupeMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
-          }
-        });
-
-        const chaineMap = new Map<string, string>();
-        ficheProductionData.forEach((fiche: any) => {
-          const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
-          if (fiche.createdAt) {
-            chaineMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
-          }
-        });
-
-        const planningEntries: PlanningEntry[] = clientModelData.flatMap((model: any) => {
-          const allVariants = (model.variants || []).map((v: any) => ({
-            name: v.name || " ",
-            qte_variante: v.qte_variante || 0,
-          }));
-
-          const commandes = (model.commandesWithVariants || []).length > 0
-            ? model.commandesWithVariants
-            : [{ value: " " }];
-
-          const variantsPerCommande = commandes.length > 0 ? Math.ceil(allVariants.length / commandes.length) : 0;
-
-          return commandes.map((commande: any, cmdIndex: number) => {
-            const startIdx = cmdIndex * variantsPerCommande;
-            const endIdx = Math.min(startIdx + variantsPerCommande, allVariants.length);
-            const commandeVariants = allVariants.slice(startIdx, endIdx);
-            const qteTotal = commandeVariants.reduce((sum: number, v: VariantEntry) => sum + v.qte_variante, 0);
-
-            const clientName = (model.client?.name || " ").trim().toLowerCase();
-            const modeleName = (model.name || " ").trim().toLowerCase();
-            const commandeValue = (commande.value || " ").trim().toLowerCase();
-
-            const key = `${clientName}-${modeleName}-${commandeValue}`;
-            const qteLivree = deliveredMap.get(key) || 0;
-            const dateExport = exportDateMap.get(key) || " ";
-
-            const coupeKey = `${model.clientId}-${model.id}-${commandeValue}`;
-            const entreeCoupe = coupeMap.get(coupeKey) || " ";
-            const entreeChaine = chaineMap.get(coupeKey) || " ";
-
-            return qteLivree < qteTotal ? {
-              clientName: model.client?.name || " ",
-              modele: model.name || " ",
-              commande: {
-                value: commande.value || " ",
-                variants: commandeVariants,
-              },
-              designation: model.description || " ",
-              qteTotal,
-              qteLivree,
-              dateImport: model.createdAt ? new Date(model.createdAt).toLocaleDateString() : " ",
-              dateExport, // Added new field
-              entreeCoupe,
-              entreeChaine,
-            } : null;
-          }).filter(Boolean);
-        });
-
-        setPlanningData(planningEntries);
-        setFilteredData(planningEntries);
-      } catch (err) {
-        setError("Failed to load planning data");
-        console.error(err);
-      } finally {
-        setLoading(false);
+      // Add email to the request URL
+      const clientModelResponse = await fetch(`/api/client-model?email=${encodeURIComponent(email)}`, { headers });
+      if (!clientModelResponse.ok) {
+        const errorData = await clientModelResponse.json();
+        throw new Error(`Client Model API Error: ${clientModelResponse.status} - ${errorData.error || "Unknown error"}`);
       }
-    };
+      const clientModelData = await clientModelResponse.json();
 
+      const ficheCoupeResponse = await fetch("/api/fiche-coupe", { headers });
+      if (!ficheCoupeResponse.ok) throw new Error(`Fiche Coupe API Error: ${ficheCoupeResponse.status}`);
+      const ficheCoupeData = await ficheCoupeResponse.json();
+
+      const ficheProductionResponse = await fetch("/api/fiche-production", { headers });
+      if (!ficheProductionResponse.ok) throw new Error(`Fiche Production API Error: ${ficheProductionResponse.status}`);
+      const ficheProductionData = await ficheProductionResponse.json();
+
+      const [exports1Response, exports2Response] = await Promise.all([
+        fetch("/api/etat-import-export-livraison", { headers }),
+        fetch("/api/etat-import-export", { headers }),
+      ]);
+
+      if (!exports1Response.ok) throw new Error(`Etat Import-Export-Livraison API Error: ${exports1Response.status}`);
+      const { exports: exports1 } = await exports1Response.json();
+
+      if (!exports2Response.ok) throw new Error(`Etat Import-Export API Error: ${exports2Response.status}`);
+      const { exports: exports2 } = await exports2Response.json();
+
+      const allExports = [...exports1, ...exports2];
+      const deliveredMap = new Map<string, number>();
+      const exportDateMap = new Map<string, string>();
+
+      allExports.forEach((exp: any) => {
+        if (exp.isExcluded) return;
+
+        const client = (exp.clientSortie || exp.clientExport || "").trim().toLowerCase();
+        const modele = (exp.modele || "").trim().toLowerCase();
+        const commande = (exp.commande || "").trim().toLowerCase();
+        const quantity = exp.quantityDelivered || 0;
+        const exportDate = exp.dateExport || exp.updatedAt || exp.createdAt;
+
+        const key = `${client}-${modele}-${commande}`;
+        deliveredMap.set(key, (deliveredMap.get(key) || 0) + quantity);
+        
+        if (exportDate) {
+          exportDateMap.set(key, new Date(exportDate).toLocaleDateString());
+        }
+      });
+
+      const coupeMap = new Map<string, string>();
+      ficheCoupeData.forEach((fiche: any) => {
+        const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
+        if (fiche.createdAt) {
+          coupeMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
+        }
+      });
+
+      const chaineMap = new Map<string, string>();
+      ficheProductionData.forEach((fiche: any) => {
+        const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
+        if (fiche.createdAt) {
+          chaineMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
+        }
+      });
+
+      const planningEntries: PlanningEntry[] = clientModelData.flatMap((model: any) => {
+        const allVariants = (model.variants || []).map((v: any) => ({
+          name: v.name || " ",
+          qte_variante: v.qte_variante || 0,
+        }));
+
+        const commandes = (model.commandesWithVariants || []).length > 0
+          ? model.commandesWithVariants
+          : [{ value: " " }];
+
+        const variantsPerCommande = commandes.length > 0 ? Math.ceil(allVariants.length / commandes.length) : 0;
+
+        return commandes.map((commande: any, cmdIndex: number) => {
+          const startIdx = cmdIndex * variantsPerCommande;
+          const endIdx = Math.min(startIdx + variantsPerCommande, allVariants.length);
+          const commandeVariants = allVariants.slice(startIdx, endIdx);
+          const qteTotal = commandeVariants.reduce((sum: number, v: VariantEntry) => sum + v.qte_variante, 0);
+
+          const clientName = (model.client?.name || " ").trim().toLowerCase();
+          const modeleName = (model.name || " ").trim().toLowerCase();
+          const commandeValue = (commande.value || " ").trim().toLowerCase();
+
+          const key = `${clientName}-${modeleName}-${commandeValue}`;
+          const qteLivree = deliveredMap.get(key) || 0;
+          const dateExport = exportDateMap.get(key) || " ";
+
+          const coupeKey = `${model.clientId}-${model.id}-${commandeValue}`;
+          const entreeCoupe = coupeMap.get(coupeKey) || " ";
+          const entreeChaine = chaineMap.get(coupeKey) || " ";
+
+          return qteLivree < qteTotal ? {
+            clientName: model.client?.name || " ",
+            modele: model.name || " ",
+            commande: {
+              value: commande.value || " ",
+              variants: commandeVariants,
+            },
+            designation: model.description || " ",
+            qteTotal,
+            qteLivree,
+            dateImport: model.createdAt ? new Date(model.createdAt).toLocaleDateString() : " ",
+            dateExport,
+            entreeCoupe,
+            entreeChaine,
+          } : null;
+        }).filter(Boolean) as PlanningEntry[];
+      });
+
+      setPlanningData(planningEntries);
+      setFilteredData(planningEntries);
+    } catch (err: any) {
+      setError(`Failed to load planning data: ${err.message}`);
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken, user]); // Added user to dependencies
+
+  useEffect(() => {
     fetchPlanningData();
-  }, []);
+  }, [fetchPlanningData]);
 
   useEffect(() => {
     const filtered = planningData.filter((entry: PlanningEntry) => {
@@ -270,7 +287,7 @@ export default function PlanningPage() {
 
             if (entryIndex === 0 && vIndex === 0) {
               row.push(entry.dateImport);
-              row.push(entry.dateExport); // Added new field
+              row.push(entry.dateExport);
               row.push(entry.entreeCoupe);
               row.push(entry.entreeChaine);
             } else {
@@ -411,7 +428,6 @@ export default function PlanningPage() {
                   <th className="p-4 text-center align-middle">Qté Total</th>
                   <th className="p-4 text-center align-middle">Qté Livrée</th>
                   <th className="p-4 text-center align-middle">Date Import</th>
-                  
                   <th className="p-4 text-center align-middle">Entrée Coupe</th>
                   <th className="p-4 text-center align-middle">Entrée Chaîne</th>
                   <th className="p-4 text-center align-middle">Date Export</th>
@@ -479,7 +495,6 @@ export default function PlanningPage() {
                               {entry.dateImport}
                             </td>
                           )}
-                          
                           {isFirstInCluster && (
                             <td className="p-4 text-center align-middle border" rowSpan={totalVariants}>
                               {entry.entreeCoupe}
@@ -490,7 +505,7 @@ export default function PlanningPage() {
                               {entry.entreeChaine}
                             </td>
                           )}
-                          {isFirstInCluster && ( // Added new column
+                          {isFirstInCluster && (
                             <td className="p-4 text-center align-middle border" rowSpan={totalVariants}>
                               {entry.dateExport}
                             </td>

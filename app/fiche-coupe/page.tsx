@@ -85,8 +85,8 @@ const FicheCard: React.FC<{
       </div>
       <div>
         <div className="stat-title uppercase text-sm">FICHE-{fiche.id.slice(0, 3)}</div>
-        <div className="stat-value">{totalProcessed} / {fiche.quantity}</div>
-        <div className="stat-desc">Total Processed / Ordered</div>
+        <div className="stat-value">Qte = {fiche.quantity}</div>
+        <div className="stat-desc">qte Ordered</div>
       </div>
     </div>
   );

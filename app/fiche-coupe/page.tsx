@@ -86,12 +86,11 @@ const FicheCard: React.FC<{
       <div>
         <div className="stat-title uppercase text-sm">FICHE-{fiche.id.slice(0, 3)}</div>
         <div className="stat-value">Qte : {fiche.quantity}</div>
-        <div className="stat-desc">Qte : Ordered</div>
+        <div className="stat-desc">Processed: {totalProcessed}</div>
       </div>
     </div>
   );
 };
-
 export default function FicheCoupePage() {
   const { getToken } = useAuth();
   const { user } = useUser(); // Added to get the user's email

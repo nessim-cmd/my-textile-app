@@ -4,7 +4,7 @@ import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Wrapper from "@/components/Wrapper";
-import { DeclarationImport, Accessoire } from "@/type";
+import { DeclarationImport } from "@/type"; // Removed unused Accessoire import
 
 interface AccessoryRow {
   id: string;
@@ -99,7 +99,6 @@ export default function AccessoiresPage() {
         throw new Error(errorData.error || "Failed to update accessory");
       }
 
-      // Update local state after successful API call
       setAccessories(prev =>
         prev.map(acc => {
           if (acc.id === accessoryId) {
@@ -138,7 +137,7 @@ export default function AccessoiresPage() {
           <input
             type="text"
             placeholder="Search by client, model, or reference"
-            className="rounde d-xl p-2 bg-gray-100 w-full md:w-[400px]"
+            className="rounded-xl p-2 bg-gray-100 w-full md:w-[400px]"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);

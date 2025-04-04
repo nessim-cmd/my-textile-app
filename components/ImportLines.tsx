@@ -131,7 +131,7 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
                       </td>
                       <td>
                         <input
-                          type="text"
+                          type="number"
                           className="input input-bordered input-sm w-20"
                           value={acc.quantity_reçu ?? 0}
                           onChange={(e) => handleQuantityChange(model.id, acc.id, "quantity_reçu", e.target.value)}
@@ -139,7 +139,7 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
                       </td>
                       <td>
                         <input
-                          type="text"
+                          type="number"
                           className="input input-bordered input-sm w-20"
                           value={acc.quantity_trouve ?? 0}
                           onChange={(e) => handleQuantityChange(model.id, acc.id, "quantity_trouve", e.target.value)}

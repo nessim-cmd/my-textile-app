@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs"; // Added useUser
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, Eye, Trash } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -92,6 +93,7 @@ const FicheCard: React.FC<{
 
 export default function FicheProductionPage() {
   const { getToken } = useAuth();
+  const { user } = useUser(); // Added to get email
   const [clients, setClients] = useState<Client[]>([]);
   const [models, setModels] = useState<ClientModel[]>([]);
   const [fiches, setFiches] = useState<FicheProduction[]>([]);
@@ -122,25 +124,37 @@ export default function FicheProductionPage() {
   }, [getToken]);
 
   const fetchModels = useCallback(async (clientName?: string) => {
+    if (!user?.primaryEmailAddress?.emailAddress) {
+      setError("User email not available");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const token = await getToken();
-      const url = clientName ? `/api/client-model?client=${clientName}` : '/api/client-model';
+      const email = encodeURIComponent(user.primaryEmailAddress.emailAddress);
+      const url = clientName 
+        ? `/api/client-model?email=${email}&client=${encodeURIComponent(clientName)}` 
+        : `/api/client-model?email=${email}`;
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error('Failed to fetch models');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(`Failed to fetch models: ${errorData.error || res.statusText}`);
+      }
       const data = await res.json();
       setModels(Array.isArray(data) ? data : []);
       setSelectedModelId('');
       setAvailableCommandes([]);
     } catch (err) {
-      setError('Failed to fetch models');
+      setError((err as Error).message || 'Failed to fetch models');
       console.error(err);
       setModels([]);
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, user]); // Added user to dependencies
 
   const fetchFiches = useCallback(async () => {
     setLoading(true);

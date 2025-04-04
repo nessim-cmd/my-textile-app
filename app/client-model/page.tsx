@@ -4,7 +4,6 @@ import Wrapper from '@/components/Wrapper';
 import { useUser, useAuth } from "@clerk/nextjs";
 import { Trash } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
- // Import trash icon from react-icons
 
 interface Client {
   id: string;
@@ -66,7 +65,11 @@ export default function ClientModelPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploading, setUploading] = useState<boolean>(false);
-  const replaceFilesOnUpload = false; // Toggle this to true for automatic replacement
+  const replaceFilesOnUpload = false;
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   const fetchData = useCallback(async () => {
     if (!email) return;
@@ -251,44 +254,57 @@ export default function ClientModelPage() {
     ).values()
   );
 
+  // Pagination logic
+  const totalPages = Math.ceil(uniqueModels.length / itemsPerPage);
+  const paginatedModels = uniqueModels.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
   return (
     <Wrapper>
-      <div className="flex flex-col gap-4 mb-4">
-        <div className="flex gap-2 items-center justify-between">
+      <div className="flex flex-col gap-4 mb-4 px-4 sm:px-0">
+        <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
           <button 
-            className="btn btn-primary mb-4"
+            className="btn btn-primary mb-4 w-full sm:w-auto"
             onClick={() => setIsModalOpen(true)}
           >
             Add Client Model
           </button>
 
-          <div className="flex items-center space-x-2 mb-3.5">
+          <div className="flex items-center space-x-2 mb-3.5 w-full sm:w-auto">
             <input
               type="text"
               placeholder="Search by client or model name"
-              className="rounded-xl p-2 bg-gray-100 w-[600px] outline"
+              className="rounded-xl p-2 bg-gray-100 w-full sm:w-[300px] md:w-[600px] outline"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-2 items-center mb-3.5 mr-24">
+          <div className="flex flex-col sm:flex-row gap-2 items-center mb-3.5 w-full sm:w-auto">
             <input
               type="date"
-              className="input input-bordered"
+              className="input input-bordered w-full sm:w-auto"
               value={dateDebut}
               onChange={(e) => setDateDebut(e.target.value)}
             />
-            <span>to</span>
+            <span className="hidden sm:inline">to</span>
             <input
               type="date"
-              className="input input-bordered"
+              className="input input-bordered w-full sm:w-auto"
               value={dateFin}
               onChange={(e) => setDateFin(e.target.value)}
             />
             {(dateDebut || dateFin) && (
               <button 
-                className="btn btn-error"
+                className="btn btn-error w-full sm:w-auto"
                 onClick={() => {
                   setDateDebut('');
                   setDateFin('');
@@ -309,12 +325,21 @@ export default function ClientModelPage() {
         {error && <div className="alert alert-error">{error}</div>}
 
         <div className="overflow-x-auto">
-          <table className="table table-zebra">
+          <table className="table table-zebra w-full text-xs sm:text-sm md:text-base">
             <thead>
-              <tr><th>Client</th><th>Model Name</th><th>Commande</th><th>Description</th><th>PUHT</th><th>Variants/Qte</th><th>Files</th><th>Actions</th></tr>
+              <tr>
+                <th className="min-w-[100px]">Client</th>
+                <th className="min-w-[120px]">Model Name</th>
+                <th className="min-w-[100px]">Commande</th>
+                <th className="min-w-[150px]">Description</th>
+                <th className="min-w-[80px]">PUHT</th>
+                <th className="min-w-[150px]">Variants/Qte</th>
+                <th className="min-w-[100px]">Files</th>
+                <th className="min-w-[120px]">Actions</th>
+              </tr>
             </thead>
             <tbody>
-              {uniqueModels.map(model => (
+              {paginatedModels.map(model => (
                 <tr key={model.id}>
                   <td>{model.client?.name || "N/A"}</td>
                   <td>{model.name || "Unnamed"}</td>
@@ -385,18 +410,20 @@ export default function ClientModelPage() {
                     )}
                   </td>
                   <td>
-                    <button
-                      className="btn btn-sm btn-info mr-2"
-                      onClick={() => handleEdit(model)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-sm btn-error"
-                      onClick={() => handleDelete(model.id)}
-                    >
-                      Delete
-                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        className="btn btn-sm btn-info"
+                        onClick={() => handleEdit(model)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-sm btn-error"
+                        onClick={() => handleDelete(model.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -404,8 +431,31 @@ export default function ClientModelPage() {
           </table>
         </div>
 
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-4 gap-2">
+            <button
+              className="btn btn-sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </button>
+            <span className="self-center">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              className="btn btn-sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </button>
+          </div>
+        )}
+
         <dialog className="modal" open={isModalOpen}>
-          <div className="modal-box max-w-3xl relative">
+          <div className="modal-box max-w-3xl w-full sm:max-w-lg md:max-w-3xl relative">
             <h3 className="font-bold text-lg mb-4">
               {formData.id ? 'Edit' : 'New'} Client Model
             </h3>
@@ -437,7 +487,7 @@ export default function ClientModelPage() {
                 required={!formData.id}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="Lotto"
@@ -503,8 +553,8 @@ export default function ClientModelPage() {
                             setFormData((prev) => ({
                               ...prev,
                               fileUrls: replaceFilesOnUpload 
-                                ? data.urls // Replace existing files
-                                : [...(prev.fileUrls || []), ...data.urls], // Append new files
+                                ? data.urls 
+                                : [...(prev.fileUrls || []), ...data.urls],
                             }));
                           } else {
                             setModalError('Failed to upload files');
@@ -610,7 +660,7 @@ export default function ClientModelPage() {
                       </button>
                     </div>
                     {cmd.variants.map((variant, varIndex) => (
-                      <div key={varIndex} className="flex gap-2 mb-2">
+                      <div key={varIndex} className="flex flex-col sm:flex-row gap-2 mb-2">
                         <input
                           type="text"
                           placeholder="Variant Name"
@@ -632,7 +682,7 @@ export default function ClientModelPage() {
                         <input
                           type="number"
                           placeholder="Qte"
-                          className="input input-bordered w-20"
+                          className="input input-bordered w-full sm:w-20"
                           value={variant.qte_variante}
                           onChange={e => setCommandesWithVariants(v =>
                             v.map((item, i) =>
@@ -670,10 +720,10 @@ export default function ClientModelPage() {
                 ))}
               </div>
 
-              <div className="modal-action">
+              <div className="modal-action flex flex-col sm:flex-row gap-2">
                 <button 
                   type="button" 
-                  className="btn"
+                  className="btn w-full sm:w-auto"
                   onClick={() => {
                     setIsModalOpen(false);
                     setModalError(null);
@@ -697,7 +747,7 @@ export default function ClientModelPage() {
                 </button>
                 <button 
                   type="submit" 
-                  className="btn btn-primary"
+                  className="btn btn-primary w-full sm:w-auto"
                   disabled={uploading}
                 >
                   {formData.id ? 'Update' : 'Save'}

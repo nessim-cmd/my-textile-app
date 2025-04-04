@@ -72,7 +72,7 @@ const ClientManqueList: React.FC<ClientManqueListProps> = ({ clientName, data })
         (model.accessories || []).forEach(acc => {
           if (acc.quantity_manque < 0) {
             addRow([
-              "Déclaration",
+            
               model.name || "N/A",
               dec.num_dec || "N/A",
               acc.reference_accessoire || "N/A",

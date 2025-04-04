@@ -1,10 +1,10 @@
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs"; // Added useUser
 import { useState, useEffect } from 'react';
 import CoupeTable from '../CoupeTable';
-import {  useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 interface FicheCoupe {
   id: string;
@@ -36,6 +36,7 @@ interface ClientModel {
 
 export default function FicheCoupeDetailPage() {
   const { getToken } = useAuth();
+  const { user } = useUser(); // Added to get email
   const params = useParams();
   const ficheId = params.id as string;
   const [fiche, setFiche] = useState<FicheCoupe | null>(null);
@@ -47,32 +48,60 @@ export default function FicheCoupeDetailPage() {
   const [currentWeek, setCurrentWeek] = useState<string>('Week 1');
 
   const fetchFiche = async () => {
+    if (!user?.primaryEmailAddress?.emailAddress) {
+      setError("User email not available");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/fiche-coupe/${ficheId}`, {
+
+      // Fetch fiche
+      const ficheRes = await fetch(`/api/fiche-coupe/${ficheId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to fetch fiche');
-      const data: FicheCoupe = await res.json();
+      if (!ficheRes.ok) {
+        const errorData = await ficheRes.json();
+        throw new Error(`Failed to fetch fiche: ${errorData.error || ficheRes.statusText}`);
+      }
+      const data: FicheCoupe = await ficheRes.json();
       setFiche(data);
 
-      const clientRes = await fetch(`/api/client`, { headers: { Authorization: `Bearer ${token}` } });
+      // Fetch clients
+      const clientRes = await fetch(`/api/client`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!clientRes.ok) {
+        const errorData = await clientRes.json();
+        throw new Error(`Failed to fetch clients: ${errorData.error || clientRes.statusText}`);
+      }
       const clients: Client[] = await clientRes.json();
       setClientName(clients.find(c => c.id === data.clientId)?.name || 'Unknown Client');
 
-      const modelRes = await fetch(`/api/client-model`, { headers: { Authorization: `Bearer ${token}` } });
+      // Fetch models with email
+      const email = encodeURIComponent(user.primaryEmailAddress.emailAddress);
+      const modelRes = await fetch(`/api/client-model?email=${email}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!modelRes.ok) {
+        const errorData = await modelRes.json();
+        throw new Error(`Failed to fetch models: ${errorData.error || modelRes.statusText}`);
+      }
       const models: ClientModel[] = await modelRes.json();
       setModelName(models.find(m => m.id === data.modelId)?.name || 'Unknown Model');
 
+      // Set coupe data
       const newCoupeData = data.coupe.reduce((acc, entry) => {
         acc[`${entry.week}-${entry.day}-${entry.category}`] = entry.quantityCreated;
         return acc;
       }, {} as Record<string, number>);
       setCoupeData(newCoupeData);
     } catch (err) {
-      console.error(err);
-      setError('Failed to fetch fiche details');
+      console.error('Fetch error:', err);
+      setError((err as Error).message || 'Failed to fetch fiche details');
     } finally {
       setLoading(false);
     }
@@ -80,7 +109,7 @@ export default function FicheCoupeDetailPage() {
 
   useEffect(() => {
     if (ficheId) fetchFiche();
-  }, [ficheId]);
+  }, [ficheId, user]); // Added user to dependencies
 
   if (loading) return <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>;
   if (error) return <div className="text-center text-red-500">{error}</div>;

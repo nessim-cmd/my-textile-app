@@ -2,7 +2,7 @@
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs"; // Ensure useUser is included
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, Eye, Trash, SquareArrowOutUpRight } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -74,7 +74,6 @@ const FicheCard: React.FC<{
         <div className="flex gap-2">
           <Link href={`/fiche-coupe/${fiche.id}`} className="btn btn-accent btn-sm">
             <SquareArrowOutUpRight className="w-4 h-4" />
-           
           </Link>
           <button className="btn btn-info btn-sm" onClick={() => onDetails(fiche.id)}>
             <Eye className="w-4 h-4" />
@@ -95,6 +94,7 @@ const FicheCard: React.FC<{
 
 export default function FicheCoupePage() {
   const { getToken } = useAuth();
+  const { user } = useUser(); // Added to get the user's email
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [models, setModels] = useState<ClientModel[]>([]);
@@ -126,25 +126,37 @@ export default function FicheCoupePage() {
   }, [getToken]);
 
   const fetchModels = useCallback(async (clientName?: string) => {
+    if (!user?.primaryEmailAddress?.emailAddress) {
+      setError("User email not available");
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
       const token = await getToken();
-      const url = clientName ? `/api/client-model?client=${clientName}` : '/api/client-model';
+      const email = encodeURIComponent(user.primaryEmailAddress.emailAddress);
+      const url = clientName 
+        ? `/api/client-model?email=${email}&client=${encodeURIComponent(clientName)}` 
+        : `/api/client-model?email=${email}`;
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error('Failed to fetch models');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(`Failed to fetch models: ${errorData.error || res.statusText}`);
+      }
       const data = await res.json();
       setModels(Array.isArray(data) ? data : []);
       setSelectedModelId('');
       setAvailableCommandes([]);
     } catch (err) {
-      setError('Failed to fetch models');
+      setError((err as Error).message || 'Failed to fetch models');
       console.error(err);
       setModels([]);
     } finally {
       setLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, user]); // Added user to dependencies
 
   const fetchFiches = useCallback(async () => {
     setLoading(true);
@@ -168,17 +180,19 @@ export default function FicheCoupePage() {
   const handleDeleteFiche = async (ficheId: string) => {
     try {
       const token = await getToken();
-      const res = await fetch('/api/fiche-coupe', {
+      const res = await fetch(`/api/fiche-coupe/${ficheId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id: ficheId }),
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to delete fiche');
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(`Failed to delete fiche: ${errorData.error || res.statusText}`);
+      }
       await fetchFiches();
       toast.success('Fiche deleted successfully!');
     } catch (error) {
       console.error('Error deleting fiche:', error);
-      toast.error('Failed to delete fiche');
+      toast.error(`Failed to delete fiche: ${(error as Error).message}`);
     }
   };
 

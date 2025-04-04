@@ -86,3 +86,16 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update fiche' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) { // Updated to static params
+  const id = request.nextUrl.pathname.split('/').pop();
+  if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+  try {
+    await prisma.ficheCoupe.delete({ where: { id } });
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error(`[DELETE /api/fiche-coupe/${id}] Error:`, error);
+    return NextResponse.json({ error: 'Failed to delete fiche' }, { status: 500 });
+  }
+}

@@ -82,8 +82,10 @@ export default function ClientEtatImportExportLivraisonPage() {
 
   const fetchEtatData = useCallback(async () => {
     if (!email) return;
+
     setLoading(true);
     setError(null);
+
     try {
       const response = await fetch(
         `/api/etat-import-export-livraison?email=${encodeURIComponent(email)}`
@@ -91,6 +93,7 @@ export default function ClientEtatImportExportLivraisonPage() {
       if (!response.ok) throw new Error(`Error ${response.status}`);
       const data: EtatLivraisonData = await response.json();
       setEtatData(data);
+      console.log("Fetched EtatData:", data);
     } catch (err) {
       setError("Failed to load livraison status");
       console.error(err);
@@ -102,7 +105,7 @@ export default function ClientEtatImportExportLivraisonPage() {
 
   useEffect(() => {
     if (email) fetchEtatData();
-  }, [email, clientName, fetchEtatData]);
+  }, [email, clientName, fetchEtatData]); // Added fetchEtatData to dependency array
 
   const filteredImports = etatData?.imports?.filter((item) => {
     const matchesClient = item.clientEntree === clientName;
@@ -182,7 +185,8 @@ export default function ClientEtatImportExportLivraisonPage() {
     return acc;
   }, {} as Record<string, GroupedExportEntry>);
 
-  const groupedExportsArray = Object.values(groupedExports);
+  // Removed unused groupedExportsArray
+  // const groupedExportsArray = Object.values(groupedExports);
 
   const allModels = Array.from(
     new Set(
@@ -227,7 +231,6 @@ export default function ClientEtatImportExportLivraisonPage() {
     const summary = commandeSummaries.find(
       (cmd) => cmd.commande === exportItem.commande && cmd.model === exportItem.modele
     );
-    // If no summary exists (commande not in summaries) or quantityDelivered < quantityTotal, include it
     return !summary || exportItem.quantityDelivered < summary.quantityTotal;
   });
 

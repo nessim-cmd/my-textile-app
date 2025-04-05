@@ -1,4 +1,3 @@
-// components/LivraisonInfo.tsx
 import { Livraison } from "@/type";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
@@ -6,7 +5,7 @@ import { useEffect, useState } from "react";
 interface Props {
   livraison: Livraison;
   setLivraison: (livraison: Livraison) => void;
-  onModelsChange?: (models: ClientModel[]) => void;
+  onModelsChange?: (models: ClientModel[], exports?: ExportEntry[]) => void;
 }
 
 interface Client {
@@ -16,17 +15,32 @@ interface Client {
 
 interface ClientModel {
   id: string;
-  name: string;
+  name: string | null;
   clientId: string;
-  commandes: string | null; // Add commandes
-  description: string | null; // Add description
+  commandes: string | null;
+  description: string | null;
+  commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
+  variants: { id: string; name: string; qte_variante: number }[];
+}
+
+interface ExportEntry {
+  id: string;
+  dateSortie: string | null;
+  numLivraisonSortie: string;
+  clientSortie: string;
+  modele: string;
+  commande: string;
+  description: string;
+  quantityDelivered: number;
+  isExcluded: boolean;
 }
 
 const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChange }) => {
   const { user } = useUser();
   const email = user?.primaryEmailAddress?.emailAddress;
   const [clients, setClients] = useState<Client[]>([]);
-  const [, setClientModels] = useState<ClientModel[]>([]);
+  const [clientModels, setClientModels] = useState<ClientModel[]>([]);
+  const [exports, setExports] = useState<ExportEntry[]>([]);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -42,27 +56,41 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChang
   }, []);
 
   useEffect(() => {
-    const fetchClientModels = async () => {
-      if (livraison.clientName && email) {
-        try {
-          const response = await fetch(
-            `/api/client-model?email=${encodeURIComponent(email)}&client=${encodeURIComponent(livraison.clientName)}`
-          );
-          if (!response.ok) throw new Error("Failed to fetch models");
-          const data = await response.json();
-          setClientModels(data);
-          onModelsChange?.(data);
-        } catch (error) {
-          console.error("Error fetching client models:", error);
-          setClientModels([]);
-          onModelsChange?.([]);
-        }
-      } else {
+    const fetchClientModelsAndExports = async () => {
+      if (!livraison.clientName || !email) {
         setClientModels([]);
-        onModelsChange?.([]);
+        setExports([]);
+        onModelsChange?.([], []);
+        return;
+      }
+
+      try {
+        // Fetch client models
+        const modelsResponse = await fetch(
+          `/api/client-model?email=${encodeURIComponent(email)}&client=${encodeURIComponent(livraison.clientName)}`
+        );
+        if (!modelsResponse.ok) throw new Error("Failed to fetch models");
+        const modelsData: ClientModel[] = await modelsResponse.json();
+        setClientModels(modelsData);
+
+        // Fetch export data for quantityDelivered
+        const exportsResponse = await fetch(
+          `/api/etat-import-export-livraison?email=${encodeURIComponent(email)}`
+        );
+        if (!exportsResponse.ok) throw new Error("Failed to fetch exports");
+        const { exports: exportsData } = await exportsResponse.json();
+        const clientExports = exportsData.filter((exp: ExportEntry) => exp.clientSortie === livraison.clientName);
+        setExports(clientExports);
+
+        onModelsChange?.(modelsData, clientExports);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        setClientModels([]);
+        setExports([]);
+        onModelsChange?.([], []);
       }
     };
-    fetchClientModels();
+    fetchClientModelsAndExports();
   }, [livraison.clientName, email, onModelsChange]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {

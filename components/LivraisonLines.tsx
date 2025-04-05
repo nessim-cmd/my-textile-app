@@ -6,6 +6,7 @@ interface Props {
   livraison: Livraison;
   setLivraison: (livraison: Livraison) => void;
   clientModels?: ClientModel[];
+  exports?: ExportEntry[];
 }
 
 interface ClientModel {
@@ -14,6 +15,20 @@ interface ClientModel {
   clientId: string;
   commandes: string | null;
   description: string | null;
+  commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
+  variants: { id: string; name: string; qte_variante: number }[];
+}
+
+interface ExportEntry {
+  id: string;
+  dateSortie: string | null;
+  numLivraisonSortie: string;
+  clientSortie: string;
+  modele: string;
+  commande: string;
+  description: string;
+  quantityDelivered: number;
+  isExcluded: boolean;
 }
 
 interface LivraisonLine {
@@ -28,7 +43,7 @@ interface LivraisonLine {
   updatedAt: Date;
 }
 
-const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels = [] }) => {
+const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels = [], exports = [] }) => {
   const handleAddLine = () => {
     const newLine: LivraisonLine = {
       id: `${Date.now()}`,
@@ -94,13 +109,22 @@ const LivraisonLines: React.FC<Props> = ({ livraison, setLivraison, clientModels
   };
 
   const modelCommandeOptions = clientModels.flatMap((model) => {
-    const commandes = model.commandes ? model.commandes.split(',') : [];
-    return commandes.map((cmd) => ({
-      modelName: model.name || 'Unnamed Model',
-      commande: cmd.trim(),
-      description: model.description || null,
-      key: `${model.id}|${cmd.trim()}`,
-    }));
+    const commandes = model.commandesWithVariants || [];
+    return commandes.map((cmd) => {
+      const quantityTotal = cmd.variants.reduce((sum, variant) => sum + (variant.qte_variante || 0), 0);
+      const quantityDelivered = exports
+        .filter((exp) => exp.modele === model.name && exp.commande === cmd.value && !exp.isExcluded)
+        .reduce((sum, exp) => sum + exp.quantityDelivered, 0);
+
+      return {
+        modelName: model.name || 'Unnamed Model',
+        commande: cmd.value,
+        description: model.description || null,
+        key: `${model.id}|${cmd.value}`,
+        quantityTotal,
+        quantityDelivered,
+      };
+    }).filter((option) => option.quantityDelivered < option.quantityTotal);
   });
 
   return (

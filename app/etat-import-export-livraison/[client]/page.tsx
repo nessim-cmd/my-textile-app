@@ -157,9 +157,6 @@ export default function ClientEtatImportExportLivraisonPage() {
     return matchesClient && matchesSearch && matchesModel && matchesDate;
   }) || [];
 
-  console.log("Filtered Imports:", filteredImports);
-  console.log("Filtered Exports:", filteredExports);
-
   const groupedImports = filteredImports.reduce((acc, item) => {
     const key = `${item.numLivraisonEntree}-${item.dateEntree || 'null'}`;
     if (!acc[key]) {
@@ -174,7 +171,6 @@ export default function ClientEtatImportExportLivraisonPage() {
   }, {} as Record<string, GroupedImportEntry>);
 
   const groupedImportsArray = Object.values(groupedImports);
-  console.log("Grouped Imports Array:", groupedImportsArray);
 
   const groupedExports = filteredExports.reduce((acc, item) => {
     const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
@@ -190,7 +186,6 @@ export default function ClientEtatImportExportLivraisonPage() {
   }, {} as Record<string, GroupedExportEntry>);
 
   const groupedExportsArray = Object.values(groupedExports);
-  console.log("Grouped Exports Array:", groupedExportsArray);
 
   const allModels = Array.from(
     new Set(
@@ -199,8 +194,6 @@ export default function ClientEtatImportExportLivraisonPage() {
         .map((model) => model.name) || []
     )
   );
-
-  console.log("All Models for dropdown:", allModels);
 
   const commandeSummaries: CommandeSummary[] = (etatData?.models || [])
     .filter((model) => model.client === clientName && (selectedModels.length === 0 || selectedModels.includes(model.name)))
@@ -226,15 +219,35 @@ export default function ClientEtatImportExportLivraisonPage() {
           quantityReçu,
           quantityDelivered,
         };
-      });
+      }).filter((summary) => summary.quantityDelivered < summary.quantityTotal); // Only include if not fully delivered
     });
 
-  console.log("Commande Summaries:", commandeSummaries);
-
   const totalQuantity = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityTotal, 0);
-  const totalDelivered = filteredExports
-    .filter((item) => !item.isExcluded && (selectedModels.length === 0 || selectedModels.includes(item.modele)))
-    .reduce((sum, item) => sum + item.quantityDelivered, 0);
+  const totalDelivered = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityDelivered, 0);
+
+  // Filter exports to exclude fully delivered commandes
+  const filteredExportsForDisplay = filteredExports.filter((exportItem) => {
+    const summary = commandeSummaries.find(
+      (cmd) => cmd.commande === exportItem.commande && cmd.model === exportItem.modele
+    );
+    // If no summary exists (commande not in summaries) or quantityDelivered < quantityTotal, include it
+    return !summary || exportItem.quantityDelivered < summary.quantityTotal;
+  });
+
+  const groupedExportsForDisplay = filteredExportsForDisplay.reduce((acc, item) => {
+    const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
+    if (!acc[key]) {
+      acc[key] = {
+        dateSortie: item.dateSortie,
+        numLivraisonSortie: item.numLivraisonSortie,
+        lines: [],
+      };
+    }
+    acc[key].lines.push(item);
+    return acc;
+  }, {} as Record<string, GroupedExportEntry>);
+
+  const groupedExportsArrayForDisplay = Object.values(groupedExportsForDisplay);
 
   const handleDownloadPDF = () => {
     const pdf = new jsPDF("p", "mm", "a4");
@@ -270,7 +283,7 @@ export default function ClientEtatImportExportLivraisonPage() {
       });
     } else {
       pdf.setFontSize(11);
-      pdf.text("Aucune commande trouvée pour ce client.", 10, yOffset);
+      pdf.text("Aucune commande en cours trouvée pour ce client.", 10, yOffset);
       yOffset += 6;
     }
 
@@ -331,11 +344,11 @@ export default function ClientEtatImportExportLivraisonPage() {
     pdf.text("Exportations", 10, yOffset);
     yOffset += 6;
 
-    if (groupedExportsArray.length > 0) {
+    if (groupedExportsArrayForDisplay.length > 0) {
       autoTable(pdf, {
         startY: yOffset,
         head: [["Exclu", "Date Export", "N° Livraison", "Modèle", "Commande", "Description", "Qté Livrée"]],
-        body: groupedExportsArray.flatMap((group) =>
+        body: groupedExportsArrayForDisplay.flatMap((group) =>
           group.lines.map((line, index) => [
             line.isExcluded ? "Oui" : "Non",
             index === 0 ? (group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A") : "",
@@ -350,9 +363,9 @@ export default function ClientEtatImportExportLivraisonPage() {
         styles: { fontSize: 10 },
         margin: { left: 10, right: 10 },
         didDrawCell: (data) => {
-          if (data.row.index > 0 && data.row.index < groupedExportsArray.flatMap(g => g.lines).length) {
-            const prevLine = groupedExportsArray.flatMap(g => g.lines)[data.row.index - 1];
-            const currentLine = groupedExportsArray.flatMap(g => g.lines)[data.row.index];
+          if (data.row.index > 0 && data.row.index < groupedExportsArrayForDisplay.flatMap(g => g.lines).length) {
+            const prevLine = groupedExportsArrayForDisplay.flatMap(g => g.lines)[data.row.index - 1];
+            const currentLine = groupedExportsArrayForDisplay.flatMap(g => g.lines)[data.row.index];
             if (prevLine.numLivraisonSortie !== currentLine.numLivraisonSortie) {
               pdf.setDrawColor(200, 200, 200);
               pdf.line(data.cell.x, data.cell.y, data.cell.x + data.cell.width, data.cell.y);
@@ -362,7 +375,7 @@ export default function ClientEtatImportExportLivraisonPage() {
       });
     } else {
       pdf.setFontSize(11);
-      pdf.text("Aucune exportation trouvée.", 10, yOffset);
+      pdf.text("Aucune exportation en cours trouvée.", 10, yOffset);
     }
 
     pdf.save(`Etat_des_Livraisons_${clientName}.pdf`);
@@ -402,7 +415,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-600">Aucune commande trouvée pour ce client.</p>
+                  <p className="text-sm text-gray-600">Aucune commande en cours trouvée pour ce client.</p>
                 )}
                 <div className="border-t pt-2 mt-2 sticky bottom-0 bg-white">
                   <p className="text-sm text-gray-600 font-bold">
@@ -489,12 +502,12 @@ export default function ClientEtatImportExportLivraisonPage() {
             )}
           </div>
           <button
-              onClick={handleDownloadPDF}
-              className="btn btn-accent mt-4 md:mt-0"
-            >
-              <Printer className="w-5 h-5 mr-2" />
-              Télécharger PDF
-            </button>
+            onClick={handleDownloadPDF}
+            className="btn btn-accent mt-4 md:mt-0"
+          >
+            <Printer className="w-5 h-5 mr-2" />
+            Télécharger PDF
+          </button>
         </div>
 
         {loading ? (
@@ -503,7 +516,7 @@ export default function ClientEtatImportExportLivraisonPage() {
           </div>
         ) : error ? (
           <div className="alert alert-error text-center">{error}</div>
-        ) : (filteredImports.length > 0 || filteredExports.length > 0) ? (
+        ) : (filteredImports.length > 0 || filteredExportsForDisplay.length > 0) ? (
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex-1">
               <h2 className="text-xl font-semibold mb-4">Importations</h2>
@@ -571,7 +584,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {groupedExportsArray.map((group, groupIndex) => (
+                    {groupedExportsArrayForDisplay.map((group, groupIndex) => (
                       <React.Fragment key={group.numLivraisonSortie + groupIndex}>
                         {group.lines.map((line, lineIndex) => (
                           <tr
@@ -601,7 +614,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                             <td className="p-4">{line.quantityDelivered}</td>
                           </tr>
                         ))}
-                        {groupIndex < groupedExportsArray.length - 1 && (
+                        {groupIndex < groupedExportsArrayForDisplay.length - 1 && (
                           <tr className="border-t border-gray-300">
                             <td colSpan={7} className="p-0 h-px"></td>
                           </tr>
@@ -615,7 +628,7 @@ export default function ClientEtatImportExportLivraisonPage() {
           </div>
         ) : (
           <div className="text-center text-gray-500">
-            Aucune donnée trouvée
+            Aucune donnée en cours trouvée
           </div>
         )}
       </div>

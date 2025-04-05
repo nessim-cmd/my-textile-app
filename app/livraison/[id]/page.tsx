@@ -15,6 +15,20 @@ interface ClientModel {
   clientId: string;
   commandes: string | null;
   description: string | null;
+  commandesWithVariants: { value: string; variants: { name: string; qte_variante: number }[] }[];
+  variants: { id: string; name: string; qte_variante: number }[];
+}
+
+interface ExportEntry {
+  id: string;
+  dateSortie: string | null;
+  numLivraisonSortie: string;
+  clientSortie: string;
+  modele: string;
+  commande: string;
+  description: string;
+  quantityDelivered: number;
+  isExcluded: boolean;
 }
 
 export default function LivraisonPage() {
@@ -25,6 +39,7 @@ export default function LivraisonPage() {
   const [, setIsSaveDisabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [clientModels, setClientModels] = useState<ClientModel[]>([]);
+  const [exports, setExports] = useState<ExportEntry[]>([]);
 
   const fetchLivraison = async () => {
     try {
@@ -82,6 +97,11 @@ export default function LivraisonPage() {
     }
   };
 
+  const handleModelsChange = (models: ClientModel[], exportsData?: ExportEntry[]) => {
+    setClientModels(models);
+    if (exportsData) setExports(exportsData);
+  };
+
   if (!livraison)
     return (
       <div className="flex justify-center items-center h-screen w-full">
@@ -125,7 +145,7 @@ export default function LivraisonPage() {
             <LivraisonInfo
               livraison={livraison}
               setLivraison={setLivraison}
-              onModelsChange={setClientModels}
+              onModelsChange={handleModelsChange}
             />
           </div>
 
@@ -134,6 +154,7 @@ export default function LivraisonPage() {
               livraison={livraison}
               setLivraison={setLivraison}
               clientModels={clientModels}
+              exports={exports}
             />
             <LivraisonPDF livraison={livraison} />
           </div>

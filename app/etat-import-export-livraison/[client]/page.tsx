@@ -105,7 +105,7 @@ export default function ClientEtatImportExportLivraisonPage() {
 
   useEffect(() => {
     if (email) fetchEtatData();
-  }, [email, clientName, fetchEtatData]); // Added fetchEtatData to dependency array
+  }, [email, clientName, fetchEtatData]);
 
   const filteredImports = etatData?.imports?.filter((item) => {
     const matchesClient = item.clientEntree === clientName;
@@ -172,22 +172,6 @@ export default function ClientEtatImportExportLivraisonPage() {
 
   const groupedImportsArray = Object.values(groupedImports);
 
-  const groupedExports = filteredExports.reduce((acc, item) => {
-    const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
-    if (!acc[key]) {
-      acc[key] = {
-        dateSortie: item.dateSortie,
-        numLivraisonSortie: item.numLivraisonSortie,
-        lines: [],
-      };
-    }
-    acc[key].lines.push(item);
-    return acc;
-  }, {} as Record<string, GroupedExportEntry>);
-
-  // Removed unused groupedExportsArray
-  // const groupedExportsArray = Object.values(groupedExports);
-
   const allModels = Array.from(
     new Set(
       etatData?.models
@@ -220,13 +204,12 @@ export default function ClientEtatImportExportLivraisonPage() {
           quantityReçu,
           quantityDelivered,
         };
-      }).filter((summary) => summary.quantityDelivered < summary.quantityTotal); // Only include if not fully delivered
+      }).filter((summary) => summary.quantityDelivered < summary.quantityTotal);
     });
 
   const totalQuantity = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityTotal, 0);
   const totalDelivered = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityDelivered, 0);
 
-  // Filter exports to exclude fully delivered commandes
   const filteredExportsForDisplay = filteredExports.filter((exportItem) => {
     const summary = commandeSummaries.find(
       (cmd) => cmd.commande === exportItem.commande && cmd.model === exportItem.modele
@@ -234,20 +217,20 @@ export default function ClientEtatImportExportLivraisonPage() {
     return !summary || exportItem.quantityDelivered < summary.quantityTotal;
   });
 
-  const groupedExportsForDisplay = filteredExportsForDisplay.reduce((acc, item) => {
-    const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
-    if (!acc[key]) {
-      acc[key] = {
-        dateSortie: item.dateSortie,
-        numLivraisonSortie: item.numLivraisonSortie,
-        lines: [],
-      };
-    }
-    acc[key].lines.push(item);
-    return acc;
-  }, {} as Record<string, GroupedExportEntry>);
-
-  const groupedExportsArrayForDisplay = Object.values(groupedExportsForDisplay);
+  const groupedExportsArrayForDisplay = Object.values(
+    filteredExportsForDisplay.reduce((acc, item) => {
+      const key = `${item.numLivraisonSortie}-${item.dateSortie || 'null'}`;
+      if (!acc[key]) {
+        acc[key] = {
+          dateSortie: item.dateSortie,
+          numLivraisonSortie: item.numLivraisonSortie,
+          lines: [],
+        };
+      }
+      acc[key].lines.push(item);
+      return acc;
+    }, {} as Record<string, GroupedExportEntry>)
+  );
 
   const handleDownloadPDF = () => {
     const pdf = new jsPDF("p", "mm", "a4");

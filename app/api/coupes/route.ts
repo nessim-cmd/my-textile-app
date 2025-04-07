@@ -22,7 +22,8 @@ type CoupeInput = {
   }[];
 };
 
-export async function GET(request: NextRequest) {
+// Remove unused 'request' parameter
+export async function GET() {
   try {
     const coupes = await prisma.coupe.findMany({
       include: {

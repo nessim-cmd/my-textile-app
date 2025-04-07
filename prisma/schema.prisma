@@ -28,6 +28,8 @@ model Client {
   ficheProductions    FicheProduction[]
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  Coupe Coupe[]
 }
 
 model ClientModel {
@@ -439,6 +441,62 @@ model CoupeEntry {
 
 
 
+
+// Add these new models to your existing schema.prisma
+
+model Coupe {
+  id            String     @id @default(uuid())
+  clientId      String
+  client        Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  modele        String
+  refArticle    String
+  refTissu      String?
+  colorisTissu  String?
+  sizes         Size[]     @relation("CoupeSizes")
+  rolls         Roll[]     @relation("CoupeRolls")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([clientId])
+}
+
+model Size {
+  id        String   @id @default(uuid())
+  coupeId   String
+  coupe     Coupe    @relation("CoupeSizes", fields: [coupeId], references: [id], onDelete: Cascade)
+  label     String   // e.g., "38", "L", "XL"
+  quantity  Float    @default(0)
+  
+  @@unique([coupeId, label])
+}
+
+model Roll {
+  id            String     @id @default(uuid())
+  coupeId       String
+  coupe         Coupe      @relation("CoupeRolls", fields: [coupeId], references: [id], onDelete: Cascade)
+  nRlx          String?
+  metrRoul      Float      @default(0)
+  nMatelas      String?
+  nbPils        Int        @default(0)
+  longMatelas   Float      @default(0)
+  mtsMatelas    Float      @default(0)
+  restes        Float      @default(0)
+  defauts       Float      @default(0)
+  manqueRoul    Float      @default(0)
+  pieces        Piece[]    @relation("RollPieces")
+  
+  @@index([coupeId])
+}
+
+model Piece {
+  id        String   @id @default(uuid())
+  rollId    String
+  roll      Roll     @relation("RollPieces", fields: [rollId], references: [id], onDelete: Cascade)
+  sizeLabel String   // References Size.label
+  quantity  Float    @default(0)
+  
+  @@index([rollId])
+}
 
 
 

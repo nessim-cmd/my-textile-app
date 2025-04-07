@@ -51,6 +51,7 @@ const allItems = [
     icon: Scissors,
     subItems: [
       { title: "Fiches Coupe", url: "/fiche-coupe" },
+      { title: "Detaills Coupe", url: "/coupes" },
     ],
   },
   {

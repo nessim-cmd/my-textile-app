@@ -19,6 +19,7 @@ const allItems = [
     subItems: [
       { icon: Inbox, title: "Dashboard", url: "/dashboard" },
       { title: "Users", url: "/admin/users" },
+      { title: "Ajouter Employee", url: "/production-time/" },
     ],
   },
   {
@@ -61,7 +62,10 @@ const allItems = [
       { title: "Suivi Declarations", url: "/etat-import-export" },
       { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
       { title: "Fiche Production", url: "/fiche-production" },
-      { title: "Planning", url: "/planning" }
+      { title: "Planning", url: "/planning" },
+      { title: "Production", url: "/production-time/entries" },
+     
+
     ],
   },
   {

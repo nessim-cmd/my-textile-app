@@ -499,4 +499,24 @@ model Piece {
 }
 
 
+model Employee {
+  id        String            @id @default(uuid())
+  name      String
+  poste     String            // e.g., "Couturier", "Manager"
+  timeEntries ProductionTimeEntry[] // Relation to production time entries
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
 
+// schema.prisma (replace the ProductionTimeEntry model)
+model ProductionTimeEntry {
+  id         String    @id @default(uuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime  // Date of the entry
+  hours      Json      // e.g., {"8:00-9:00": 1, "9:00-10:00": 1, ...}
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([employeeId])
+}

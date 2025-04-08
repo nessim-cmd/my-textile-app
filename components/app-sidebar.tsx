@@ -64,6 +64,7 @@ const allItems = [
       { title: "Fiche Production", url: "/fiche-production" },
       { title: "Planning", url: "/planning" },
       { title: "Production", url: "/production-time/entries" },
+      { title: "List Production", url: "/production-time/list" }
      
 
     ],

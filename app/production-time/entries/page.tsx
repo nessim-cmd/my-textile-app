@@ -30,7 +30,7 @@ export default function ProductionTimeEntriesPage() {
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [timeEntries, setTimeEntries] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // Keep error state
   const [date, setDate] = useState<string>(() => {
     const urlDate = searchParams.get('date');
     return urlDate || new Date().toISOString().split('T')[0];
@@ -52,10 +52,9 @@ export default function ProductionTimeEntriesPage() {
       const data = await res.json();
       const employeeList = Array.isArray(data) ? data : [];
       setEmployees(employeeList);
-      setFilteredEmployees(employeeList); // Initially, all employees are shown
+      setFilteredEmployees(employeeList);
     } catch (err) {
-      setError('Failed to fetch employees');
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -69,14 +68,13 @@ export default function ProductionTimeEntriesPage() {
       if (!res.ok) throw new Error('Failed to fetch time entries');
       const data: ProductionTimeEntry[] = await res.json();
       const entriesForDate = data.filter((entry) => entry.date.split('T')[0] === date);
-      const newTimeEntries = entriesForDate.reduce((acc, entry) => {
+      const newTimeEntries = entriesForDate.reduce((acc: Record<string, Record<string, string>>, entry) => {
         acc[entry.employeeId] = entry.hours;
         return acc;
-      }, {} as Record<string, Record<string, string>>);
+      }, {});
       setTimeEntries(newTimeEntries);
     } catch (err) {
-      setError('Failed to fetch time entries');
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -85,15 +83,14 @@ export default function ProductionTimeEntriesPage() {
   useEffect(() => {
     fetchEmployees();
     fetchTimeEntries();
-  }, [date]);
+  }, [date, fetchEmployees, fetchTimeEntries]); // Added dependencies
 
   useEffect(() => {
-    // Filter employees based on search term
     const filtered = employees.filter((emp) =>
       emp.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredEmployees(filtered);
-    setCurrentEmployeeIndex(0); // Reset index when filtering
+    setCurrentEmployeeIndex(0);
   }, [searchTerm, employees]);
 
   const handleHourChange = (employeeId: string, slot: string, value: string) => {
@@ -129,7 +126,7 @@ export default function ProductionTimeEntriesPage() {
       toast.success('Time entries saved successfully!');
       fetchTimeEntries();
     } catch (err) {
-      setError('Failed to save time entries');
+      setError(err instanceof Error ? err.message : 'An error occurred');
       toast.error('Failed to save time entries');
     } finally {
       setLoading(false);
@@ -189,6 +186,8 @@ export default function ProductionTimeEntriesPage() {
         </div>
         {loading ? (
           <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>
+        ) : error ? (
+          <div className="text-center text-red-500">{error}</div>
         ) : filteredEmployees.length > 0 ? (
           <>
             {/* Desktop View */}

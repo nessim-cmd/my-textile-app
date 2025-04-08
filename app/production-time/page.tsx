@@ -32,8 +32,7 @@ export default function ProductionTimePage() {
       const data = await res.json();
       setEmployees(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError('Failed to fetch employees');
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -41,7 +40,7 @@ export default function ProductionTimePage() {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [fetchEmployees]); // Added dependency
 
   const handleCreateEmployee = async () => {
     setLoading(true);
@@ -58,7 +57,7 @@ export default function ProductionTimePage() {
       setNewEmployee({ name: '', poste: '' });
       toast.success('Employee created successfully!');
     } catch (err) {
-      setError('Failed to create employee');
+      setError(err instanceof Error ? err.message : 'An error occurred');
       toast.error('Failed to create employee');
     } finally {
       setLoading(false);
@@ -81,7 +80,7 @@ export default function ProductionTimePage() {
       setEditEmployee(null);
       toast.success('Employee updated successfully!');
     } catch (err) {
-      setError('Failed to update employee');
+      setError(err instanceof Error ? err.message : 'An error occurred');
       toast.error('Failed to update employee');
     } finally {
       setLoading(false);
@@ -90,6 +89,7 @@ export default function ProductionTimePage() {
 
   const handleDeleteEmployee = async (id: string) => {
     if (!confirm('Are you sure you want to delete this employee?')) return;
+    setLoading(true);
     try {
       const token = await getToken();
       const res = await fetch('/api/employee', {
@@ -101,8 +101,10 @@ export default function ProductionTimePage() {
       await fetchEmployees();
       toast.success('Employee deleted successfully!');
     } catch (err) {
-      setError('Failed to delete employee');
+      setError(err instanceof Error ? err.message : 'An error occurred');
       toast.error('Failed to delete employee');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -146,6 +148,8 @@ export default function ProductionTimePage() {
 
         {loading ? (
           <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>
+        ) : error ? (
+          <div className="text-center text-red-500">{error}</div>
         ) : employees.length > 0 ? (
           <table className="table w-full">
             <thead>

@@ -19,7 +19,7 @@ const allItems = [
     subItems: [
       { icon: Inbox, title: "Dashboard", url: "/dashboard" },
       { title: "Users", url: "/admin/users" },
-      { title: "Ajouter Employee", url: "/production-time/" },
+      { title: "Ajouter Employee", url: "/production-time" },
     ],
   },
   {

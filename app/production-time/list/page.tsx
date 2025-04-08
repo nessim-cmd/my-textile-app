@@ -4,7 +4,6 @@ import Wrapper from '@/components/Wrapper';
 import { useAuth } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
 import { Eye } from 'lucide-react';
-import { Toaster, toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
 interface Employee {
@@ -36,15 +35,14 @@ export default function ProductionTimeListPage() {
       if (!res.ok) throw new Error('Failed to fetch time entries');
       const data: ProductionTimeEntry[] = await res.json();
       const groupedByDate = data.reduce((acc, entry) => {
-        const dateKey = entry.date.split('T')[0]; // e.g., "2025-04-08"
+        const dateKey = entry.date.split('T')[0];
         if (!acc[dateKey]) acc[dateKey] = [];
         acc[dateKey].push(entry);
         return acc;
       }, {} as Record<string, ProductionTimeEntry[]>);
       setEntriesByDate(groupedByDate);
     } catch (err) {
-      setError('Failed to fetch time entries');
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -52,7 +50,7 @@ export default function ProductionTimeListPage() {
 
   useEffect(() => {
     fetchTimeEntries();
-  }, []);
+  }, [fetchTimeEntries]); // Added dependency
 
   const handleViewEntries = (date: string) => {
     router.push(`/production-time/entries?date=${date}`);
@@ -61,14 +59,15 @@ export default function ProductionTimeListPage() {
   return (
     <Wrapper>
       <div className="p-4 md:p-6 bg-gray-100 min-h-screen">
-        <Toaster />
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Production Time - Entries List</h1>
         {loading ? (
           <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>
+        ) : error ? (
+          <div className="text-center text-red-500">{error}</div>
         ) : Object.keys(entriesByDate).length > 0 ? (
           <div className="grid gap-4">
             {Object.entries(entriesByDate)
-              .sort(([dateA], [dateB]) => dateB.localeCompare(dateA)) // Sort by date descending
+              .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
               .map(([date, entries]) => (
                 <div key={date} className="bg-base-200/90 p-4 rounded-xl shadow space-y-2">
                   <div className="flex justify-between items-center">

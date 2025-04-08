@@ -9,6 +9,18 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { useSearchParams } from 'next/navigation';
 
+// Define a type for jsPDF with autoTable
+interface JsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: {
+    head: string[][];
+    body: string[][];
+    startY: number;
+    theme: string;
+    styles: { fontSize: number };
+    columnStyles: { [key: number]: { cellWidth: number } };
+  }) => void;
+}
+
 interface Employee {
   id: string;
   name: string;
@@ -43,7 +55,6 @@ export default function ProductionTimeEntriesPage() {
     '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
   ];
 
-  // Memoize fetchEmployees to prevent recreation on every render
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
     try {
@@ -52,19 +63,18 @@ export default function ProductionTimeEntriesPage() {
       if (!res.ok) throw new Error('Failed to fetch employees');
       const data = await res.json();
       const employeeList = Array.isArray(data) ? data : [];
-      console.log('Fetched employees:', employeeList); // Debug log
+      console.log('Fetched employees:', employeeList);
       setEmployees(employeeList);
       setFilteredEmployees(employeeList);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMsg);
-      console.error('Fetch employees error:', errorMsg); // Debug log
+      console.error('Fetch employees error:', errorMsg);
     } finally {
       setLoading(false);
     }
-  }, [getToken]); // Dependency: getToken
+  }, [getToken]);
 
-  // Memoize fetchTimeEntries to prevent recreation on every render
   const fetchTimeEntries = useCallback(async () => {
     setLoading(true);
     try {
@@ -77,28 +87,28 @@ export default function ProductionTimeEntriesPage() {
         acc[entry.employeeId] = entry.hours;
         return acc;
       }, {});
-      console.log('Fetched time entries for date', date, ':', newTimeEntries); // Debug log
+      console.log('Fetched time entries for date', date, ':', newTimeEntries);
       setTimeEntries(newTimeEntries);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMsg);
-      console.error('Fetch time entries error:', errorMsg); // Debug log
+      console.error('Fetch time entries error:', errorMsg);
     } finally {
       setLoading(false);
     }
-  }, [getToken, date]); // Dependencies: getToken, date
+  }, [getToken, date]);
 
   useEffect(() => {
-    console.log('useEffect triggered with date:', date); // Debug log
+    console.log('useEffect triggered with date:', date);
     fetchEmployees();
     fetchTimeEntries();
-  }, [fetchEmployees, fetchTimeEntries]); // Dependencies are memoized functions
+  }, [fetchEmployees, fetchTimeEntries, date]); // Added date as dependency
 
   useEffect(() => {
     const filtered = employees.filter((emp) =>
       emp.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    console.log('Filtered employees:', filtered); // Debug log
+    console.log('Filtered employees:', filtered);
     setFilteredEmployees(filtered);
     setCurrentEmployeeIndex(0);
   }, [searchTerm, employees]);
@@ -112,7 +122,7 @@ export default function ProductionTimeEntriesPage() {
           [slot]: value,
         },
       };
-      console.log('Updated time entries:', newEntries); // Debug log
+      console.log('Updated time entries:', newEntries);
       return newEntries;
     });
   };
@@ -129,7 +139,7 @@ export default function ProductionTimeEntriesPage() {
           return acc;
         }, {} as Record<string, string>),
       }));
-      console.log('Saving entries:', entries); // Debug log
+      console.log('Saving entries:', entries);
 
       for (const entry of entries) {
         await fetch('/api/production-time', {
@@ -144,14 +154,14 @@ export default function ProductionTimeEntriesPage() {
       const errorMsg = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMsg);
       toast.error('Failed to save time entries');
-      console.error('Save entries error:', errorMsg); // Debug log
+      console.error('Save entries error:', errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
   const downloadPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' });
+    const doc = new jsPDF({ orientation: 'landscape' }) as JsPDFWithAutoTable; // Cast to custom type
     doc.setFontSize(18);
     doc.text('Production Time Entries', 14, 20);
     doc.setFontSize(12);
@@ -164,7 +174,7 @@ export default function ProductionTimeEntriesPage() {
       ...timeSlots.map((slot) => timeEntries[emp.id]?.[slot] || ''),
     ]);
 
-    (doc as any).autoTable({
+    doc.autoTable({
       head: [headers],
       body,
       startY: 40,

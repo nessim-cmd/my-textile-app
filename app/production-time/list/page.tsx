@@ -2,7 +2,7 @@
 
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -27,7 +27,7 @@ export default function ProductionTimeListPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const fetchTimeEntries = async () => {
+  const fetchTimeEntries = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getToken();
@@ -46,11 +46,11 @@ export default function ProductionTimeListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]); // Dependency: getToken
 
   useEffect(() => {
     fetchTimeEntries();
-  }, [fetchTimeEntries]); // Added dependency
+  }, [fetchTimeEntries]);
 
   const handleViewEntries = (date: string) => {
     router.push(`/production-time/entries?date=${date}`);

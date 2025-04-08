@@ -3,7 +3,7 @@
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from '@clerk/nextjs';
 import { useState, useEffect } from 'react';
-import { Save, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, Download, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -27,6 +27,7 @@ export default function ProductionTimeEntriesPage() {
   const { getToken } = useAuth();
   const searchParams = useSearchParams();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [timeEntries, setTimeEntries] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export default function ProductionTimeEntriesPage() {
     return urlDate || new Date().toISOString().split('T')[0];
   });
   const [currentEmployeeIndex, setCurrentEmployeeIndex] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const timeSlots = [
     '8:00-9:00', '9:00-10:00', '10:00-11:00', '11:00-12:00',
@@ -48,7 +50,9 @@ export default function ProductionTimeEntriesPage() {
       const res = await fetch('/api/employee', { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to fetch employees');
       const data = await res.json();
-      setEmployees(Array.isArray(data) ? data : []);
+      const employeeList = Array.isArray(data) ? data : [];
+      setEmployees(employeeList);
+      setFilteredEmployees(employeeList); // Initially, all employees are shown
     } catch (err) {
       setError('Failed to fetch employees');
       console.error(err);
@@ -82,6 +86,15 @@ export default function ProductionTimeEntriesPage() {
     fetchEmployees();
     fetchTimeEntries();
   }, [date]);
+
+  useEffect(() => {
+    // Filter employees based on search term
+    const filtered = employees.filter((emp) =>
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredEmployees(filtered);
+    setCurrentEmployeeIndex(0); // Reset index when filtering
+  }, [searchTerm, employees]);
 
   const handleHourChange = (employeeId: string, slot: string, value: string) => {
     setTimeEntries((prev) => ({
@@ -131,7 +144,7 @@ export default function ProductionTimeEntriesPage() {
     doc.text(`Date: ${date}`, 14, 30);
 
     const headers = ['Name', 'Poste', ...timeSlots];
-    const body = employees.map((emp) => [
+    const body = filteredEmployees.map((emp) => [
       emp.name,
       emp.poste,
       ...timeSlots.map((slot) => timeEntries[emp.id]?.[slot] || ''),
@@ -141,7 +154,7 @@ export default function ProductionTimeEntriesPage() {
       head: [headers],
       body,
       startY: 40,
-      theme: ' striped',
+      theme: 'striped',
       styles: { fontSize: 8 },
       columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 30 } },
     });
@@ -153,18 +166,30 @@ export default function ProductionTimeEntriesPage() {
     <Wrapper>
       <div className="p-4 md:p-6 bg-gray-100 min-h-screen">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Production Time - Entries</h1>
-        <div className="mb-4">
-          <label className="block mb-2 font-semibold">Select Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="input input-bordered w-full max-w-xs"
-          />
+        <div className="mb-4 space-y-4">
+          <div>
+            <label className="block mb-2 font-semibold">Select Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="input input-bordered w-full max-w-xs"
+            />
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              placeholder="Search employees by name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input input-bordered w-full max-w-xs"
+            />
+            <Search className="w-5 h-5 text-gray-500" />
+          </div>
         </div>
         {loading ? (
           <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>
-        ) : employees.length > 0 ? (
+        ) : filteredEmployees.length > 0 ? (
           <>
             {/* Desktop View */}
             <div className="hidden md:block overflow-x-auto">
@@ -179,7 +204,7 @@ export default function ProductionTimeEntriesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((emp) => (
+                  {filteredEmployees.map((emp) => (
                     <tr key={emp.id}>
                       <td>{emp.name}</td>
                       <td>{emp.poste}</td>
@@ -211,19 +236,20 @@ export default function ProductionTimeEntriesPage() {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <h3 className="text-lg font-semibold">
-                  {employees[currentEmployeeIndex]?.name} ({employees[currentEmployeeIndex]?.poste})
+                  {filteredEmployees[currentEmployeeIndex]?.name} (
+                  {filteredEmployees[currentEmployeeIndex]?.poste})
                 </h3>
                 <button
                   className="btn btn-outline btn-sm"
-                  onClick={() => setCurrentEmployeeIndex((prev) => Math.min(prev + 1, employees.length - 1))}
-                  disabled={currentEmployeeIndex === employees.length - 1}
+                  onClick={() => setCurrentEmployeeIndex((prev) => Math.min(prev + 1, filteredEmployees.length - 1))}
+                  disabled={currentEmployeeIndex === filteredEmployees.length - 1}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-2">
                 {timeSlots.map((slot) => {
-                  const employee = employees[currentEmployeeIndex];
+                  const employee = filteredEmployees[currentEmployeeIndex];
                   const value = timeEntries[employee?.id]?.[slot] || '';
                   return (
                     <div key={slot} className="flex justify-between items-center">
@@ -258,7 +284,9 @@ export default function ProductionTimeEntriesPage() {
             </div>
           </>
         ) : (
-          <div className="text-center">No employees found</div>
+          <div className="text-center">
+            {searchTerm ? 'No employees match your search' : 'No employees found'}
+          </div>
         )}
       </div>
     </Wrapper>

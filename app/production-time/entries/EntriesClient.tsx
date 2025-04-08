@@ -220,7 +220,7 @@ export default function EntriesClient() {
               <thead>
                 <tr className="bg-gray-200">
                   <th>Name</th>
-                  <th>Poste</th>
+                  <th>Position</th>
                   {timeSlots.map((slot) => (
                     <th key={slot}>{slot}</th>
                   ))}

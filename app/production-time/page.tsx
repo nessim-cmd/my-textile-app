@@ -2,7 +2,7 @@
 
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit, Trash } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -23,24 +23,30 @@ export default function ProductionTimePage() {
   const [newEmployee, setNewEmployee] = useState({ name: '', poste: '' });
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
 
-  const fetchEmployees = async () => {
+  // Memoize fetchEmployees to prevent recreation on every render
+  const fetchEmployees = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getToken();
       const res = await fetch('/api/employee', { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to fetch employees');
       const data = await res.json();
-      setEmployees(Array.isArray(data) ? data : []);
+      const employeeList = Array.isArray(data) ? data : [];
+      console.log('Fetched employees:', employeeList); // Debug log
+      setEmployees(employeeList);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
+      console.error('Fetch employees error:', errorMsg); // Debug log
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]); // Dependency: getToken
 
   useEffect(() => {
+    console.log('useEffect triggered'); // Debug log
     fetchEmployees();
-  }, [fetchEmployees]); // Added dependency
+  }, [fetchEmployees]); // Dependency is memoized function
 
   const handleCreateEmployee = async () => {
     setLoading(true);
@@ -57,7 +63,8 @@ export default function ProductionTimePage() {
       setNewEmployee({ name: '', poste: '' });
       toast.success('Employee created successfully!');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
       toast.error('Failed to create employee');
     } finally {
       setLoading(false);
@@ -80,7 +87,8 @@ export default function ProductionTimePage() {
       setEditEmployee(null);
       toast.success('Employee updated successfully!');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
       toast.error('Failed to update employee');
     } finally {
       setLoading(false);
@@ -101,7 +109,8 @@ export default function ProductionTimePage() {
       await fetchEmployees();
       toast.success('Employee deleted successfully!');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
       toast.error('Failed to delete employee');
     } finally {
       setLoading(false);

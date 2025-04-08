@@ -2,7 +2,7 @@
 
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Save, Download, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
@@ -30,7 +30,7 @@ export default function ProductionTimeEntriesPage() {
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [timeEntries, setTimeEntries] = useState<Record<string, Record<string, string>>>({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null); // Keep error state
+  const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState<string>(() => {
     const urlDate = searchParams.get('date');
     return urlDate || new Date().toISOString().split('T')[0];
@@ -43,7 +43,8 @@ export default function ProductionTimeEntriesPage() {
     '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
   ];
 
-  const fetchEmployees = async () => {
+  // Memoize fetchEmployees to prevent recreation on every render
+  const fetchEmployees = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getToken();
@@ -51,16 +52,20 @@ export default function ProductionTimeEntriesPage() {
       if (!res.ok) throw new Error('Failed to fetch employees');
       const data = await res.json();
       const employeeList = Array.isArray(data) ? data : [];
+      console.log('Fetched employees:', employeeList); // Debug log
       setEmployees(employeeList);
       setFilteredEmployees(employeeList);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
+      console.error('Fetch employees error:', errorMsg); // Debug log
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken]); // Dependency: getToken
 
-  const fetchTimeEntries = async () => {
+  // Memoize fetchTimeEntries to prevent recreation on every render
+  const fetchTimeEntries = useCallback(async () => {
     setLoading(true);
     try {
       const token = await getToken();
@@ -72,35 +77,44 @@ export default function ProductionTimeEntriesPage() {
         acc[entry.employeeId] = entry.hours;
         return acc;
       }, {});
+      console.log('Fetched time entries for date', date, ':', newTimeEntries); // Debug log
       setTimeEntries(newTimeEntries);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
+      console.error('Fetch time entries error:', errorMsg); // Debug log
     } finally {
       setLoading(false);
     }
-  };
+  }, [getToken, date]); // Dependencies: getToken, date
 
   useEffect(() => {
+    console.log('useEffect triggered with date:', date); // Debug log
     fetchEmployees();
     fetchTimeEntries();
-  }, [date, fetchEmployees, fetchTimeEntries]); // Added dependencies
+  }, [fetchEmployees, fetchTimeEntries]); // Dependencies are memoized functions
 
   useEffect(() => {
     const filtered = employees.filter((emp) =>
       emp.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    console.log('Filtered employees:', filtered); // Debug log
     setFilteredEmployees(filtered);
     setCurrentEmployeeIndex(0);
   }, [searchTerm, employees]);
 
   const handleHourChange = (employeeId: string, slot: string, value: string) => {
-    setTimeEntries((prev) => ({
-      ...prev,
-      [employeeId]: {
-        ...prev[employeeId],
-        [slot]: value,
-      },
-    }));
+    setTimeEntries((prev) => {
+      const newEntries = {
+        ...prev,
+        [employeeId]: {
+          ...prev[employeeId],
+          [slot]: value,
+        },
+      };
+      console.log('Updated time entries:', newEntries); // Debug log
+      return newEntries;
+    });
   };
 
   const saveEntries = async () => {
@@ -115,6 +129,7 @@ export default function ProductionTimeEntriesPage() {
           return acc;
         }, {} as Record<string, string>),
       }));
+      console.log('Saving entries:', entries); // Debug log
 
       for (const entry of entries) {
         await fetch('/api/production-time', {
@@ -126,8 +141,10 @@ export default function ProductionTimeEntriesPage() {
       toast.success('Time entries saved successfully!');
       fetchTimeEntries();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
       toast.error('Failed to save time entries');
+      console.error('Save entries error:', errorMsg); // Debug log
     } finally {
       setLoading(false);
     }

@@ -50,7 +50,7 @@ export default function EntriesClient() {
 
   const timeSlots = [
     '8:00-9:00', '9:00-10:00', '10:00-11:00', '11:00-12:00',
-    '12:00-13:00', '13:00-14:00', '14:00-15:00', '15:00-16:00', '16:00-17:00',
+    '12:30-13:30', '13:30-14:30', '14:30-15:30', '15:30-16:30'
   ];
 
   const fetchEmployees = useCallback(async () => {
@@ -160,12 +160,12 @@ export default function EntriesClient() {
 
   const downloadPDF = () => {
     const doc = new jsPDF({ orientation: 'landscape' }) as JsPDFWithAutoTable;
-    doc.setFontSize(18);
+    doc.setFontSize(19);
     doc.text('Production Time Entries', 14, 20);
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.text(`Date: ${date}`, 14, 30);
 
-    const headers = ['Name', 'Poste', ...timeSlots];
+    const headers = ['Name', 'Position', ...timeSlots];
     const body = filteredEmployees.map((emp) => [
       emp.name,
       emp.poste,
@@ -177,7 +177,7 @@ export default function EntriesClient() {
       body,
       startY: 40,
       theme: 'striped',
-      styles: { fontSize: 8 },
+      styles: { fontSize: 11 },
       columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 30 } },
     });
 

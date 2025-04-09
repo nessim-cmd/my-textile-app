@@ -70,7 +70,20 @@ export default function ImportDetailsPage() {
     if (!declaration) return;
     setIsLoading(true);
     setErrorMessage(null);
-
+  
+    // Prepare the declaration data, ensuring temp IDs are handled
+    const declarationToSend = {
+      ...declaration,
+      models: declaration.models.map(model => ({
+        ...model,
+        id: model.id.startsWith('temp-') ? undefined : model.id, // Remove temp IDs for new models
+        accessories: model.accessories.map(acc => ({
+          ...acc,
+          id: acc.id.startsWith('temp-') ? undefined : acc.id, // Remove temp IDs for new accessories
+        })),
+      })),
+    };
+  
     try {
       const token = await getToken();
       const response = await fetch(`/api/import/${declaration.id}`, {
@@ -79,23 +92,22 @@ export default function ImportDetailsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(declaration),
+        body: JSON.stringify(declarationToSend),
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to update declaration");
       }
-
-      await fetchDeclaration();
+  
+      await fetchDeclaration(); // Refresh data from server
     } catch (error) {
       console.error("Error saving declaration:", error);
-      
+      setErrorMessage("Failed to save declaration: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleDelete = async () => {
     const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette déclaration ?");
     if (confirmed && declaration?.id) {

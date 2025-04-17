@@ -26,26 +26,17 @@ export async function GET(
         ...model,
         createdAt: model.createdAt.toISOString(),
         updatedAt: model.updatedAt.toISOString(),
-        commande: model.commande || "",
-        description: model.description || "",
-        quantityReçu: model.quantityReçu || 0,
-        quantityTrouvee: model.quantityTrouvee || 0,
-        livraisonEntreeId: model.livraisonEntreeId || "",
         accessories: model.accessories.map(acc => ({
-          id: acc.id,
-          reference_accessoire: acc.reference_accessoire || "",
-          description: acc.description || "",
+          ...acc,
           quantity_reçu: acc.quantity_reçu || 0,
           quantity_trouve: acc.quantity_trouve || 0,
-          quantity_manque: acc.quantity_manque || 0,
           quantity_sortie: acc.quantity_sortie || 0,
-          modelId: acc.modelId || "", // Should not be empty
-          
+          quantity_manque: acc.quantity_manque || 0,
         })),
       })),
     };
 
-    console.log("GET /api/import/[id] - Response:", JSON.stringify(transformedDeclaration, null, 2));
+    console.log("GET /api/import/[id] - Declaration fetched:", transformedDeclaration.id);
     return NextResponse.json(transformedDeclaration, { status: 200 });
   } catch (error) {
     console.error("GET /api/import/[id] Error:", error);
@@ -63,58 +54,38 @@ export async function PUT(
   try {
     const { id } = await params;
     const declarationData = await request.json();
+    const { num_dec, date_import, client, valeur, models } = declarationData;
 
-    // Update the DeclarationImport basic fields
-    await prisma.declarationImport.update({
-      where: { id },
-      data: {
-        num_dec: declarationData.num_dec,
-        date_import: new Date(declarationData.date_import),
-        client: declarationData.client,
-        valeur: declarationData.valeur,
-        updatedAt: new Date(),
-      },
-    });
+    console.log("PUT /api/import/[id] - Received data:", JSON.stringify(declarationData, null, 2));
 
-    // Fetch existing models to compare
-    const existingModels = await prisma.model.findMany({
-      where: { declarationImportId: id },
-      include: { accessories: true },
-    });
-
-    // Identify models to delete
-    const modelsToDelete = existingModels.filter(
-      (model) => !declarationData.models.some((m: Model) => m.id && m.id === model.id)
-    );
-    if (modelsToDelete.length > 0) {
-      await prisma.accessoire.deleteMany({
-        where: { modelId: { in: modelsToDelete.map(m => m.id) } },
-      });
-      await prisma.model.deleteMany({
-        where: { id: { in: modelsToDelete.map(m => m.id) } },
-      });
+    // Validate required fields
+    if (!num_dec || !date_import || !client || valeur === undefined) {
+      return NextResponse.json(
+        { error: "num_dec, date_import, client, and valeur are required" },
+        { status: 400 }
+      );
     }
 
-    // Handle Client and ClientModel logic
-    const clientName = declarationData.client;
-    let client = await prisma.client.findFirst({
-      where: { name: clientName },
-    });
-    if (!client) {
-      client = await prisma.client.create({
+    // Resolve or create client
+    let clientRecord = await prisma.client.findFirst({ where: { name: client } });
+    if (!clientRecord) {
+      clientRecord = await prisma.client.create({
         data: {
-          name: clientName,
+          name: client,
           createdAt: new Date(),
           updatedAt: new Date(),
         },
       });
+      console.log("PUT /api/import/[id] - Created new client:", clientRecord.name);
     }
 
-    for (const model of declarationData.models) {
+    // Sync ClientModel entries
+    for (const model of models) {
+      if (!model.name) continue;
       const modelNameLower = model.name.toLowerCase();
       const existingClientModel = await prisma.clientModel.findFirst({
         where: {
-          clientId: client.id,
+          clientId: clientRecord.id,
           name: modelNameLower,
         },
       });
@@ -122,119 +93,52 @@ export async function PUT(
         await prisma.clientModel.create({
           data: {
             name: modelNameLower,
-            clientId: client.id,
-            commandes: "",
+            clientId: clientRecord.id,
+            commandes: model.commande || "",
             createdAt: new Date(),
             updatedAt: new Date(),
           },
         });
-      }
-
-      let modelId: string;
-      if (!model.id || model.id.startsWith("temp-")) {
-        // Create new model
-        const newModel = await prisma.model.create({
-          data: {
-            name: model.name,
-            declarationImportId: id,
-            commande: model.commande || "",
-            description: model.description || "",
-            quantityReçu: model.quantityReçu || 0,
-            quantityTrouvee: model.quantityTrouvee || 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
-        modelId = newModel.id;
-
-        // Create accessories for new model
-        for (const acc of model.accessories) {
-          await prisma.accessoire.create({
-            data: {
-              reference_accessoire: acc.reference_accessoire || "",
-              description: acc.description || "",
-              quantity_reçu: acc.quantity_reçu || 0,
-              quantity_trouve: acc.quantity_trouve || 0,
-              quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
-              quantity_sortie: acc.quantity_sortie || 0,
-            
-              modelId: modelId, // Ensure modelId is set
-              
-            },
-          });
-        }
-      } else {
-        // Update existing model
-        await prisma.model.update({
-          where: { id: model.id },
-          data: {
-            name: model.name,
-            commande: model.commande || "",
-            description: model.description || "",
-            quantityReçu: model.quantityReçu || 0,
-            quantityTrouvee: model.quantityTrouvee || 0,
-            updatedAt: new Date(),
-          },
-        });
-        modelId = model.id;
-
-        // Handle accessories
-        const existingAccessories = existingModels.find(m => m.id === model.id)?.accessories || [];
-        const accessoriesToDelete = existingAccessories.filter(
-          (acc) => !model.accessories.some((a: Accessoire) => a.id && a.id === acc.id)
-        );
-        if (accessoriesToDelete.length > 0) {
-          await prisma.accessoire.deleteMany({
-            where: { id: { in: accessoriesToDelete.map(a => a.id) } },
-          });
-        }
-
-        for (const acc of model.accessories) {
-          if (!acc.id || acc.id.startsWith("temp-")) {
-            // Create new accessory
-            await prisma.accessoire.create({
-              data: {
-                reference_accessoire: acc.reference_accessoire || "",
-                description: acc.description || "",
-                quantity_reçu: acc.quantity_reçu || 0,
-                quantity_trouve: acc.quantity_trouve || 0,
-                quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
-                quantity_sortie: acc.quantity_sortie || 0,
-                
-                modelId: modelId, // Ensure modelId is set
-              
-              },
-            });
-          } else {
-            // Update existing accessory
-            await prisma.accessoire.update({
-              where: { id: acc.id },
-              data: {
-                reference_accessoire: acc.reference_accessoire || "",
-                description: acc.description || "",
-                quantity_reçu: acc.quantity_reçu || 0,
-                quantity_trouve: acc.quantity_trouve || 0,
-                quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
-                quantity_sortie: acc.quantity_sortie || 0,
-             
-                modelId: modelId, // Ensure modelId is set
-                
-              },
-            });
-          }
-        }
+        console.log("PUT /api/import/[id] - Created new client model:", modelNameLower);
       }
     }
 
-    // Fetch updated declaration to return
-    const updatedDeclaration = await prisma.declarationImport.findUnique({
+    // Update DeclarationImport and replace models/accessories
+    const updatedDeclaration = await prisma.declarationImport.update({
       where: { id },
+      data: {
+        num_dec,
+        date_import: new Date(date_import),
+        client,
+        valeur,
+        updatedAt: new Date(),
+        models: {
+          deleteMany: {}, // Delete all existing models
+          create: models.map((model: Model) => ({
+            id: model.id && !model.id.startsWith('temp-') ? model.id : undefined,
+            name: model.name,
+            commande: model.commande || "",
+            description: model.description || "",
+            quantityReçu: model.quantityReçu || 0,
+            quantityTrouvee: model.quantityTrouvee || 0,
+            createdAt: new Date(model.createdAt || new Date()),
+            updatedAt: new Date(),
+            accessories: {
+              create: model.accessories.map((acc: Accessoire) => ({
+                id: acc.id && !acc.id.startsWith('temp-') ? acc.id : undefined,
+                reference_accessoire: acc.reference_accessoire || "",
+                description: acc.description || "",
+                quantity_reçu: acc.quantity_reçu || 0,
+                quantity_trouve: acc.quantity_trouve || 0,
+                quantity_sortie: acc.quantity_sortie || 0,
+                quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
+              })),
+            },
+          })),
+        },
+      },
       include: { models: { include: { accessories: true } } },
     });
-
-    if (!updatedDeclaration) {
-      return NextResponse.json({ error: "Declaration not found" }, { status: 404 });
-    }
 
     const transformedDeclaration = {
       ...updatedDeclaration,
@@ -245,26 +149,17 @@ export async function PUT(
         ...model,
         createdAt: model.createdAt.toISOString(),
         updatedAt: model.updatedAt.toISOString(),
-        commande: model.commande || "",
-        description: model.description || "",
-        quantityReçu: model.quantityReçu || 0,
-        quantityTrouvee: model.quantityTrouvee || 0,
-        livraisonEntreeId: model.livraisonEntreeId || "",
         accessories: model.accessories.map(acc => ({
-          id: acc.id,
-          reference_accessoire: acc.reference_accessoire || "",
-          description: acc.description || "",
+          ...acc,
           quantity_reçu: acc.quantity_reçu || 0,
           quantity_trouve: acc.quantity_trouve || 0,
-          quantity_manque: acc.quantity_manque || 0,
           quantity_sortie: acc.quantity_sortie || 0,
-          modelId: acc.modelId || "",
-          
+          quantity_manque: acc.quantity_manque || 0,
         })),
       })),
     };
 
-    console.log("PUT /api/import/[id] - Response:", JSON.stringify(transformedDeclaration, null, 2));
+    console.log("PUT /api/import/[id] - Returning updated declaration:", JSON.stringify(transformedDeclaration, null, 2));
     return NextResponse.json(transformedDeclaration, { status: 200 });
   } catch (error) {
     console.error("PUT /api/import/[id] Error:", error);
@@ -282,6 +177,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await prisma.declarationImport.delete({ where: { id } });
+    console.log("DELETE /api/import/[id] - Declaration deleted:", id);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("DELETE /api/import/[id] Error:", error);

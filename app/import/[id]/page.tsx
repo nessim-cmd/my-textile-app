@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Save, Trash, Plus } from "lucide-react";
 import { DeclarationImport, Model } from "@/type";
 import Wrapper from "@/components/Wrapper";
@@ -13,14 +13,6 @@ interface Client {
   name: string;
 }
 
-// Sanitize strings to escape special characters
-const sanitize = (str: string) =>
-  str
-    .replace(/'/g, "'")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/&/g, "&");
-
 export default function ImportDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -29,73 +21,82 @@ export default function ImportDetailsPage() {
   const [initialDeclaration, setInitialDeclaration] = useState<DeclarationImport | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchDeclaration = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
+  const fetchDeclaration = async () => {
     try {
       const token = await getToken();
       const response = await fetch(`/api/import/${params.id}`, {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
       });
-      if (!response.ok) throw new Error(`Failed to fetch declaration: ${response.status}`);
-      const data: DeclarationImport = await response.json();
+      if (!response.ok) throw new Error(`Failed to fetch declaration: ${response.statusText}`);
+      const data = await response.json();
+      console.log("Fetched declaration:", JSON.stringify(data, null, 2));
       setDeclaration(data);
       setInitialDeclaration(data);
     } catch (error) {
       console.error("Error fetching declaration:", error);
       setErrorMessage("Failed to fetch declaration. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
-  }, [params.id, getToken]);
+  };
 
-  const fetchClients = useCallback(async () => {
+  const fetchClients = async () => {
     try {
       const token = await getToken();
       const response = await fetch("/api/client", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      const data: Client[] = await response.json();
+      const data = await response.json();
       setClients(data);
     } catch (error) {
       console.error("Error fetching clients:", error);
       setErrorMessage("Failed to fetch clients. Please try again.");
     }
-  }, [getToken]);
+  };
 
   useEffect(() => {
     if (params.id) {
       fetchDeclaration();
       fetchClients();
     }
-  }, [params.id, fetchDeclaration, fetchClients]);
+  }, [params.id]);
 
   useEffect(() => {
     setIsSaveDisabled(JSON.stringify(declaration) === JSON.stringify(initialDeclaration));
   }, [declaration, initialDeclaration]);
+
+  useEffect(() => {
+    console.log("Declaration state updated:", JSON.stringify(declaration, null, 2));
+  }, [declaration]);
 
   const handleSave = async () => {
     if (!declaration) return;
     setIsLoading(true);
     setErrorMessage(null);
 
+    // Prepare the declaration data, ensuring temp IDs are handled
     const declarationToSend = {
       ...declaration,
-      models: declaration.models.map((model) => ({
+      models: declaration.models.map(model => ({
         ...model,
-        id: model.id.startsWith("temp-") ? undefined : model.id,
-        accessories: model.accessories.map((acc) => ({
+        id: model.id.startsWith('temp-') ? undefined : model.id,
+        quantityReçu: model.quantityReçu || 0,
+        quantityTrouvee: model.quantityTrouvee || 0,
+        accessories: model.accessories.map(acc => ({
           ...acc,
-          id: acc.id.startsWith("temp-") ? undefined : acc.id,
-          modelId: model.id,
+          id: acc.id.startsWith('temp-') ? undefined : acc.id,
+          quantity_reçu: acc.quantity_reçu || 0,
+          quantity_trouve: acc.quantity_trouve || 0,
+          quantity_sortie: acc.quantity_sortie || 0,
           quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
         })),
       })),
     };
+
+    console.log("Sending data to server:", JSON.stringify(declarationToSend, null, 2));
 
     try {
       const token = await getToken();
@@ -113,10 +114,21 @@ export default function ImportDetailsPage() {
         throw new Error(errorData.error || "Failed to update declaration");
       }
 
+      const updatedData = await response.json();
+      console.log("Server response after save:", JSON.stringify(updatedData, null, 2));
+
+      // Update state with server response
+      setDeclaration(updatedData);
+      setInitialDeclaration(updatedData);
+
+      // Re-fetch to ensure consistency
       await fetchDeclaration();
+
+      // Trigger refresh for Accessoires page
+      window.dispatchEvent(new Event('declarationUpdated'));
     } catch (error) {
       console.error("Error saving declaration:", error);
-      setErrorMessage(`Failed to save declaration: ${error instanceof Error ? error.message : String(error)}`);
+      setErrorMessage("Failed to save declaration: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsLoading(false);
     }
@@ -125,14 +137,12 @@ export default function ImportDetailsPage() {
   const handleDelete = async () => {
     const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette déclaration ?");
     if (confirmed && declaration?.id) {
-      setErrorMessage(null);
       try {
         const token = await getToken();
-        const response = await fetch(`/api/import/${declaration.id}`, {
+        await fetch(`/api/import/${declaration.id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!response.ok) throw new Error("Failed to delete declaration");
         router.push("/import");
       } catch (error) {
         console.error("Error deleting declaration:", error);
@@ -147,14 +157,14 @@ export default function ImportDetailsPage() {
       id: `temp-${Date.now()}`,
       name: "",
       declarationImportId: declaration.id,
-      livraisonEntreeId: "",
+      accessories: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       commande: "",
       description: "",
       quantityReçu: 0,
       quantityTrouvee: 0,
-      accessories: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      livraisonEntreeId: "",
     };
     setDeclaration({
       ...declaration,
@@ -162,74 +172,71 @@ export default function ImportDetailsPage() {
     });
   };
 
-  const updateModel = (modelId: string, field: keyof Model, value: string) => {
+  const updateModel = (modelId: string, field: string, value: string) => {
     if (!declaration) return;
     setDeclaration({
       ...declaration,
-      models: declaration.models.map((model) =>
+      models: declaration.models.map(model =>
         model.id === modelId ? { ...model, [field]: value } : model
       ),
     });
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-    field: keyof DeclarationImport
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: string) => {
     if (!declaration) return;
-    const value = field === "valeur" ? parseFloat(e.target.value) || 0 : e.target.value;
+    const value = field === "valeur" ? parseFloat(e.target.value) : e.target.value;
     setDeclaration({ ...declaration, [field]: value });
   };
 
-  if (isLoading || !declaration) {
+  if (!declaration)
     return (
       <div className="flex justify-center items-center h-screen w-full">
         <span className="font-bold">Chargement de la déclaration...</span>
       </div>
     );
-  }
 
   return (
-    // Around line 242: Start of main JSX structure
     <Wrapper>
       <div>
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
           <p className="badge badge-ghost badge-lg uppercase">
-            <span>DEC-</span>
-            {sanitize(declaration.num_dec)}
+            <span>DEC-</span>{declaration.num_dec}
           </p>
-          <div className="flex md:mt-0 mt-4 gap-4">
+
+          <div className="flex md:mt-0 mt-4">
             <button
-              className="btn btn-sm btn-accent flex items-center gap-2"
+              className="btn btn-sm btn-accent ml-4"
               disabled={isSaveDisabled || isLoading}
               onClick={handleSave}
             >
               {isLoading ? (
-                <span className="loading loading-spinner loading-sm" />
+                <span className="loading loading-spinner loading-sm"></span>
               ) : (
                 <>
                   Sauvegarder
-                  <Save className="w-4" />
+                  <Save className="w-4 ml-2" />
                 </>
               )}
             </button>
+
             <button
               onClick={handleDelete}
-              className="btn btn-sm btn-accent flex items-center gap-2"
+              className="btn btn-sm btn-accent ml-4"
             >
               <Trash className="w-4" />
-              Supprimer
             </button>
           </div>
         </div>
 
-        {errorMessage && <div className="alert alert-error mb-4">{errorMessage}</div>}
+        {errorMessage && (
+          <div className="alert alert-error mb-4">{errorMessage}</div>
+        )}
 
         <div className="flex flex-col md:flex-row w-full gap-4">
           <div className="w-full md:w-1/3 space-y-4">
             <div className="card bg-base-200 p-4">
               <h3 className="font-bold mb-2">Informations Générales</h3>
-              <div className="space-y-4">
+              <div className="space-y-2">
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Numéro DEC</span>
@@ -241,6 +248,7 @@ export default function ImportDetailsPage() {
                     onChange={(e) => handleInputChange(e, "num_dec")}
                   />
                 </div>
+
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Date d'Import</span>
@@ -248,16 +256,11 @@ export default function ImportDetailsPage() {
                   <input
                     type="date"
                     className="input input-bordered"
-                    value={
-                      declaration.date_import
-                        ? new Date(declaration.date_import).toISOString().split("T")[0]
-                        : ""
-                    }
-                    onChange={(e) =>
-                      setDeclaration({ ...declaration, date_import: e.target.value })
-                    }
+                    value={declaration.date_import ? new Date(declaration.date_import).toISOString().split("T")[0] : ""}
+                    onChange={(e) => setDeclaration({ ...declaration, date_import: e.target.value })}
                   />
                 </div>
+
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Client</span>
@@ -270,11 +273,12 @@ export default function ImportDetailsPage() {
                     <option value="">Sélectionner un client</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.name}>
-                        {sanitize(client.name)}
+                        {client.name}
                       </option>
                     ))}
                   </select>
                 </div>
+
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Valeur (€)</span>
@@ -289,21 +293,19 @@ export default function ImportDetailsPage() {
                 </div>
               </div>
             </div>
+
             <div className="card bg-base-200 p-4">
               <h3 className="font-bold mb-2">Modèles</h3>
-              <button
-                onClick={addNewModel}
-                className="btn btn-sm btn-accent w-full flex items-center gap-2"
-              >
-                <Plus className="w-4" />
-                Ajouter Modèle
+              <button onClick={addNewModel} className="btn btn-sm btn-accent w-full">
+                <Plus className="w-4 mr-2" /> Ajouter Modèle
               </button>
+
               <div className="mt-4 space-y-2">
-                {declaration.models.map((model) => (
+                {declaration.models.map(model => (
                   <div key={model.id} className="collapse collapse-arrow bg-base-100">
                     <input type="checkbox" />
                     <div className="collapse-title font-medium">
-                      {sanitize(model.name) || "Nouveau Modèle"}
+                      {model.name || "Nouveau Modèle"}
                     </div>
                     <div className="collapse-content">
                       <input
@@ -319,12 +321,9 @@ export default function ImportDetailsPage() {
               </div>
             </div>
           </div>
+
           <div className="w-full md:w-2/3">
-            <ImportLines
-              key={declaration.id}
-              declaration={declaration}
-              setDeclaration={setDeclaration}
-            />
+            <ImportLines declaration={declaration} setDeclaration={setDeclaration} />
           </div>
         </div>
       </div>

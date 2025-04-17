@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
-export async function GET() { // Removed unused 'request' parameter
+export async function GET() {
   console.log("GET /api/import - Request received");
   try {
     const declarations = await prisma.declarationImport.findMany({
-      include: { 
+      include: {
         models: {
           include: { accessories: true },
         },
@@ -28,7 +28,7 @@ export async function GET() { // Removed unused 'request' parameter
       })),
     }));
 
-    console.log("GET /api/import - Declarations fetched:", transformedDeclarations);
+    console.log("GET /api/import - Declarations fetched:", transformedDeclarations.length);
     return NextResponse.json(transformedDeclarations, { status: 200 });
   } catch (error) {
     console.error("GET /api/import Error:", error);
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   console.log("POST /api/import - Request received");
   try {
     const { num_dec, date_import, client, valeur } = await request.json();
-    
+
     console.log("POST /api/import - Num Dec:", num_dec);
     if (!num_dec || !date_import || !client || valeur === undefined) {
       return NextResponse.json(
@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
         date_import: new Date(date_import),
         client,
         valeur,
-        // userId is optional, so we omit it
         createdAt: new Date(),
         updatedAt: new Date(),
       },

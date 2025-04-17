@@ -4,7 +4,7 @@ import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Wrapper from "@/components/Wrapper";
-import { DeclarationImport } from "@/type"; // Removed unused Accessoire import
+import { DeclarationImport } from "@/type";
 
 interface AccessoryRow {
   id: string;
@@ -37,12 +37,13 @@ export default function AccessoiresPage() {
       const token = await getToken();
       const response = await fetch("/api/import", {
         headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store", // Prevent caching to ensure fresh data
       });
-      
+
       if (!response.ok) throw new Error(`Error ${response.status}`);
-      
+
       const declarations: DeclarationImport[] = await response.json();
-      
+
       const accessoryRows: AccessoryRow[] = declarations.flatMap(declaration =>
         declaration.models.flatMap(model =>
           model.accessories.map(acc => ({
@@ -58,7 +59,8 @@ export default function AccessoiresPage() {
           }))
         )
       );
-      
+
+      console.log("Fetched accessories:", accessoryRows.length);
       setAccessories(accessoryRows);
     } catch (error) {
       console.error("Error loading accessories:", error);
@@ -70,6 +72,19 @@ export default function AccessoiresPage() {
 
   useEffect(() => {
     fetchAccessories();
+  }, [fetchAccessories]);
+
+  // Listen for declaration updates to refresh accessories
+  useEffect(() => {
+    const handleDeclarationUpdate = () => {
+      console.log("Declaration updated, refreshing accessories");
+      fetchAccessories();
+    };
+
+    window.addEventListener('declarationUpdated', handleDeclarationUpdate);
+    return () => {
+      window.removeEventListener('declarationUpdated', handleDeclarationUpdate);
+    };
   }, [fetchAccessories]);
 
   const handleSell = async (accessoryId: string) => {

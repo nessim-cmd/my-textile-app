@@ -58,7 +58,7 @@ export default function ImportPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
-      
+
       const data = await response.json();
       setDeclarations(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -100,11 +100,11 @@ export default function ImportPage() {
       const token = await getToken();
       const response = await fetch("/api/import", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email,
           num_dec: numDec.trim(),
           date_import: dateImport,

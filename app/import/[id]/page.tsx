@@ -13,8 +13,13 @@ interface Client {
   name: string;
 }
 
-// Utility to sanitize strings to prevent unescaped quotes
-const sanitize = (str: string) => str.replace(/'/g, "'");
+// Sanitize strings to escape special characters
+const sanitize = (str: string) =>
+  str
+    .replace(/'/g, "'")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/&/g, "&");
 
 export default function ImportDetailsPage() {
   const router = useRouter();
@@ -185,8 +190,7 @@ export default function ImportDetailsPage() {
   }
 
   return (
-    // Around line 238: Start of main JSX structure
-    // eslint-disable-next-line react/no-unescaped-entities
+    // Around line 242: Start of main JSX structure
     <Wrapper>
       <div>
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">

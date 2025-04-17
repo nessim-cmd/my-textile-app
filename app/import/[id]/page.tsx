@@ -115,7 +115,7 @@ export default function ImportDetailsPage() {
   };
 
   const handleDelete = async () => {
-    // Escaped quotes in the confirmation message
+    // Explicitly escaped confirmation message
     const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette déclaration ?");
     if (confirmed && declaration?.id) {
       setErrorMessage(null);

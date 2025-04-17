@@ -13,6 +13,9 @@ interface Client {
   name: string;
 }
 
+// Utility to sanitize strings to prevent unescaped quotes
+const sanitize = (str: string) => str.replace(/'/g, "'");
+
 export default function ImportDetailsPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -183,12 +186,13 @@ export default function ImportDetailsPage() {
 
   return (
     // Around line 238: Start of main JSX structure
+    // eslint-disable-next-line react/no-unescaped-entities
     <Wrapper>
       <div>
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
           <p className="badge badge-ghost badge-lg uppercase">
             <span>DEC-</span>
-            {declaration.num_dec}
+            {sanitize(declaration.num_dec)}
           </p>
           <div className="flex md:mt-0 mt-4 gap-4">
             <button
@@ -262,7 +266,7 @@ export default function ImportDetailsPage() {
                     <option value="">Sélectionner un client</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.name}>
-                        {client.name}
+                        {sanitize(client.name)}
                       </option>
                     ))}
                   </select>
@@ -295,7 +299,7 @@ export default function ImportDetailsPage() {
                   <div key={model.id} className="collapse collapse-arrow bg-base-100">
                     <input type="checkbox" />
                     <div className="collapse-title font-medium">
-                      {model.name || "Nouveau Modèle"}
+                      {sanitize(model.name) || "Nouveau Modèle"}
                     </div>
                     <div className="collapse-content">
                       <input

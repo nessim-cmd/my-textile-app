@@ -63,8 +63,7 @@ const allItems = [
       { title: "Suivi Livraisons", url: "/etat-import-export-livraison" },
       { title: "Fiche Production", url: "/fiche-production" },
       { title: "Planning", url: "/planning" },
-      { title: "Production", url: "/production-time/entries" },
-      { title: "List Production", url: "/production-time/list" }
+      { title: "List Production By Hour", url: "/production-time/list" }
      
 
     ],

@@ -3,7 +3,7 @@
 import Wrapper from '@/components/Wrapper';
 import { useAuth } from '@clerk/nextjs';
 import { useState, useEffect, useCallback } from 'react';
-import { Eye } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Employee {
@@ -59,7 +59,15 @@ export default function ProductionTimeListPage() {
   return (
     <Wrapper>
       <div className="p-4 md:p-6 bg-gray-100 min-h-screen">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Production Time - Entries List</h1>
+        <a className='flex bg-accent border-amber-700 rounded-xl w-60 h-10 text-center justify-center pt-1 font-bold text-white'
+        href="/production-time/entries"
+        >
+          New Production
+          <Plus/>
+        </a>
+        </div>
         {loading ? (
           <div className="text-center"><span className="loading loading-dots loading-lg"></span></div>
         ) : error ? (

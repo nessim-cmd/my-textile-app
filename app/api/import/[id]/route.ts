@@ -12,7 +12,7 @@ export async function GET(
       where: { id },
       include: { models: { include: { accessories: true } } },
     });
-    
+
     if (!declaration) {
       return NextResponse.json({ error: "Declaration not found" }, { status: 404 });
     }
@@ -25,13 +25,27 @@ export async function GET(
       models: declaration.models.map(model => ({
         ...model,
         createdAt: model.createdAt.toISOString(),
-        updatedAt: model.createdAt.toISOString(),
+        updatedAt: model.updatedAt.toISOString(),
+        commande: model.commande || "",
+        description: model.description || "",
+        quantityReçu: model.quantityReçu || 0,
+        quantityTrouvee: model.quantityTrouvee || 0,
+        livraisonEntreeId: model.livraisonEntreeId || "",
         accessories: model.accessories.map(acc => ({
-          ...acc,
+          id: acc.id,
+          reference_accessoire: acc.reference_accessoire || "",
+          description: acc.description || "",
+          quantity_reçu: acc.quantity_reçu || 0,
+          quantity_trouve: acc.quantity_trouve || 0,
+          quantity_manque: acc.quantity_manque || 0,
+          quantity_sortie: acc.quantity_sortie || 0,
+          modelId: acc.modelId || "", // Should not be empty
+          
         })),
       })),
     };
 
+    console.log("GET /api/import/[id] - Response:", JSON.stringify(transformedDeclaration, null, 2));
     return NextResponse.json(transformedDeclaration, { status: 200 });
   } catch (error) {
     console.error("GET /api/import/[id] Error:", error);
@@ -73,6 +87,9 @@ export async function PUT(
       (model) => !declarationData.models.some((m: Model) => m.id && m.id === model.id)
     );
     if (modelsToDelete.length > 0) {
+      await prisma.accessoire.deleteMany({
+        where: { modelId: { in: modelsToDelete.map(m => m.id) } },
+      });
       await prisma.model.deleteMany({
         where: { id: { in: modelsToDelete.map(m => m.id) } },
       });
@@ -113,75 +130,97 @@ export async function PUT(
         });
       }
 
-      // Handle Model creation or update
-      if (!model.id || model.id.startsWith('temp-')) {
+      let modelId: string;
+      if (!model.id || model.id.startsWith("temp-")) {
         // Create new model
-        await prisma.model.create({
+        const newModel = await prisma.model.create({
           data: {
             name: model.name,
             declarationImportId: id,
+            commande: model.commande || "",
+            description: model.description || "",
+            quantityReçu: model.quantityReçu || 0,
+            quantityTrouvee: model.quantityTrouvee || 0,
             createdAt: new Date(),
             updatedAt: new Date(),
-            accessories: {
-              create: model.accessories.map((acc: Accessoire) => ({
-                reference_accessoire: acc.reference_accessoire,
-                description: acc.description,
-                quantity_reçu: acc.quantity_reçu,
-                quantity_trouve: acc.quantity_trouve,
-                quantity_manque: acc.quantity_trouve - acc.quantity_reçu,
-              })),
-            },
           },
         });
-      } else {
-        // Update existing model
-        const existingModel = existingModels.find(m => m.id === model.id);
-        if (existingModel) {
-          await prisma.model.update({
-            where: { id: model.id },
+        modelId = newModel.id;
+
+        // Create accessories for new model
+        for (const acc of model.accessories) {
+          await prisma.accessoire.create({
             data: {
-              name: model.name,
-              updatedAt: new Date(),
+              reference_accessoire: acc.reference_accessoire || "",
+              description: acc.description || "",
+              quantity_reçu: acc.quantity_reçu || 0,
+              quantity_trouve: acc.quantity_trouve || 0,
+              quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
+              quantity_sortie: acc.quantity_sortie || 0,
+            
+              modelId: modelId, // Ensure modelId is set
+              
             },
           });
+        }
+      } else {
+        // Update existing model
+        await prisma.model.update({
+          where: { id: model.id },
+          data: {
+            name: model.name,
+            commande: model.commande || "",
+            description: model.description || "",
+            quantityReçu: model.quantityReçu || 0,
+            quantityTrouvee: model.quantityTrouvee || 0,
+            updatedAt: new Date(),
+          },
+        });
+        modelId = model.id;
 
-          // Handle accessories
-          const existingAccessories = existingModel.accessories;
-          const accessoriesToDelete = existingAccessories.filter(
-            (acc) => !model.accessories.some((a: Accessoire) => a.id && a.id === acc.id)
-          );
-          if (accessoriesToDelete.length > 0) {
-            await prisma.accessoire.deleteMany({
-              where: { id: { in: accessoriesToDelete.map(a => a.id) } },
+        // Handle accessories
+        const existingAccessories = existingModels.find(m => m.id === model.id)?.accessories || [];
+        const accessoriesToDelete = existingAccessories.filter(
+          (acc) => !model.accessories.some((a: Accessoire) => a.id && a.id === acc.id)
+        );
+        if (accessoriesToDelete.length > 0) {
+          await prisma.accessoire.deleteMany({
+            where: { id: { in: accessoriesToDelete.map(a => a.id) } },
+          });
+        }
+
+        for (const acc of model.accessories) {
+          if (!acc.id || acc.id.startsWith("temp-")) {
+            // Create new accessory
+            await prisma.accessoire.create({
+              data: {
+                reference_accessoire: acc.reference_accessoire || "",
+                description: acc.description || "",
+                quantity_reçu: acc.quantity_reçu || 0,
+                quantity_trouve: acc.quantity_trouve || 0,
+                quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
+                quantity_sortie: acc.quantity_sortie || 0,
+                
+                modelId: modelId, // Ensure modelId is set
+              
+              },
             });
-          }
-
-          for (const acc of model.accessories) {
-            if (!acc.id || acc.id.startsWith('temp-')) {
-              // Create new accessory
-              await prisma.accessoire.create({
-                data: {
-                  reference_accessoire: acc.reference_accessoire,
-                  description: acc.description,
-                  quantity_reçu: acc.quantity_reçu,
-                  quantity_trouve: acc.quantity_trouve,
-                  quantity_manque: acc.quantity_trouve - acc.quantity_reçu,
-                  modelId: model.id,
-                },
-              });
-            } else if (existingAccessories.some(a => a.id === acc.id)) {
-              // Update existing accessory
-              await prisma.accessoire.update({
-                where: { id: acc.id },
-                data: {
-                  reference_accessoire: acc.reference_accessoire,
-                  description: acc.description,
-                  quantity_reçu: acc.quantity_reçu,
-                  quantity_trouve: acc.quantity_trouve,
-                  quantity_manque: acc.quantity_trouve - acc.quantity_reçu,
-                },
-              });
-            }
+          } else {
+            // Update existing accessory
+            await prisma.accessoire.update({
+              where: { id: acc.id },
+              data: {
+                reference_accessoire: acc.reference_accessoire || "",
+                description: acc.description || "",
+                quantity_reçu: acc.quantity_reçu || 0,
+                quantity_trouve: acc.quantity_trouve || 0,
+                quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
+                quantity_sortie: acc.quantity_sortie || 0,
+             
+                modelId: modelId, // Ensure modelId is set
+                
+              },
+            });
           }
         }
       }
@@ -193,21 +232,39 @@ export async function PUT(
       include: { models: { include: { accessories: true } } },
     });
 
+    if (!updatedDeclaration) {
+      return NextResponse.json({ error: "Declaration not found" }, { status: 404 });
+    }
+
     const transformedDeclaration = {
       ...updatedDeclaration,
-      createdAt: updatedDeclaration!.createdAt.toISOString(),
-      updatedAt: updatedDeclaration!.updatedAt.toISOString(),
-      date_import: updatedDeclaration!.date_import.toISOString(),
-      models: updatedDeclaration!.models.map(model => ({
+      createdAt: updatedDeclaration.createdAt.toISOString(),
+      updatedAt: updatedDeclaration.updatedAt.toISOString(),
+      date_import: updatedDeclaration.date_import.toISOString(),
+      models: updatedDeclaration.models.map(model => ({
         ...model,
         createdAt: model.createdAt.toISOString(),
         updatedAt: model.updatedAt.toISOString(),
+        commande: model.commande || "",
+        description: model.description || "",
+        quantityReçu: model.quantityReçu || 0,
+        quantityTrouvee: model.quantityTrouvee || 0,
+        livraisonEntreeId: model.livraisonEntreeId || "",
         accessories: model.accessories.map(acc => ({
-          ...acc,
+          id: acc.id,
+          reference_accessoire: acc.reference_accessoire || "",
+          description: acc.description || "",
+          quantity_reçu: acc.quantity_reçu || 0,
+          quantity_trouve: acc.quantity_trouve || 0,
+          quantity_manque: acc.quantity_manque || 0,
+          quantity_sortie: acc.quantity_sortie || 0,
+          modelId: acc.modelId || "",
+          
         })),
       })),
     };
 
+    console.log("PUT /api/import/[id] - Response:", JSON.stringify(transformedDeclaration, null, 2));
     return NextResponse.json(transformedDeclaration, { status: 200 });
   } catch (error) {
     console.error("PUT /api/import/[id] Error:", error);

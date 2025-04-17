@@ -14,7 +14,17 @@ interface JsPDFWithAutoTable extends jsPDF {
     body: string[][];
     startY: number;
     theme: string;
-    styles: { fontSize: number };
+    styles: { fontSize: number; lineColor?: number[]; lineWidth?: number }; // Include optional styles
+    headStyles?: { // Add headStyles as an optional property
+      fillColor?: number[];
+      textColor?: number[];
+      lineWidth?: number;
+      lineColor?: number[];
+    };
+    bodyStyles?: { // Add bodyStyles as an optional property
+      lineWidth?: number;
+      lineColor?: number[];
+    };
     columnStyles: { [key: number]: { cellWidth: number } };
   }) => void;
 }
@@ -61,9 +71,13 @@ export default function EntriesClient() {
       if (!res.ok) throw new Error('Failed to fetch employees');
       const data = await res.json();
       const employeeList = Array.isArray(data) ? data : [];
-      console.log('Fetched employees:', employeeList);
-      setEmployees(employeeList);
-      setFilteredEmployees(employeeList);
+      // Sort employees alphabetically when fetching
+      const sortedEmployeeList = employeeList.sort((a: Employee, b: Employee) => 
+        a.name.localeCompare(b.name)
+      );
+      console.log('Fetched and sorted employees:', sortedEmployeeList);
+      setEmployees(sortedEmployeeList);
+      setFilteredEmployees(sortedEmployeeList);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMsg);
@@ -103,10 +117,10 @@ export default function EntriesClient() {
   }, [fetchEmployees, fetchTimeEntries, date]);
 
   useEffect(() => {
-    const filtered = employees.filter((emp) =>
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    console.log('Filtered employees:', filtered);
+    const filtered = employees
+      .filter((emp) => emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name)); // Maintain alphabetical order after filtering
+    console.log('Filtered and sorted employees:', filtered);
     setFilteredEmployees(filtered);
     setCurrentEmployeeIndex(0);
   }, [searchTerm, employees]);
@@ -164,23 +178,32 @@ export default function EntriesClient() {
     doc.text('Production Time Entries', 14, 20);
     doc.setFontSize(14);
     doc.text(`Date: ${date}`, 14, 30);
-
+  
     const headers = ['Name', 'Position', ...timeSlots];
     const body = filteredEmployees.map((emp) => [
       emp.name,
       emp.poste,
       ...timeSlots.map((slot) => timeEntries[emp.id]?.[slot] || ''),
     ]);
-
+  
     doc.autoTable({
       head: [headers],
       body,
       startY: 40,
-      theme: 'striped',
+      theme: 'grid',
       styles: { fontSize: 11 },
-      columnStyles: { 0: { cellWidth: 30 }, 1: { cellWidth: 30 } },
+      headStyles: {
+        fillColor: [200, 200, 200],
+        textColor: [0, 0, 0],
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0],
+      } as any, // Use type assertion to bypass type checking
+      columnStyles: { 
+        0: { cellWidth: 30 }, 
+        1: { cellWidth: 30 } 
+      },
     });
-
+  
     doc.save(`production_time_${date}.pdf`);
   };
 

@@ -23,7 +23,6 @@ export default function ProductionTimePage() {
   const [newEmployee, setNewEmployee] = useState({ name: '', poste: '' });
   const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
 
-  // Memoize fetchEmployees to prevent recreation on every render
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
     try {
@@ -32,21 +31,21 @@ export default function ProductionTimePage() {
       if (!res.ok) throw new Error('Failed to fetch employees');
       const data = await res.json();
       const employeeList = Array.isArray(data) ? data : [];
-      console.log('Fetched employees:', employeeList); // Debug log
+      console.log('Fetched employees:', employeeList);
       setEmployees(employeeList);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMsg);
-      console.error('Fetch employees error:', errorMsg); // Debug log
+      console.error('Fetch employees error:', errorMsg);
     } finally {
       setLoading(false);
     }
-  }, [getToken]); // Dependency: getToken
+  }, [getToken]);
 
   useEffect(() => {
-    console.log('useEffect triggered'); // Debug log
+    console.log('useEffect triggered');
     fetchEmployees();
-  }, [fetchEmployees]); // Dependency is memoized function
+  }, [fetchEmployees]);
 
   const handleCreateEmployee = async () => {
     setLoading(true);
@@ -169,29 +168,32 @@ export default function ProductionTimePage() {
               </tr>
             </thead>
             <tbody>
-              {employees.map((employee) => (
-                <tr key={employee.id}>
-                  <td>{employee.name}</td>
-                  <td>{employee.poste}</td>
-                  <td>
-                    <button
-                      className="btn btn-info btn-sm mr-2"
-                      onClick={() => {
-                        setEditEmployee(employee);
-                        setIsEditModalOpen(true);
-                      }}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="btn btn-error btn-sm"
-                      onClick={() => handleDeleteEmployee(employee.id)}
-                    >
-                      <Trash className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {employees
+                .slice() // Create a copy to avoid mutating original array
+                .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically by name
+                .map((employee) => (
+                  <tr key={employee.id}>
+                    <td>{employee.name}</td>
+                    <td>{employee.poste}</td>
+                    <td>
+                      <button
+                        className="btn btn-info btn-sm mr-2"
+                        onClick={() => {
+                          setEditEmployee(employee);
+                          setIsEditModalOpen(true);
+                        }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="btn btn-error btn-sm"
+                        onClick={() => handleDeleteEmployee(employee.id)}
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         ) : (

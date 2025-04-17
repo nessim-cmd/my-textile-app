@@ -272,7 +272,7 @@ model Accessoire {
   quantity_sortie Float? @default(0) // Add this line
   modelId             String?
   model               Model?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
-
+  
   Model Model[] @relation("ModelAccessoires")
 }
 

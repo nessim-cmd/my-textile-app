@@ -21,22 +21,27 @@ export default function ImportDetailsPage() {
   const [initialDeclaration, setInitialDeclaration] = useState<DeclarationImport | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchDeclaration = async () => {
     try {
+      setIsLoading(true);
       const token = await getToken();
       const response = await fetch(`/api/import/${params.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error("Failed to fetch declaration");
+      if (!response.ok) throw new Error(`Failed to fetch declaration: ${response.status}`);
       const data = await response.json();
-      setDeclaration(data);
-      setInitialDeclaration(data);
+      console.log("fetchDeclaration - API Response:", JSON.stringify(data, null, 2));
+      setDeclaration({ ...data });
+      setInitialDeclaration({ ...data });
+      console.log("fetchDeclaration - State set:", JSON.stringify(data, null, 2));
     } catch (error) {
       console.error("Error fetching declaration:", error);
       setErrorMessage("Failed to fetch declaration. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -64,43 +69,49 @@ export default function ImportDetailsPage() {
 
   useEffect(() => {
     setIsSaveDisabled(JSON.stringify(declaration) === JSON.stringify(initialDeclaration));
+    console.log("useEffect - Declaration updated:", JSON.stringify(declaration, null, 2));
   }, [declaration, initialDeclaration]);
 
   const handleSave = async () => {
     if (!declaration) return;
     setIsLoading(true);
     setErrorMessage(null);
-  
-    // Prepare the declaration data, ensuring temp IDs are handled
+
     const declarationToSend = {
       ...declaration,
       models: declaration.models.map(model => ({
         ...model,
-        id: model.id.startsWith('temp-') ? undefined : model.id, // Remove temp IDs for new models
+        id: model.id.startsWith("temp-") ? undefined : model.id,
         accessories: model.accessories.map(acc => ({
           ...acc,
-          id: acc.id.startsWith('temp-') ? undefined : acc.id, // Remove temp IDs for new accessories
+          id: acc.id.startsWith("temp-") ? undefined : acc.id,
+          modelId: model.id, // Ensure modelId is sent
+          quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
         })),
       })),
     };
-  
+
+    console.log("handleSave - Sending to server:", JSON.stringify(declarationToSend, null, 2));
+
     try {
       const token = await getToken();
       const response = await fetch(`/api/import/${declaration.id}`, {
         method: "PUT",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(declarationToSend),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to update declaration");
       }
-  
-      await fetchDeclaration(); // Refresh data from server
+
+      const updatedData = await response.json();
+      console.log("handleSave - Received from server:", JSON.stringify(updatedData, null, 2));
+      await fetchDeclaration();
     } catch (error) {
       console.error("Error saving declaration:", error);
       setErrorMessage("Failed to save declaration: " + (error instanceof Error ? error.message : String(error)));
@@ -108,12 +119,13 @@ export default function ImportDetailsPage() {
       setIsLoading(false);
     }
   };
+
   const handleDelete = async () => {
     const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette déclaration ?");
     if (confirmed && declaration?.id) {
       try {
         const token = await getToken();
-        await fetch(`/api/import/${declaration.id}`, { 
+        await fetch(`/api/import/${declaration.id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -131,14 +143,14 @@ export default function ImportDetailsPage() {
       id: `temp-${Date.now()}`,
       name: "",
       declarationImportId: declaration.id,
-      accessories: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      livraisonEntreeId: "",
       commande: "",
       description: "",
       quantityReçu: 0,
       quantityTrouvee: 0,
-      livraisonEntreeId: ""
+      accessories: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     setDeclaration({
       ...declaration,
@@ -150,7 +162,7 @@ export default function ImportDetailsPage() {
     if (!declaration) return;
     setDeclaration({
       ...declaration,
-      models: declaration.models.map(model => 
+      models: declaration.models.map(model =>
         model.id === modelId ? { ...model, [field]: value } : model
       ),
     });
@@ -158,16 +170,17 @@ export default function ImportDetailsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: string) => {
     if (!declaration) return;
-    const value = field === "valeur" ? parseFloat(e.target.value) : e.target.value;
+    const value = field === "valeur" ? parseFloat(e.target.value) || 0 : e.target.value;
     setDeclaration({ ...declaration, [field]: value });
   };
 
-  if (!declaration)
+  if (isLoading || !declaration) {
     return (
       <div className="flex justify-center items-center h-screen w-full">
         <span className="font-bold">Chargement de la déclaration...</span>
       </div>
     );
+  }
 
   return (
     <Wrapper>
@@ -176,7 +189,6 @@ export default function ImportDetailsPage() {
           <p className="badge badge-ghost badge-lg uppercase">
             <span>DEC-</span>{declaration.num_dec}
           </p>
-          
           <div className="flex md:mt-0 mt-4">
             <button
               className="btn btn-sm btn-accent ml-4"
@@ -192,24 +204,17 @@ export default function ImportDetailsPage() {
                 </>
               )}
             </button>
-
-            <button
-              onClick={handleDelete}
-              className="btn btn-sm btn-accent ml-4"
-            >
+            <button onClick={handleDelete} className="btn btn-sm btn-accent ml-4">
               <Trash className="w-4" />
             </button>
           </div>
         </div>
 
         {errorMessage && (
-          <div className="alert alert-error mb-4">
-            {errorMessage}
-          </div>
+          <div className="alert alert-error mb-4">{errorMessage}</div>
         )}
 
         <div className="flex flex-col md:flex-row w-full gap-4">
-          {/* Left Side - Declaration Info */}
           <div className="w-full md:w-1/3 space-y-4">
             <div className="card bg-base-200 p-4">
               <h3 className="font-bold mb-2">Informations Générales</h3>
@@ -225,19 +230,17 @@ export default function ImportDetailsPage() {
                     onChange={(e) => handleInputChange(e, "num_dec")}
                   />
                 </div>
-                
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Date d&apos;Import</span>
+                    <span className="label-text">Date d'Import</span>
                   </label>
                   <input
                     type="date"
                     className="input input-bordered"
                     value={declaration.date_import ? new Date(declaration.date_import).toISOString().split("T")[0] : ""}
-                    onChange={(e) => setDeclaration({...declaration, date_import: e.target.value})}
+                    onChange={(e) => setDeclaration({ ...declaration, date_import: e.target.value })}
                   />
                 </div>
-                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Client</span>
@@ -255,7 +258,6 @@ export default function ImportDetailsPage() {
                     ))}
                   </select>
                 </div>
-                
                 <div className="form-control">
                   <label className="label">
                     <span className="label-text">Valeur (€)</span>
@@ -270,13 +272,11 @@ export default function ImportDetailsPage() {
                 </div>
               </div>
             </div>
-
             <div className="card bg-base-200 p-4">
               <h3 className="font-bold mb-2">Modèles</h3>
               <button onClick={addNewModel} className="btn btn-sm btn-accent w-full">
                 <Plus className="w-4 mr-2" /> Ajouter Modèle
               </button>
-              
               <div className="mt-4 space-y-2">
                 {declaration.models.map(model => (
                   <div key={model.id} className="collapse collapse-arrow bg-base-100">
@@ -298,10 +298,8 @@ export default function ImportDetailsPage() {
               </div>
             </div>
           </div>
-
-          {/* Right Side - Accessories Table */}
           <div className="w-full md:w-2/3">
-            <ImportLines declaration={declaration} setDeclaration={setDeclaration} />
+            <ImportLines key={declaration.id} declaration={declaration} setDeclaration={setDeclaration} />
           </div>
         </div>
       </div>

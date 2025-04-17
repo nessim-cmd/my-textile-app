@@ -115,7 +115,6 @@ export default function ImportDetailsPage() {
   };
 
   const handleDelete = async () => {
-    // Explicitly escaped confirmation message
     const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette déclaration ?");
     if (confirmed && declaration?.id) {
       setErrorMessage(null);
@@ -183,6 +182,7 @@ export default function ImportDetailsPage() {
   }
 
   return (
+    // Around line 238: Start of main JSX structure
     <Wrapper>
       <div>
         <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4">

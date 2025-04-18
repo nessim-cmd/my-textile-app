@@ -5,29 +5,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Save, Download, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable"; // Correct import
 import { useSearchParams } from "next/navigation";
-
-interface JsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: {
-    head: string[][];
-    body: string[][];
-    startY: number;
-    theme: string;
-    styles: { fontSize: number; lineColor?: number[]; lineWidth?: number };
-    headStyles: {
-      fillColor?: number[];
-      textColor?: number[];
-      lineWidth?: number;
-      lineColor?: number[];
-    };
-    bodyStyles: {
-      lineWidth?: number;
-      lineColor?: number[];
-    };
-    columnStyles: { [key: number]: { cellWidth: number } };
-  }) => void;
-}
 
 interface Employee {
   id: string;
@@ -180,7 +159,7 @@ export default function EntriesClient() {
   };
 
   const downloadPDF = () => {
-    const doc = new jsPDF({ orientation: "landscape" }) as JsPDFWithAutoTable;
+    const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(19);
     doc.text("Production Time Entries", 14, 20);
     doc.setFontSize(14);
@@ -193,12 +172,13 @@ export default function EntriesClient() {
       ...timeSlots.map((slot) => timeEntries[emp.id]?.[slot] || ""),
     ]);
 
-    doc.autoTable({
+    // Call autoTable directly, passing the jsPDF instance
+    autoTable(doc, {
       head: [headers],
       body,
       startY: 40,
       theme: "grid",
-      styles: { fontSize: 11 },
+      styles: { fontSize: 11, lineColor: [0, 0, 0], lineWidth: 0.15 },
       headStyles: {
         fillColor: [200, 200, 200],
         textColor: [0, 0, 0],
@@ -206,7 +186,7 @@ export default function EntriesClient() {
         lineColor: [0, 0, 0],
       },
       bodyStyles: {
-        lineWidth: 0.1,
+        lineWidth: 0.15,
         lineColor: [0, 0, 0],
       },
       columnStyles: {
@@ -220,7 +200,7 @@ export default function EntriesClient() {
 
   return (
     <div className="p-4 md:p-6 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">Production Time - Entries</h1>
+      <h1 className="text-3xl font-bold text-gray-800 mb-3">Production Time - Entries</h1>
       <div className="mb-6 space-y-4">
         <div className="form-control">
           <label className="label">

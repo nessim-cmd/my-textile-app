@@ -16,6 +16,32 @@ interface Client {
 const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEntree }) => {
   const { getToken } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
+  // State for the formatted date input (dd/mm/yyyy)
+  const [displayDate, setDisplayDate] = useState<string>("");
+
+  // Helper function to format date to dd/mm/yyyy
+  const formatDateToDDMMYYYY = (dateStr: string | null): string => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper function to parse dd/mm/yyyy to yyyy-mm-dd for storage
+  const parseDDMMYYYYToISO = (dateStr: string): string => {
+    if (!dateStr) return "";
+    const [day, month, year] = dateStr.split("/");
+    if (!day || !month || !year) return "";
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  };
+
+  // Initialize displayDate when livraisonEntree.livraisonDate changes
+  useEffect(() => {
+    setDisplayDate(formatDateToDDMMYYYY(livraisonEntree.livraisonDate));
+  }, [livraisonEntree.livraisonDate]);
 
   // Fetch clients on component mount
   useEffect(() => {
@@ -37,6 +63,25 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
   // Handle changes to general information fields
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: string) => {
     setLivraisonEntree({ ...livraisonEntree, [field]: e.target.value });
+  };
+
+  // Handle date input changes
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    setDisplayDate(inputValue); // Update the display value as the user types
+
+    // Validate and parse the date when it matches dd/mm/yyyy
+    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (dateRegex.test(inputValue)) {
+      const isoDate = parseDDMMYYYYToISO(inputValue);
+      if (isoDate && !isNaN(new Date(isoDate).getTime())) {
+        setLivraisonEntree({ ...livraisonEntree, livraisonDate: isoDate });
+      } else {
+        setLivraisonEntree({ ...livraisonEntree, livraisonDate: null }); // Invalid date
+      }
+    } else {
+      setLivraisonEntree({ ...livraisonEntree, livraisonDate: null }); // Incomplete or invalid format
+    }
   };
 
   // Add a new model with a unique ID and empty name
@@ -98,10 +143,11 @@ const LivraisonEntreeInfo: React.FC<Props> = ({ livraisonEntree, setLivraisonEnt
               <span className="label-text">Date de Livraison</span>
             </label>
             <input
-              type="date"
+              type="text"
               className="input input-bordered"
-              value={livraisonEntree.livraisonDate ? livraisonEntree.livraisonDate.split("T")[0] : ""}
-              onChange={(e) => setLivraisonEntree({ ...livraisonEntree, livraisonDate: e.target.value })}
+              value={displayDate}
+              placeholder="dd/mm/yyyy"
+              onChange={handleDateChange}
             />
           </div>
           <div className="form-control">

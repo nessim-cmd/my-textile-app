@@ -40,6 +40,28 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChang
   const email = user?.primaryEmailAddress?.emailAddress;
   const [clients, setClients] = useState<Client[]>([]);
 
+  // Helper function to format date to dd/mm/yyyy
+  const formatDateToDDMMYYYY = (dateStr: string): string => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper function to parse dd/mm/yyyy to yyyy-mm-dd for storage
+  const parseDDMMYYYYToISO = (dateStr: string): string => {
+    if (!dateStr) return "";
+    const [day, month, year] = dateStr.split("/");
+    if (!day || !month || !year) return "";
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  };
+
+  // State for the formatted date input (dd/mm/yyyy)
+  const [displayDate, setDisplayDate] = useState<string>(formatDateToDDMMYYYY(livraison.livraisonDate));
+
   useEffect(() => {
     const fetchClients = async () => {
       try {
@@ -91,6 +113,24 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChang
     setLivraison({ ...livraison, clientName: e.target.value });
   };
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    setDisplayDate(inputValue); // Update the display value as the user types
+
+    // Validate and parse the date when it matches dd/mm/yyyy
+    const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (dateRegex.test(inputValue)) {
+      const isoDate = parseDDMMYYYYToISO(inputValue);
+      if (isoDate && !isNaN(new Date(isoDate).getTime())) {
+        setLivraison({ ...livraison, livraisonDate: isoDate });
+      } else {
+        setLivraison({ ...livraison, livraisonDate: "" }); // Invalid date
+      }
+    } else {
+      setLivraison({ ...livraison, livraisonDate: "" }); // Incomplete or invalid format
+    }
+  };
+
   return (
     <div className="flex flex-col h-fit bg-base-200 p-5 rounded-xl mb-4 md:mb-0">
       <div className="space-y-4">
@@ -110,11 +150,12 @@ const LivraisonInfo: React.FC<Props> = ({ livraison, setLivraison, onModelsChang
 
         <h2 className="badge badge-accent">Date de livraison</h2>
         <input
-          type="date"
-          value={livraison.livraisonDate}
+          type="text"
+          value={displayDate}
+          placeholder="dd/mm/yyyy"
           className="input input-bordered w-full resize-none"
           required
-          onChange={(e) => handleInputChange(e, "livraisonDate")}
+          onChange={handleDateChange}
         />
       </div>
     </div>

@@ -80,6 +80,17 @@ export default function ClientEtatImportExportLivraisonPage() {
   const [dateFin, setDateFin] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Helper function to format date to dd/mm/yyyy
+  const formatDateToDDMMYYYY = (dateStr: string | null): string => {
+    if (!dateStr) return "N/A";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "N/A";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const fetchEtatData = useCallback(async () => {
     if (!email) return;
 
@@ -180,15 +191,36 @@ export default function ClientEtatImportExportLivraisonPage() {
     )
   );
 
+  // Get unique models from filteredExports
+  const exportModels = Array.from(
+    new Set(filteredExports.map((item) => item.modele))
+  );
+
+  // Get unique commandes per model from filteredExportsForDisplay
+  const exportCommandesByModel = filteredExports.reduce((acc, item) => {
+    if (!acc[item.modele]) {
+      acc[item.modele] = new Set();
+    }
+    acc[item.modele].add(item.commande);
+    return acc;
+  }, {} as Record<string, Set<string>>);
+
   const commandeSummaries: CommandeSummary[] = (etatData?.models || [])
-    .filter((model) => model.client === clientName && (selectedModels.length === 0 || selectedModels.includes(model.name)))
+    .filter((model) => 
+      model.client === clientName && 
+      exportModels.includes(model.name) && // Only include models present in filtered exports
+      (selectedModels.length === 0 || selectedModels.includes(model.name))
+    )
     .flatMap((model) => {
       const modelImports = filteredImports.filter((item) => item.modele === model.name);
       const modelExports = filteredExports.filter(
         (item) => item.modele === model.name && !item.isExcluded
       );
 
-      return (model.commandesWithVariants || []).map((cmd) => {
+      return (model.commandesWithVariants || []).filter((cmd) => 
+        // Only include commandes that exist in filteredExportsForDisplay for this model
+        exportCommandesByModel[model.name]?.has(cmd.value)
+      ).map((cmd) => {
         const quantityTotal = cmd.variants.reduce((sum, variant) => sum + (variant.qte_variante || 0), 0);
         const quantityReçu = modelImports
           .filter((item) => item.commande === cmd.value)
@@ -204,18 +236,13 @@ export default function ClientEtatImportExportLivraisonPage() {
           quantityReçu,
           quantityDelivered,
         };
-      }).filter((summary) => summary.quantityDelivered < summary.quantityTotal);
+      });
     });
 
   const totalQuantity = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityTotal, 0);
   const totalDelivered = commandeSummaries.reduce((sum, cmd) => sum + cmd.quantityDelivered, 0);
 
-  const filteredExportsForDisplay = filteredExports.filter((exportItem) => {
-    const summary = commandeSummaries.find(
-      (cmd) => cmd.commande === exportItem.commande && cmd.model === exportItem.modele
-    );
-    return !summary || exportItem.quantityDelivered < summary.quantityTotal;
-  });
+  const filteredExportsForDisplay = filteredExports; // Show all filtered exports
 
   const groupedExportsArrayForDisplay = Object.values(
     filteredExportsForDisplay.reduce((acc, item) => {
@@ -289,7 +316,7 @@ export default function ClientEtatImportExportLivraisonPage() {
         head: [["Date Import", "N° Livraison", "Modèle", "Commande", "Description", "Qté Reçu"]],
         body: groupedImportsArray.flatMap((group) =>
           group.lines.map((line, index) => [
-            index === 0 ? (group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A") : "",
+            index === 0 ? formatDateToDDMMYYYY(group.dateEntree) : "",
             index === 0 ? (group.numLivraisonEntree || "N/A") : "",
             line.modele || "N/A",
             line.commande || "N/A",
@@ -334,9 +361,9 @@ export default function ClientEtatImportExportLivraisonPage() {
         body: groupedExportsArrayForDisplay.flatMap((group) =>
           group.lines.map((line, index) => [
             line.isExcluded ? "Oui" : "Non",
-            index === 0 ? (group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A") : "",
+            index === 0 ? formatDateToDDMMYYYY(group.dateSortie) : "",
             index === 0 ? (group.numLivraisonSortie || "N/A") : "",
-            line.modele,
+            line.modele || "N/A",
             line.commande || "N/A",
             line.description || "N/A",
             line.quantityDelivered.toString(),
@@ -356,6 +383,7 @@ export default function ClientEtatImportExportLivraisonPage() {
           }
         },
       });
+      yOffset = (pdf as any).lastAutoTable.finalY + 12;
     } else {
       pdf.setFontSize(11);
       pdf.text("Aucune exportation en cours trouvée.", 10, yOffset);
@@ -526,7 +554,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                             {lineIndex === 0 && (
                               <>
                                 <td className="p-4" rowSpan={group.lines.length}>
-                                  {group.dateEntree ? new Date(group.dateEntree).toLocaleDateString() : "N/A"}
+                                  {formatDateToDDMMYYYY(group.dateEntree)}
                                 </td>
                                 <td className="p-4" rowSpan={group.lines.length}>
                                   {group.numLivraisonEntree || "N/A"}
@@ -584,7 +612,7 @@ export default function ClientEtatImportExportLivraisonPage() {
                             {lineIndex === 0 && (
                               <>
                                 <td className="p-4" rowSpan={group.lines.length}>
-                                  {group.dateSortie ? new Date(group.dateSortie).toLocaleDateString() : "N/A"}
+                                  {formatDateToDDMMYYYY(group.dateSortie)}
                                 </td>
                                 <td className="p-4" rowSpan={group.lines.length}>
                                   {group.numLivraisonSortie || "N/A"}

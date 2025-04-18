@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAuth, useUser } from "@clerk/nextjs"; // Added useUser
+import { useAuth, useUser } from "@clerk/nextjs";
 import Wrapper from "@/components/Wrapper";
 import { Search, ChevronDown, Download } from "lucide-react";
 import jsPDF from "jspdf";
@@ -33,7 +33,7 @@ interface PlanningEntry {
 
 export default function PlanningPage() {
   const { getToken } = useAuth();
-  const { user } = useUser(); // Added to get user email
+  const { user } = useUser();
   const [planningData, setPlanningData] = useState<PlanningEntry[]>([]);
   const [filteredData, setFilteredData] = useState<PlanningEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -59,7 +59,6 @@ export default function PlanningPage() {
       const headers = { Authorization: `Bearer ${token}` };
       const email = user.primaryEmailAddress.emailAddress;
 
-      // Add email to the request URL
       const clientModelResponse = await fetch(`/api/client-model?email=${encodeURIComponent(email)}`, { headers });
       if (!clientModelResponse.ok) {
         const errorData = await clientModelResponse.json();
@@ -171,6 +170,9 @@ export default function PlanningPage() {
         }).filter(Boolean) as PlanningEntry[];
       });
 
+      // Sort planningEntries by clientName alphabetically
+      planningEntries.sort((a, b) => a.clientName.localeCompare(b.clientName));
+
       setPlanningData(planningEntries);
       setFilteredData(planningEntries);
     } catch (err: any) {
@@ -179,7 +181,7 @@ export default function PlanningPage() {
     } finally {
       setLoading(false);
     }
-  }, [getToken, user]); // Added user to dependencies
+  }, [getToken, user]);
 
   useEffect(() => {
     fetchPlanningData();

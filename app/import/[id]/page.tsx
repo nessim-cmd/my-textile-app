@@ -77,23 +77,43 @@ export default function ImportDetailsPage() {
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Prepare the declaration data, ensuring temp IDs are handled
+    // Prepare the declaration data, filtering out invalid accessories
     const declarationToSend = {
       ...declaration,
-      models: declaration.models.map(model => ({
-        ...model,
-        id: model.id.startsWith('temp-') ? undefined : model.id,
-        quantityReçu: model.quantityReçu || 0,
-        quantityTrouvee: model.quantityTrouvee || 0,
-        accessories: model.accessories.map(acc => ({
-          ...acc,
-          id: acc.id.startsWith('temp-') ? undefined : acc.id,
-          quantity_reçu: acc.quantity_reçu || 0,
-          quantity_trouve: acc.quantity_trouve || 0,
-          quantity_sortie: acc.quantity_sortie || 0,
-          quantity_manque: (acc.quantity_trouve || 0) - (acc.quantity_reçu || 0),
+      valeur: Number(declaration.valeur) || 0,
+      models: declaration.models
+        .filter(model => model.name && typeof model.name === "string")
+        .map(model => ({
+          ...model,
+          id: model.id.startsWith('temp-') ? undefined : model.id,
+          name: model.name || "",
+          commande: model.commande || "",
+          description: model.description || "",
+          quantityReçu: Number(model.quantityReçu) || 0,
+          quantityTrouvee: Number(model.quantityTrouvee) || 0,
+          accessories: model.accessories
+            .filter(
+              acc =>
+                acc.reference_accessoire?.trim() &&
+                acc.description?.trim() &&
+                !isNaN(Number(acc.quantity_reçu)) &&
+                !isNaN(Number(acc.quantity_trouve)) &&
+                !isNaN(Number(acc.quantity_sortie))
+            )
+            .map(acc => {
+              console.log("Preparing accessory for model", model.name, ":", JSON.stringify(acc, null, 2));
+              return {
+                ...acc,
+                id: acc.id.startsWith('temp-') ? undefined : acc.id,
+                reference_accessoire: acc.reference_accessoire || "",
+                description: acc.description || "",
+                quantity_reçu: Number(acc.quantity_reçu) || 0,
+                quantity_trouve: Number(acc.quantity_trouve) || 0,
+                quantity_sortie: Number(acc.quantity_sortie) || 0,
+                quantity_manque: (Number(acc.quantity_trouve) || 0) - (Number(acc.quantity_reçu) || 0),
+              };
+            }),
         })),
-      })),
     };
 
     console.log("Sending data to server:", JSON.stringify(declarationToSend, null, 2));
@@ -109,12 +129,29 @@ export default function ImportDetailsPage() {
         body: JSON.stringify(declarationToSend),
       });
 
+      // Log raw response for debugging
+      const responseText = await response.text();
+      console.log("Raw server response:", responseText, "Status:", response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update declaration");
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (jsonError) {
+          console.error("Failed to parse error response:", jsonError, "Raw text:", responseText);
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const updatedData = await response.json();
+      let updatedData;
+      try {
+        updatedData = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error("Failed to parse response JSON:", jsonError, "Raw text:", responseText);
+        throw new Error("Invalid server response: Unexpected end of JSON input");
+      }
+
       console.log("Server response after save:", JSON.stringify(updatedData, null, 2));
 
       // Update state with server response
@@ -184,7 +221,7 @@ export default function ImportDetailsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: string) => {
     if (!declaration) return;
-    const value = field === "valeur" ? parseFloat(e.target.value) : e.target.value;
+    const value = field === "valeur" ? parseFloat(e.target.value) || 0 : e.target.value;
     setDeclaration({ ...declaration, [field]: value });
   };
 

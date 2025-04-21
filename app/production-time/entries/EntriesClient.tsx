@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Save, Download, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable"; // Correct import
+import autoTable from "jspdf-autotable";
 import { useSearchParams } from "next/navigation";
 
 interface Employee {
@@ -38,6 +38,7 @@ export default function EntriesClient() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const timeSlots = [
+    "Duree",
     "8:00-9:00",
     "9:00-10:00",
     "10:00-11:00",
@@ -45,7 +46,6 @@ export default function EntriesClient() {
     "12:30-13:30",
     "13:30-14:30",
     "14:30-15:30",
-    "15:30-16:30",
   ];
 
   const fetchEmployees = useCallback(async () => {
@@ -172,7 +172,6 @@ export default function EntriesClient() {
       ...timeSlots.map((slot) => timeEntries[emp.id]?.[slot] || ""),
     ]);
 
-    // Call autoTable directly, passing the jsPDF instance
     autoTable(doc, {
       head: [headers],
       body,
@@ -192,6 +191,7 @@ export default function EntriesClient() {
       columnStyles: {
         0: { cellWidth: 30 },
         1: { cellWidth: 30 },
+        2: { cellWidth: 20 }, // Duree column
       },
     });
 

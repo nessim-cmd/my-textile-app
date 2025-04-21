@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       data: {
         employeeId,
         date: new Date(date),
-        hours, // JSON object like {"8:00-9:00": 1, "9:00-10:00": 0, ...}
+        hours, // JSON object like {"Duree": "8", "8:00-9:00": "1", "9:00-10:00": "0", ...}
       },
       include: { employee: true },
     });

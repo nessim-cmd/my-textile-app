@@ -44,6 +44,17 @@ export default function PlanningPage() {
   const [dateFin, setDateFin] = useState<string>("");
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState<boolean>(false);
 
+  // Function to format date to DD/MM/YYYY
+  const formatDate = (dateInput: string | Date | undefined): string => {
+    if (!dateInput) return " ";
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return " ";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const fetchPlanningData = useCallback(async () => {
     if (!user?.primaryEmailAddress?.emailAddress) {
       setError("User email not available");
@@ -102,7 +113,7 @@ export default function PlanningPage() {
         deliveredMap.set(key, (deliveredMap.get(key) || 0) + quantity);
         
         if (exportDate) {
-          exportDateMap.set(key, new Date(exportDate).toLocaleDateString());
+          exportDateMap.set(key, formatDate(exportDate));
         }
       });
 
@@ -110,7 +121,7 @@ export default function PlanningPage() {
       ficheCoupeData.forEach((fiche: any) => {
         const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
         if (fiche.createdAt) {
-          coupeMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
+          coupeMap.set(key, formatDate(fiche.createdAt));
         }
       });
 
@@ -118,7 +129,7 @@ export default function PlanningPage() {
       ficheProductionData.forEach((fiche: any) => {
         const key = `${fiche.clientId}-${fiche.modelId}-${fiche.commande.toLowerCase()}`;
         if (fiche.createdAt) {
-          chaineMap.set(key, new Date(fiche.createdAt).toLocaleDateString());
+          chaineMap.set(key, formatDate(fiche.createdAt));
         }
       });
 
@@ -162,7 +173,7 @@ export default function PlanningPage() {
             designation: model.description || " ",
             qteTotal,
             qteLivree,
-            dateImport: model.createdAt ? new Date(model.createdAt).toLocaleDateString() : " ",
+            dateImport: model.createdAt ? formatDate(model.createdAt) : " ",
             dateExport,
             entreeCoupe,
             entreeChaine,
@@ -170,8 +181,12 @@ export default function PlanningPage() {
         }).filter(Boolean) as PlanningEntry[];
       });
 
-      // Sort planningEntries by clientName alphabetically
-      planningEntries.sort((a, b) => a.clientName.localeCompare(b.clientName));
+      // Sort planningEntries by dateImport chronologically
+      planningEntries.sort((a, b) => {
+        const dateA = new Date(a.dateImport.split("/").reverse().join("-"));
+        const dateB = new Date(b.dateImport.split("/").reverse().join("-"));
+        return dateA.getTime() - dateB.getTime();
+      });
 
       setPlanningData(planningEntries);
       setFilteredData(planningEntries);
@@ -194,7 +209,7 @@ export default function PlanningPage() {
         entry.commande.value.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesModel =
         selectedModels.length === 0 || selectedModels.includes(entry.modele);
-      const dateImport = new Date(entry.dateImport);
+      const dateImport = new Date(entry.dateImport.split("/").reverse().join("-"));
       const start = dateDebut ? new Date(dateDebut) : null;
       const end = dateFin ? new Date(dateFin) : null;
       const matchesDate =

@@ -27,6 +27,14 @@ export default function AccessoiresPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedAccessoryId, setSelectedAccessoryId] = useState<string | null>(null);
   const [quantitySortieInput, setQuantitySortieInput] = useState("");
+  const [newAccessory, setNewAccessory] = useState({
+    client: "",
+    model: "",
+    reference: "",
+    description: "",
+    quantity_reçu: "",
+    quantity_trouve: "",
+  });
   const itemsPerPage = 10;
 
   const fetchAccessories = useCallback(async () => {
@@ -35,33 +43,50 @@ export default function AccessoiresPage() {
 
     try {
       const token = await getToken();
-      const response = await fetch("/api/import", {
+      const response = await fetch("/api/all-accessories", {
         headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store", // Prevent caching to ensure fresh data
+        cache: "no-store",
       });
 
       if (!response.ok) throw new Error(`Error ${response.status}`);
 
-      const declarations: DeclarationImport[] = await response.json();
+      const data = await response.json();
+      const { declarationAccessories, standaloneAccessories } = data;
 
-      const accessoryRows: AccessoryRow[] = declarations.flatMap(declaration =>
-        declaration.models.flatMap(model =>
-          model.accessories.map(acc => ({
-            id: acc.id,
-            client: declaration.client || "N/A",
-            model: model.name || "N/A",
-            reference: acc.reference_accessoire || "N/A",
-            description: acc.description || "N/A",
-            quantity_reçu: acc.quantity_reçu || 0,
-            quantity_trouve: acc.quantity_trouve || 0,
-            quantity_manque: acc.quantity_manque || 0,
-            quantity_sortie: acc.quantity_sortie || 0,
-          }))
-        )
+      // Process accessories from declarations
+      const declarationAccessoryRows: AccessoryRow[] = declarationAccessories.flatMap(
+        (declaration: DeclarationImport) =>
+          declaration.models.flatMap(model =>
+            model.accessories.map(acc => ({
+              id: acc.id,
+              client: declaration.client || "N/A",
+              model: model.name || "N/A",
+              reference: acc.reference_accessoire || "N/A",
+              description: acc.description || "N/A",
+              quantity_reçu: acc.quantity_reçu || 0,
+              quantity_trouve: acc.quantity_trouve || 0,
+              quantity_manque: acc.quantity_manque || 0,
+              quantity_sortie: acc.quantity_sortie || 0,
+            }))
+          )
       );
 
-      console.log("Fetched accessories:", accessoryRows.length);
-      setAccessories(accessoryRows);
+      // Process standalone accessories
+      const standaloneAccessoryRows: AccessoryRow[] = standaloneAccessories.map((acc: { id: any; client: any; model: { name: any; }; reference_accessoire: any; description: any; quantity_reçu: any; quantity_trouve: any; quantity_manque: any; quantity_sortie: any; }) => ({
+        id: acc.id,
+        client: acc.client || "N/A",
+        model: acc.model?.name || "N/A",
+        reference: acc.reference_accessoire || "N/A",
+        description: acc.description || "N/A",
+        quantity_reçu: acc.quantity_reçu || 0,
+        quantity_trouve: acc.quantity_trouve || 0,
+        quantity_manque: acc.quantity_manque || 0,
+        quantity_sortie: acc.quantity_sortie || 0,
+      }));
+
+      const allAccessories = [...declarationAccessoryRows, ...standaloneAccessoryRows];
+      console.log("Fetched accessories:", allAccessories.length);
+      setAccessories(allAccessories);
     } catch (error) {
       console.error("Error loading accessories:", error);
       setError("Failed to load accessories");
@@ -74,7 +99,6 @@ export default function AccessoiresPage() {
     fetchAccessories();
   }, [fetchAccessories]);
 
-  // Listen for declaration updates to refresh accessories
   useEffect(() => {
     const handleDeclarationUpdate = () => {
       console.log("Declaration updated, refreshing accessories");
@@ -134,6 +158,61 @@ export default function AccessoiresPage() {
     }
   };
 
+  const handleAddAccessory = async () => {
+    const { client, model, reference, description, quantity_reçu, quantity_trouve } = newAccessory;
+    if (!client || !model || !reference || !description || !quantity_reçu || !quantity_trouve) {
+      setError("All fields are required");
+      return;
+    }
+
+    const quantityReçuNum = parseFloat(quantity_reçu);
+    const quantityTrouveNum = parseFloat(quantity_trouve);
+    if (isNaN(quantityReçuNum) || isNaN(quantityTrouveNum) || quantityReçuNum < 0 || quantityTrouveNum < 0) {
+      setError("Quantities must be valid non-negative numbers");
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      const response = await fetch("/api/accessories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          client,
+          model,
+          reference_accessoire: reference,
+          description,
+          quantity_reçu: quantityReçuNum,
+          quantity_trouve: quantityTrouveNum,
+          quantity_manque: quantityTrouveNum - quantityReçuNum,
+          quantity_sortie: 0,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add accessory");
+      }
+
+      setNewAccessory({
+        client: "",
+        model: "",
+        reference: "",
+        description: "",
+        quantity_reçu: "",
+        quantity_trouve: "",
+      });
+      (document.getElementById("add_accessory_modal") as HTMLDialogElement)?.close();
+      await fetchAccessories(); // Refresh the accessories list
+    } catch (error) {
+      console.error("Error adding accessory:", error);
+      setError("Failed to add accessory");
+    }
+  };
+
   const filteredAccessories = accessories.filter(acc =>
     acc.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
     acc.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -165,6 +244,12 @@ export default function AccessoiresPage() {
             <span className="font-bold px-2">Search</span>
             <Search className="w-5 h-5 mt-0.5" />
           </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => (document.getElementById("add_accessory_modal") as HTMLDialogElement)?.showModal()}
+          >
+            Add Accessory
+          </button>
         </div>
 
         <h1 className="text-3xl font-bold">Accessoires</h1>
@@ -193,7 +278,10 @@ export default function AccessoiresPage() {
               </thead>
               <tbody>
                 {paginatedAccessories.map((acc) => (
-                  <tr key={acc.id}>
+                  <tr 
+                    key={acc.id} 
+                    className={(acc.quantity_trouve - (acc.quantity_sortie || 0) === 0) ? "!bg-red-300 !text-white" : ""}
+                  >
                     <td>{acc.client}</td>
                     <td>{acc.model}</td>
                     <td>{acc.reference}</td>
@@ -273,6 +361,67 @@ export default function AccessoiresPage() {
               onClick={() => selectedAccessoryId && handleSell(selectedAccessoryId)}
             >
               Confirm Sale
+            </button>
+          </div>
+        </dialog>
+
+        <dialog id="add_accessory_modal" className="modal">
+          <div className="modal-box">
+            <form method="dialog">
+              <button className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 className="font-bold text-lg mb-4">Add New Accessory</h3>
+            <div className="form-control space-y-4">
+              <input
+                type="text"
+                placeholder="Client"
+                className="input input-bordered w-full"
+                value={newAccessory.client}
+                onChange={(e) => setNewAccessory({ ...newAccessory, client: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Model"
+                className="input input-bordered w-full"
+                value={newAccessory.model}
+                onChange={(e) => setNewAccessory({ ...newAccessory, model: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Reference"
+                className="input input-bordered w-full"
+                value={newAccessory.reference}
+                onChange={(e) => setNewAccessory({ ...newAccessory, reference: e.target.value })}
+              />
+              <input
+                type="text"
+                placeholder="Description"
+                className="input input-bordered w-full"
+                value={newAccessory.description}
+                onChange={(e) => setNewAccessory({ ...newAccessory, description: e.target.value })}
+              />
+              <input
+                type="number"
+                placeholder="Quantity Reçu"
+                className="input input-bordered w-full"
+                value={newAccessory.quantity_reçu}
+                onChange={(e) => setNewAccessory({ ...newAccessory, quantity_reçu: e.target.value })}
+                min="0"
+              />
+              <input
+                type="number"
+                placeholder="Quantity Trouve"
+                className="input input-bordered w-full"
+                value={newAccessory.quantity_trouve}
+                onChange={(e) => setNewAccessory({ ...newAccessory, quantity_trouve: e.target.value })}
+                min="0"
+              />
+            </div>
+            <button
+              className="btn btn-primary w-full mt-4"
+              onClick={handleAddAccessory}
+            >
+              Add Accessory
             </button>
           </div>
         </dialog>

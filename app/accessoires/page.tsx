@@ -216,6 +216,7 @@ export default function AccessoiresPage() {
   const filteredAccessories = accessories.filter(acc =>
     acc.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
     acc.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    acc.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     acc.reference.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -232,7 +233,7 @@ export default function AccessoiresPage() {
         <div className="flex items-center space-x-2">
           <input
             type="text"
-            placeholder="Search by client, model, or reference"
+            placeholder="Search by client, model, Description or reference"
             className="rounded-xl p-2 bg-gray-100 w-full md:w-[400px]"
             value={searchTerm}
             onChange={(e) => {

@@ -101,21 +101,17 @@ export async function PUT(
       }
       for (const acc of model.accessories) {
         if (
-          acc.reference_accessoire === null ||
-          acc.reference_accessoire === undefined ||
-          acc.reference_accessoire.trim() === "" ||
-          acc.description === null ||
-          acc.description === undefined ||
-          acc.description.trim() === "" ||
+          !acc.reference_accessoire?.trim() ||
+          !acc.description?.trim() ||
           acc.quantity_reçu === null ||
           acc.quantity_reçu === undefined ||
-          isNaN(acc.quantity_reçu) ||
+          isNaN(Number(acc.quantity_reçu)) ||
           acc.quantity_trouve === null ||
           acc.quantity_trouve === undefined ||
-          isNaN(acc.quantity_trouve) ||
+          isNaN(Number(acc.quantity_trouve)) ||
           acc.quantity_sortie === null ||
           acc.quantity_sortie === undefined ||
-          isNaN(acc.quantity_sortie)
+          isNaN(Number(acc.quantity_sortie))
         ) {
           console.error("PUT /api/import/[id] - Invalid accessory data for model:", model.name, JSON.stringify(acc, null, 2));
           return NextResponse.json(
@@ -143,6 +139,35 @@ export async function PUT(
 
     console.log("PUT /api/import/[id] - Valid models after filtering:", JSON.stringify(validModels, null, 2));
 
+    // Check for duplicate reference_accessoire within the same model
+    for (const model of validModels) {
+      for (const acc of model.accessories) {
+        if (!acc.id || acc.id.startsWith('temp-')) {
+          const existingAccessory = await prisma.accessoire.findFirst({
+            where: {
+              reference_accessoire: acc.reference_accessoire,
+              modelId: model.id,
+            },
+          });
+          if (existingAccessory) {
+            console.error(
+              "PUT /api/import/[id] - Duplicate reference_accessoire found:",
+              acc.reference_accessoire,
+              "for model:",
+              model.name
+            );
+            return NextResponse.json(
+              {
+                error: `Duplicate reference_accessoire '${acc.reference_accessoire}' for model '${model.name}'`,
+                details: "Each accessory must have a unique reference_accessoire within a model",
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
+    }
+
     // Resolve or create client
     let clientRecord;
     try {
@@ -156,8 +181,6 @@ export async function PUT(
           },
         });
         console.log("PUT /api/import/[id] - Created new client:", clientRecord.name);
-      } else {
-        console.log("PUT /api/import/[id] - Found existing client:", clientRecord.name);
       }
     } catch (error) {
       console.error("PUT /api/import/[id] - Client operation failed:", error);
@@ -192,8 +215,6 @@ export async function PUT(
             },
           });
           console.log("PUT /api/import/[id] - Created new client model:", modelNameLower);
-        } else {
-          console.log("PUT /api/import/[id] - Found existing client model:", modelNameLower);
         }
       }
     } catch (error) {
@@ -204,57 +225,133 @@ export async function PUT(
       );
     }
 
-    // Update DeclarationImport and replace models/accessories
+    // Log current database state
+    console.log("PUT /api/import/[id] - Checking current accessories for declaration:", id);
+    const existingAccessories = await prisma.accessoire.findMany({
+      where: { model: { declarationImportId: id } },
+    });
+    console.log("PUT /api/import/[id] - Existing accessories:", JSON.stringify(existingAccessories, null, 2));
+
+    // Update DeclarationImport and handle accessories
     let updatedDeclaration;
     try {
-      updatedDeclaration = await prisma.declarationImport.update({
-        where: { id },
-        data: {
-          num_dec,
-          date_import: new Date(date_import),
-          client,
-          valeur: Number(valeur),
-          updatedAt: new Date(),
-          models: {
-            deleteMany: {},
-            create: validModels.map((model: Model) => {
-              console.log("PUT /api/import/[id] - Creating model:", model.name, "Accessories:", model.accessories);
-              return {
-                id: model.id && !model.id.startsWith('temp-') ? model.id : undefined,
+      updatedDeclaration = await prisma.$transaction(async (tx) => {
+        // Step 1: Update declaration fields
+        console.log("PUT /api/import/[id] - Updating declaration:", id);
+        const declaration = await tx.declarationImport.update({
+          where: { id },
+          data: {
+            num_dec,
+            date_import: new Date(date_import),
+            client,
+            valeur: Number(valeur),
+            updatedAt: new Date(),
+          },
+        });
+
+        // Step 2: Update or create models
+        console.log("PUT /api/import/[id] - Processing models");
+        const modelRecords = [];
+        for (const model of validModels) {
+          let modelRecord;
+          if (model.id && !model.id.startsWith('temp-')) {
+            // Update existing model
+            modelRecord = await tx.model.update({
+              where: { id: model.id },
+              data: {
                 name: model.name || "",
                 commande: model.commande || "",
                 description: model.description || "",
-                quantityReçu: Number(model.quantityReçu) || 0,
-                quantityTrouvee: Number(model.quantityTrouvee) || 0,
+                quantityReçu: Math.floor(Number(model.quantityReçu)) || 0,
+                quantityTrouvee: Math.floor(Number(model.quantityTrouvee)) || 0,
+                updatedAt: new Date(),
+              },
+            });
+          } else {
+            // Create new model
+            modelRecord = await tx.model.create({
+              data: {
+                name: model.name || "",
+                commande: model.commande || "",
+                description: model.description || "",
+                quantityReçu: Math.floor(Number(model.quantityReçu)) || 0,
+                quantityTrouvee: Math.floor(Number(model.quantityTrouvee)) || 0,
+                declarationImportId: id,
                 createdAt: new Date(model.createdAt || new Date()),
                 updatedAt: new Date(),
-                accessories: {
-                  create: model.accessories.map((acc: Accessoire) => {
-                    console.log("PUT /api/import/[id] - Creating accessory:", acc.reference_accessoire);
-                    return {
-                      id: acc.id && !acc.id.startsWith('temp-') ? acc.id : undefined,
-                      reference_accessoire: acc.reference_accessoire,
-                      description: acc.description,
-                      quantity_reçu: Number(acc.quantity_reçu) || 0,
-                      quantity_trouve: Number(acc.quantity_trouve) || 0,
-                      quantity_sortie: Number(acc.quantity_sortie) || 0,
-                      quantity_manque: (Number(acc.quantity_trouve) || 0) - (Number(acc.quantity_reçu) || 0),
-                    };
-                  }),
+              },
+            });
+          }
+          modelRecords.push({ inputModel: model, dbModel: modelRecord });
+        }
+
+        console.log("PUT /api/import/[id] - Processed models:", JSON.stringify(modelRecords.map(r => r.dbModel.name), null, 2));
+
+        // Step 3: Delete existing accessories for updated models
+        console.log("PUT /api/import/[id] - Deleting existing accessories for models");
+        for (const { dbModel } of modelRecords) {
+          await tx.accessoire.deleteMany({
+            where: { modelId: dbModel.id },
+          });
+        }
+
+        // Step 4: Create accessories for each model
+        console.log("PUT /api/import/[id] - Creating accessories");
+        for (const { inputModel, dbModel } of modelRecords) {
+          for (const acc of inputModel.accessories) {
+            console.log("Creating accessory for model:", dbModel.name, "Accessory:", acc.reference_accessoire);
+            try {
+              await tx.accessoire.create({
+                data: {
+                  id: acc.id && !acc.id.startsWith('temp-') ? acc.id : undefined,
+                  reference_accessoire: acc.reference_accessoire || "",
+                  description: acc.description || "",
+                  quantity_reçu: Math.floor(Number(acc.quantity_reçu)) || 0,
+                  quantity_trouve: Math.floor(Number(acc.quantity_trouve)) || 0,
+                  quantity_sortie: Math.floor(Number(acc.quantity_sortie)) || 0,
+                  quantity_manque: Math.floor(Number(acc.quantity_trouve)) - Math.floor(Number(acc.quantity_reçu)),
+                  modelId: dbModel.id,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
                 },
-              };
-            }),
-          },
-        },
-        include: { models: { include: { accessories: true } } },
+              });
+            } catch (accError) {
+              console.error("Failed to create accessory:", acc.reference_accessoire, "Error:", accError);
+              throw new Error(`Failed to create accessory '${acc.reference_accessoire}' for model '${dbModel.name}': ${accError instanceof Error ? accError.message : String(accError)}`);
+            }
+          }
+        }
+
+        // Step 5: Fetch updated declaration
+        console.log("PUT /api/import/[id] - Fetching updated declaration");
+        const result = await tx.declarationImport.findUnique({
+          where: { id },
+          include: { models: { include: { accessories: true } } },
+        });
+
+        if (!result) {
+          throw new Error("Failed to fetch updated declaration");
+        }
+
+        return result;
       });
     } catch (error) {
-      console.error("PUT /api/import/[id] - Prisma update failed:", error);
+      console.error("PUT /api/import/[id] - Prisma transaction failed:", error || "Unknown error");
       return NextResponse.json(
-        { error: "Failed to update declaration", details: error instanceof Error ? error.message : String(error) },
+        { 
+          error: "Failed to update declaration", 
+          details: error instanceof Error ? error.message : String(error || "Unknown error")
+        },
         { status: 500 }
       );
     }
+
+    // Log final database state
+    console.log("PUT /api/import/[id] - Checking final accessories for declaration:", id);
+    const finalAccessories = await prisma.accessoire.findMany({
+      where: { model: { declarationImportId: id } },
+    });
+    console.log("PUT /api/import/[id] - Final accessories:", JSON.stringify(finalAccessories, null, 2));
 
     const transformedDeclaration = {
       ...updatedDeclaration,
@@ -278,9 +375,12 @@ export async function PUT(
     console.log("PUT /api/import/[id] - Returning updated declaration:", JSON.stringify(transformedDeclaration, null, 2));
     return NextResponse.json(transformedDeclaration, { status: 200 });
   } catch (error) {
-    console.error("PUT /api/import/[id] - Unexpected error:", error);
+    console.error("PUT /api/import/[id] - Unexpected error:", error || "Unknown error");
     return NextResponse.json(
-      { error: "Internal server error", details: error instanceof Error ? error.message : String(error) },
+      { 
+        error: "Internal server error", 
+        details: error instanceof Error ? error.message : String(error || "Unknown error")
+      },
       { status: 500 }
     );
   }

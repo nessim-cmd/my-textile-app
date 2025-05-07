@@ -77,7 +77,7 @@ export default function ImportDetailsPage() {
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Prepare the declaration data, filtering out invalid accessories
+    // Prepare the declaration data, ensuring all required fields
     const declarationToSend = {
       ...declaration,
       valeur: Number(declaration.valeur) || 0,
@@ -89,8 +89,8 @@ export default function ImportDetailsPage() {
           name: model.name || "",
           commande: model.commande || "",
           description: model.description || "",
-          quantityReçu: Number(model.quantityReçu) || 0,
-          quantityTrouvee: Number(model.quantityTrouvee) || 0,
+          quantityReçu: Math.floor(Number(model.quantityReçu)) || 0,
+          quantityTrouvee: Math.floor(Number(model.quantityTrouvee)) || 0,
           accessories: model.accessories
             .filter(
               acc =>
@@ -100,19 +100,16 @@ export default function ImportDetailsPage() {
                 !isNaN(Number(acc.quantity_trouve)) &&
                 !isNaN(Number(acc.quantity_sortie))
             )
-            .map(acc => {
-              console.log("Preparing accessory for model", model.name, ":", JSON.stringify(acc, null, 2));
-              return {
-                ...acc,
-                id: acc.id.startsWith('temp-') ? undefined : acc.id,
-                reference_accessoire: acc.reference_accessoire || "",
-                description: acc.description || "",
-                quantity_reçu: Number(acc.quantity_reçu) || 0,
-                quantity_trouve: Number(acc.quantity_trouve) || 0,
-                quantity_sortie: Number(acc.quantity_sortie) || 0,
-                quantity_manque: (Number(acc.quantity_trouve) || 0) - (Number(acc.quantity_reçu) || 0),
-              };
-            }),
+            .map(acc => ({
+              id: acc.id && !acc.id.startsWith('temp-') ? acc.id : undefined,
+              reference_accessoire: acc.reference_accessoire || "",
+              description: acc.description || "",
+              quantity_reçu: Math.floor(Number(acc.quantity_reçu)) || 0,
+              quantity_trouve: Math.floor(Number(acc.quantity_trouve)) || 0,
+              quantity_sortie: Math.floor(Number(acc.quantity_sortie)) || 0,
+              quantity_manque: Math.floor(Number(acc.quantity_trouve)) - Math.floor(Number(acc.quantity_reçu)),
+              modelId: model.id,
+            })),
         })),
     };
 
@@ -129,7 +126,6 @@ export default function ImportDetailsPage() {
         body: JSON.stringify(declarationToSend),
       });
 
-      // Log raw response for debugging
       const responseText = await response.text();
       console.log("Raw server response:", responseText, "Status:", response.status);
 
@@ -141,7 +137,7 @@ export default function ImportDetailsPage() {
           console.error("Failed to parse error response:", jsonError, "Raw text:", responseText);
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`${errorData.error}${errorData.details ? `: ${errorData.details}` : ""}`);
       }
 
       let updatedData;
@@ -149,7 +145,7 @@ export default function ImportDetailsPage() {
         updatedData = JSON.parse(responseText);
       } catch (jsonError) {
         console.error("Failed to parse response JSON:", jsonError, "Raw text:", responseText);
-        throw new Error("Invalid server response: Unexpected end of JSON input");
+        throw new Error("Invalid server response");
       }
 
       console.log("Server response after save:", JSON.stringify(updatedData, null, 2));
@@ -161,18 +157,19 @@ export default function ImportDetailsPage() {
       // Re-fetch to ensure consistency
       await fetchDeclaration();
 
-      // Trigger refresh for Accessoires page
+      // Trigger refresh for other components
       window.dispatchEvent(new Event('declarationUpdated'));
     } catch (error) {
       console.error("Error saving declaration:", error);
-      setErrorMessage("Failed to save declaration: " + (error instanceof Error ? error.message : String(error)));
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setErrorMessage(`Failed to save declaration: ${errorMsg}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    const confirmed = window.confirm("Êtes-vous sûr de vouloir supprimer cette déclaration ?");
+    const confirmed = window.confirm("Are you sure you want to delete this declaration?");
     if (confirmed && declaration?.id) {
       try {
         const token = await getToken();
@@ -191,9 +188,10 @@ export default function ImportDetailsPage() {
   const addNewModel = () => {
     if (!declaration) return;
     const newModel: Model = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: "",
       declarationImportId: declaration.id,
+      livraisonEntreeId: "",
       accessories: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -201,7 +199,6 @@ export default function ImportDetailsPage() {
       description: "",
       quantityReçu: 0,
       quantityTrouvee: 0,
-      livraisonEntreeId: "",
     };
     setDeclaration({
       ...declaration,
@@ -228,7 +225,7 @@ export default function ImportDetailsPage() {
   if (!declaration)
     return (
       <div className="flex justify-center items-center h-screen w-full">
-        <span className="font-bold">Chargement de la déclaration...</span>
+        <span className="font-bold">Loading declaration...</span>
       </div>
     );
 
@@ -250,7 +247,7 @@ export default function ImportDetailsPage() {
                 <span className="loading loading-spinner loading-sm"></span>
               ) : (
                 <>
-                  Sauvegarder
+                  Save
                   <Save className="w-4 ml-2" />
                 </>
               )}
@@ -272,11 +269,11 @@ export default function ImportDetailsPage() {
         <div className="flex flex-col md:flex-row w-full gap-4">
           <div className="w-full md:w-1/3 space-y-4">
             <div className="card bg-base-200 p-4">
-              <h3 className="font-bold mb-2">Informations Générales</h3>
+              <h3 className="font-bold mb-2">General Information</h3>
               <div className="space-y-2">
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Numéro DEC</span>
+                    <span className="label-text">Declaration Number</span>
                   </label>
                   <input
                     type="text"
@@ -288,7 +285,7 @@ export default function ImportDetailsPage() {
 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Date d'Import</span>
+                    <span className="label-text">Import Date</span>
                   </label>
                   <input
                     type="date"
@@ -307,7 +304,7 @@ export default function ImportDetailsPage() {
                     value={declaration.client}
                     onChange={(e) => handleInputChange(e, "client")}
                   >
-                    <option value="">Sélectionner un client</option>
+                    <option value="">Select a client</option>
                     {clients.map((client) => (
                       <option key={client.id} value={client.name}>
                         {client.name}
@@ -318,7 +315,7 @@ export default function ImportDetailsPage() {
 
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Valeur (€)</span>
+                    <span className="label-text">Value (€)</span>
                   </label>
                   <input
                     type="number"
@@ -332,9 +329,9 @@ export default function ImportDetailsPage() {
             </div>
 
             <div className="card bg-base-200 p-4">
-              <h3 className="font-bold mb-2">Modèles</h3>
+              <h3 className="font-bold mb-2">Models</h3>
               <button onClick={addNewModel} className="btn btn-sm btn-accent w-full">
-                <Plus className="w-4 mr-2" /> Ajouter Modèle
+                <Plus className="w-4 mr-2" /> Add Model
               </button>
 
               <div className="mt-4 space-y-2">
@@ -342,12 +339,12 @@ export default function ImportDetailsPage() {
                   <div key={model.id} className="collapse collapse-arrow bg-base-100">
                     <input type="checkbox" />
                     <div className="collapse-title font-medium">
-                      {model.name || "Nouveau Modèle"}
+                      {model.name || "New Model"}
                     </div>
                     <div className="collapse-content">
                       <input
                         type="text"
-                        placeholder="Nom du modèle"
+                        placeholder="Model name"
                         className="input input-bordered w-full"
                         value={model.name}
                         onChange={(e) => updateModel(model.id, "name", e.target.value)}

@@ -84,7 +84,7 @@ model User {
   id           String             @id @default(uuid())
   name         String
   email        String             @unique
-  role         Role               @default(USER) // Changed to USER
+  role         Role               @default(ADMIN) // Changed to USER
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   clerkUserId  String?            @unique
@@ -240,40 +240,37 @@ model DeclarationImport {
   models      Model[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  user        User?        @relation("UserDeclarations", fields: [userId], references: [id])
+  user        User?       @relation("UserDeclarations", fields: [userId], references: [id])
 }
 
 model Model {
   id                  String             @id @default(uuid())
   name                String?
-  commande            String?            // Added
-  description         String?            // Added
-  quantityReçu        Float?             // Added
-  quantityTrouvee     Float?             // Added
-  
+  commande            String?
+  description         String?
+  quantityReçu        Float?
+  quantityTrouvee     Float?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
-  declarationImportId String?            
+  declarationImportId String?
   declarationImport   DeclarationImport? @relation(fields: [declarationImportId], references: [id], onDelete: Cascade)
-  livraisonEntreeId   String?            
+  livraisonEntreeId   String?
   livraisonEntree     LivraisonEntree?   @relation("LivraisonEntreeModels", fields: [livraisonEntreeId], references: [id], onDelete: Cascade)
-  accessories         Accessoire[]       @relation("ModelAccessoires") // Still used for DeclarationImport
-
-  Accessoire Accessoire[]
+  accessories         Accessoire[]       @relation("ModelAccessoires")
 }
 
 model Accessoire {
-  id                  String  @id @default(uuid())
+  id                  String   @id @default(uuid())
   reference_accessoire String?
-  description           String?
-  quantity_reçu       Float?   // Changed from Int to Float
-  quantity_trouve     Float?   // Changed from Int to Float
-  quantity_manque     Float?   // Changed to Float for consistency
-  quantity_sortie Float? @default(0) // Add this line
-  modelId             String?
-  model               Model?   @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  
-  Model Model[] @relation("ModelAccessoires")
+  description         String?
+  quantity_reçu       Float?
+  quantity_trouve     Float?
+  quantity_manque     Float?
+  quantity_sortie     Float?   @default(0)
+  modelId             String
+  model               Model    @relation("ModelAccessoires", fields: [modelId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model SuiviProduction {

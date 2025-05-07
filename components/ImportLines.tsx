@@ -31,21 +31,21 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
 
   const addAccessoireToModel = (modelId: string) => {
     if (!declaration) return;
+    const newAccessoire: Accessoire = {
+      id: `temp-acc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      reference_accessoire: "",
+      description: "",
+      quantity_reçu: 0,
+      quantity_trouve: 0,
+      quantity_sortie: 0,
+      quantity_manque: 0,
+      modelId: modelId,
+      name: "",
+    };
     setDeclaration({
       ...declaration,
       models: declaration.models.map(model => {
         if (model.id !== modelId) return model;
-        const newAccessoire: Accessoire = {
-          id: `temp-acc-${Date.now()}`,
-          reference_accessoire: "",
-          description: "",
-          quantity_reçu: 0,
-          quantity_trouve: 0,
-          quantity_sortie: 0,
-          quantity_manque: 0,
-          modelId: modelId,
-          name: ""
-        };
         return {
           ...model,
           accessories: [...model.accessories, newAccessoire],
@@ -97,9 +97,9 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
       <h3 className="font-bold mb-4">Accessoires</h3>
 
       {declaration.models.map(model => (
-        model.accessories.length > 0 ? (
-          <div key={model.id} className="mb-6">
-            <h4 className="font-semibold mb-2">{model.name || "Modèle Sans Nom"}</h4>
+        <div key={model.id} className="mb-6">
+          <h4 className="font-semibold mb-2">{model.name || "Modèle Sans Nom"}</h4>
+          {model.accessories.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="table table-zebra">
                 <thead>
@@ -168,24 +168,16 @@ const ImportLines: React.FC<Props> = ({ declaration, setDeclaration }) => {
                 </tbody>
               </table>
             </div>
-            <button
-              onClick={() => addAccessoireToModel(model.id)}
-              className="btn btn-xs btn-accent mt-2"
-            >
-              <Plus className="w-3 h-3" /> Accessoire
-            </button>
-          </div>
-        ) : (
-          <div key={model.id} className="mb-6">
-            <h4 className="font-semibold mb-2">{model.name || "Modèle Sans Nom"}</h4>
-            <button
-              onClick={() => addAccessoireToModel(model.id)}
-              className="btn btn-xs btn-accent mt-2"
-            >
-              <Plus className="w-3 h-3" /> Accessoire
-            </button>
-          </div>
-        )
+          ) : (
+            <p className="text-gray-500">Aucun accessoire pour ce modèle</p>
+          )}
+          <button
+            onClick={() => addAccessoireToModel(model.id)}
+            className="btn btn-xs btn-accent mt-2"
+          >
+            <Plus className="w-3 h-3" /> Accessoire
+          </button>
+        </div>
       ))}
     </div>
   );

@@ -63,7 +63,7 @@ const CommandeLines: React.FC<Props> = ({ commande, setCommande }) => {
                 <table className='table w-full'>
                     <thead className='uppercase'>
                         <tr>
-                            <th>Réference</th>
+                            
                             <th>Description</th>
                             <th>Quantité</th>
                             <th></th>
@@ -72,14 +72,7 @@ const CommandeLines: React.FC<Props> = ({ commande, setCommande }) => {
                     <tbody>
                         {commande.lines.map((line, index) => (
                             <tr key={line.id} >
-                                <td>
-                                    <input
-                                        type="text"
-                                        value={line.reference}
-                                        className='input input-sm input-bordered w-full'
-                                        onChange={(e) => handleReferenceChange(index, e.target.value)}
-                                    />
-                                </td>
+                                
                                 <td>
                                     <input
                                         type="text"

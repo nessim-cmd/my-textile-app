@@ -7,6 +7,8 @@ import Wrapper from "@/components/Wrapper";
 import { Search, ChevronDown, Download } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+
 
 interface VariantEntry {
   name: string;
@@ -342,6 +344,51 @@ export default function PlanningPage() {
     pdf.save("planning.pdf");
   };
 
+  const downloadExcel = () => {
+    const excelData = filteredData.flatMap((entry: PlanningEntry) => {
+      const commandeVariants = entry.commande.variants?.length > 0
+        ? entry.commande.variants
+        : [{ name: " ", qte_variante: 0 }];
+
+      return commandeVariants.map((variant: VariantEntry) => ({
+        Client: entry.clientName,
+        Modèle: entry.modele,
+        Commande: entry.commande.value,
+        Désignation: entry.designation,
+        Variant: variant.name,
+        "Qté Variant": variant.qte_variante,
+        "Qté Total": entry.qteTotal,
+        "Qté Livrée": entry.qteLivree,
+        "Date Import": entry.dateImport,
+        "Entrée Coupe": entry.entreeCoupe,
+        "Entrée Chaîne": entry.entreeChaine,
+        "Date Export": entry.dateExport,
+      }));
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Planning");
+
+    // Set column widths
+    worksheet["!cols"] = [
+      { wch: 20 }, // Client
+      { wch: 15 }, // Modèle
+      { wch: 15 }, // Commande
+      { wch: 25 }, // Désignation
+      { wch: 15 }, // Variant
+      { wch: 12 }, // Qté Variant
+      { wch: 12 }, // Qté Total
+      { wch: 12 }, // Qté Livrée
+      { wch: 12 }, // Date Import
+      { wch: 12 }, // Entrée Coupe
+      { wch: 12 }, // Entrée Chaîne
+      { wch: 12 }, // Date Export
+    ];
+
+    XLSX.writeFile(workbook, "planning.xlsx");
+  };
+
   return (
     <Wrapper>
       <div className="flex flex-col space-y-6 py-6">
@@ -422,6 +469,11 @@ export default function PlanningPage() {
           <button onClick={downloadPDF} className="btn btn-primary flex items-center gap-2">
             <Download className="w-5 h-5" />
             Télécharger PDF
+          </button>
+          <button onClick={downloadExcel} className="btn bg-green-600 text-white flex items-center gap-2">
+            <Download className="w-5 h-5" />
+            
+            Télécharger Excel
           </button>
         </div>
 

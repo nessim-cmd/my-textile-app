@@ -497,12 +497,14 @@ model Piece {
 
 
 model Employee {
-  id        String            @id @default(uuid())
-  name      String
-  poste     String            // e.g., "Couturier", "Manager"
-  timeEntries ProductionTimeEntry[] // Relation to production time entries
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id       String   @id @default(cuid())
+  name     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendances Attendance[]
+
+  ProductionTimeEntry ProductionTimeEntry[]
 }
 
 // schema.prisma (replace the ProductionTimeEntry model)
@@ -518,5 +520,21 @@ model ProductionTimeEntry {
   @@index([employeeId])
 }
 
+model Working {
+  id           Int      @id @default(autoincrement())
+  name         String
+  zkDeviceId   String   @unique
+  clerkUserId  String   @unique
+  attendances  Attendance[]
+}
 
+model Attendance {
+  id           Int      @id @default(autoincrement())
+  workingId    Int
+  timestamp    DateTime
+  type         String
+  working      Working  @relation(fields: [workingId], references: [id])
+
+  Employee Employee[]
+}
 

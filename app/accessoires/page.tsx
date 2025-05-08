@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import Wrapper from "@/components/Wrapper";
 import { DeclarationImport } from "@/type";
+import * as XLSX from "xlsx";
 
 interface AccessoryRow {
   id: string;
@@ -206,11 +207,50 @@ export default function AccessoiresPage() {
         quantity_trouve: "",
       });
       (document.getElementById("add_accessory_modal") as HTMLDialogElement)?.close();
-      await fetchAccessories(); // Refresh the accessories list
+      await fetchAccessories();
     } catch (error) {
       console.error("Error adding accessory:", error);
       setError("Failed to add accessory");
     }
+  };
+
+  const handleDownloadExcel = () => {
+    const data = accessories.map(acc => ({
+      Client: acc.client,
+      Model: acc.model,
+      Reference: acc.reference,
+      Description: acc.description,
+      "Qty Reçu": acc.quantity_reçu,
+      "Qty Trouvee": acc.quantity_trouve,
+      "Qty Manque": acc.quantity_manque,
+      "Qty Reste": acc.quantity_trouve - (acc.quantity_sortie || 0),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    ws['!cols'] = [
+      { wch: 13 },
+      { wch: 17 },
+      { wch: 19 },
+      { wch: 32 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 10 },
+    ];
+
+    const headerCells = ['A1', 'B1', 'C1', 'D1', 'E1', 'F1', 'G1', 'H1'];
+    headerCells.forEach(cell => {
+      if (ws[cell]) {
+        ws[cell].s = {
+          font: { bold: true },
+        };
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Accessories");
+    XLSX.writeFile(wb, "accessories.xlsx");
   };
 
   const filteredAccessories = accessories.filter(acc =>
@@ -250,6 +290,12 @@ export default function AccessoiresPage() {
             onClick={() => (document.getElementById("add_accessory_modal") as HTMLDialogElement)?.showModal()}
           >
             Add Accessory
+          </button>
+          <button
+            className="btn btn-success"
+            onClick={handleDownloadExcel}
+          >
+            Download Excel
           </button>
         </div>
 
@@ -381,7 +427,8 @@ export default function AccessoiresPage() {
                 onChange={(e) => setNewAccessory({ ...newAccessory, client: e.target.value })}
               />
               <input
-                type="text"
+                type=" superintendent
+text"
                 placeholder="Model"
                 className="input input-bordered w-full"
                 value={newAccessory.model}

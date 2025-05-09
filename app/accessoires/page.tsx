@@ -351,7 +351,7 @@ export default function AccessoiresPage() {
                     </td>
                     <td className="text-right">
                       <span className={acc.quantity_trouve - (acc.quantity_sortie || 0) < 0 ? "text-red-500" : ""}>
-                        {acc.quantity_trouve - (acc.quantity_sortie || 0)}
+                        <span className="border-2 p-2 border-green-600 rounded-lg">{acc.quantity_trouve - (acc.quantity_sortie || 0)}</span>
                       </span>
                     </td>
                     <td className="text-center">

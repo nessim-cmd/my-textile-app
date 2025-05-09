@@ -84,7 +84,7 @@ model User {
   id           String             @id @default(uuid())
   name         String
   email        String             @unique
-  role         Role               @default(ADMIN) // Changed to USER
+  role         Role               @default(USER) // Changed to USER
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   clerkUserId  String?            @unique

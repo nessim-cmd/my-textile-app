@@ -9,6 +9,7 @@ import * as XLSX from "xlsx";
 
 interface AccessoryRow {
   id: string;
+  num_dec : string;
   client: string;
   model: string;
   reference: string;
@@ -29,6 +30,7 @@ export default function AccessoiresPage() {
   const [selectedAccessoryId, setSelectedAccessoryId] = useState<string | null>(null);
   const [quantitySortieInput, setQuantitySortieInput] = useState("");
   const [newAccessory, setNewAccessory] = useState({
+    num_dec: "",
     client: "",
     model: "",
     reference: "",
@@ -60,6 +62,7 @@ export default function AccessoiresPage() {
           declaration.models.flatMap(model =>
             model.accessories.map(acc => ({
               id: acc.id,
+              num_dec: declaration.num_dec || "N/A",
               client: declaration.client || "N/A",
               model: model.name || "N/A",
               reference: acc.reference_accessoire || "N/A",
@@ -75,6 +78,7 @@ export default function AccessoiresPage() {
       // Process standalone accessories
       const standaloneAccessoryRows: AccessoryRow[] = standaloneAccessories.map((acc: { id: any; client: any; model: { name: any; }; reference_accessoire: any; description: any; quantity_reçu: any; quantity_trouve: any; quantity_manque: any; quantity_sortie: any; }) => ({
         id: acc.id,
+       
         client: acc.client || "N/A",
         model: acc.model?.name || "N/A",
         reference: acc.reference_accessoire || "N/A",
@@ -182,6 +186,7 @@ export default function AccessoiresPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          
           client,
           model,
           reference_accessoire: reference,
@@ -199,6 +204,7 @@ export default function AccessoiresPage() {
       }
 
       setNewAccessory({
+        num_dec: "",
         client: "",
         model: "",
         reference: "",
@@ -216,6 +222,7 @@ export default function AccessoiresPage() {
 
   const handleDownloadExcel = () => {
     const data = accessories.map(acc => ({
+      num_dec : acc.num_dec,
       Client: acc.client,
       Model: acc.model,
       Reference: acc.reference,
@@ -312,6 +319,7 @@ export default function AccessoiresPage() {
             <table className="table table-zebra w-full">
               <thead>
                 <tr>
+                  <th className="text-left">Num_Dec</th>
                   <th className="text-left">Client</th>
                   <th className="text-left">Model</th>
                   <th className="text-left">Reference</th>
@@ -329,6 +337,7 @@ export default function AccessoiresPage() {
                     key={acc.id} 
                     className={(acc.quantity_trouve - (acc.quantity_sortie || 0) === 0) ? "!bg-red-300 !text-white" : ""}
                   >
+                    <td>{acc.num_dec}</td>
                     <td>{acc.client}</td>
                     <td>{acc.model}</td>
                     <td>{acc.reference}</td>

@@ -1,5 +1,6 @@
 import prisma from '@/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 
 interface Variant {
   id?: string;
@@ -25,17 +26,16 @@ interface WhereClause {
 
 export async function GET(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
     const dateDebut = searchParams.get('dateDebut');
     const dateFin = searchParams.get('dateFin');
     const searchTerm = searchParams.get('search');
     const client = searchParams.get('client');
-
-    if (!email) return NextResponse.json({ error: 'Email is required' }, { status: 400 });
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const where: WhereClause = {};
 
@@ -83,6 +83,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { commandesWithVariants, variants, fileUrls, ...modelData } = body;
 
@@ -103,7 +108,7 @@ export async function POST(request: NextRequest) {
         lotto: modelData.lotto || null,
         ordine: modelData.ordine || null,
         puht: modelData.puht ? parseFloat(modelData.puht) : null,
-        fileUrls: fileUrls || [], // Changed to fileUrls
+        fileUrls: fileUrls || [],
         clientId: modelData.clientId,
         variants: {
           create: combinedVariants.map((v: Variant) => ({
@@ -124,6 +129,11 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, commandesWithVariants, variants, fileUrls, ...modelData } = body;
 
@@ -151,7 +161,7 @@ export async function PUT(request: NextRequest) {
         lotto: modelData.lotto !== undefined ? modelData.lotto : null,
         ordine: modelData.ordine !== undefined ? modelData.ordine : null,
         puht: modelData.puht !== undefined ? parseFloat(modelData.puht) : null,
-        fileUrls: fileUrls !== undefined ? fileUrls : [], // Changed to fileUrls
+        fileUrls: fileUrls !== undefined ? fileUrls : [],
         clientId: existingModel.clientId,
         ...(combinedVariants.length > 0 && {
           variants: {
@@ -175,6 +185,11 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id } = body;
 

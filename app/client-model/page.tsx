@@ -1,7 +1,7 @@
 "use client";
 
 import Wrapper from '@/components/Wrapper';
-import { useUser, useAuth } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 import { Trash } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -37,9 +37,8 @@ interface ClientModel {
 }
 
 export default function ClientModelPage() {
-  const { user } = useUser();
   const { getToken } = useAuth();
-  const email = user?.primaryEmailAddress?.emailAddress;
+  // Email is no longer needed for API calls as we rely on the token/session
   const [models, setModels] = useState<ClientModel[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -54,7 +53,7 @@ export default function ClientModelPage() {
     fileUrls: [],
     commandesWithVariants: [],
   });
-  
+
   const [commandesWithVariants, setCommandesWithVariants] = useState<Commande[]>([{ value: '', variants: [{ name: '', qte_variante: 0 }] }]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
@@ -72,11 +71,10 @@ export default function ClientModelPage() {
   const itemsPerPage = 8;
 
   const fetchData = useCallback(async () => {
-    if (!email) return;
     setLoading(true);
     setError(null);
 
-    const params = new URLSearchParams({ email });
+    const params = new URLSearchParams(); // Removed email param
     if (dateDebut) params.append('dateDebut', dateDebut);
     if (dateFin) params.append('dateFin', dateFin);
     if (searchTerm) params.append('search', searchTerm);
@@ -95,7 +93,7 @@ export default function ClientModelPage() {
     } finally {
       setLoading(false);
     }
-  }, [email, dateDebut, dateFin, searchTerm, getToken]);
+  }, [dateDebut, dateFin, searchTerm, getToken]);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -111,9 +109,9 @@ export default function ClientModelPage() {
   }, [getToken]);
 
   useEffect(() => {
-    if (email) fetchData();
+    fetchData(); // Always fetch data on mount/change,auth is handled by token
     fetchClients();
-  }, [email, dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
+  }, [dateDebut, dateFin, searchTerm, refreshTrigger, fetchData, fetchClients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +133,7 @@ export default function ClientModelPage() {
     try {
       const token = await getToken();
       const payload = {
-        ...(formData.id ? { id: formData.id } : { email }),
+        ...(formData.id ? { id: formData.id } : {}),
         name: formData.name || null,
         description: formData.description || null,
         commandes: combinedCommandes || null,
@@ -150,7 +148,7 @@ export default function ClientModelPage() {
 
       const response = await fetch(url, {
         method,
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
@@ -193,9 +191,9 @@ export default function ClientModelPage() {
         const token = await getToken();
         await fetch(`/api/client-model`, {
           method: 'DELETE',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
+            Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ id })
         });
@@ -271,7 +269,7 @@ export default function ClientModelPage() {
     <Wrapper>
       <div className="flex flex-col gap-4 mb-4 px-4 sm:px-0">
         <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
-          <button 
+          <button
             className="btn btn-primary mb-4 w-full sm:w-auto"
             onClick={() => setIsModalOpen(true)}
           >
@@ -303,7 +301,7 @@ export default function ClientModelPage() {
               onChange={(e) => setDateFin(e.target.value)}
             />
             {(dateDebut || dateFin) && (
-              <button 
+              <button
                 className="btn btn-error w-full sm:w-auto"
                 onClick={() => {
                   setDateDebut('');
@@ -552,8 +550,8 @@ export default function ClientModelPage() {
                           if (data.urls && Array.isArray(data.urls)) {
                             setFormData((prev) => ({
                               ...prev,
-                              fileUrls: replaceFilesOnUpload 
-                                ? data.urls 
+                              fileUrls: replaceFilesOnUpload
+                                ? data.urls
                                 : [...(prev.fileUrls || []), ...data.urls],
                             }));
                           } else {
@@ -601,7 +599,7 @@ export default function ClientModelPage() {
                           className="btn btn-ghost btn-xs text-red-500"
                           onClick={() => handleDeleteFile(index)}
                         >
-                          <Trash/>
+                          <Trash />
                         </button>
                       </div>
                     ))}
@@ -670,11 +668,11 @@ export default function ClientModelPage() {
                             v.map((item, i) =>
                               i === cmdIndex
                                 ? {
-                                    ...item,
-                                    variants: item.variants.map((v, j) =>
-                                      j === varIndex ? { ...v, name: e.target.value } : v
-                                    )
-                                  }
+                                  ...item,
+                                  variants: item.variants.map((v, j) =>
+                                    j === varIndex ? { ...v, name: e.target.value } : v
+                                  )
+                                }
                                 : item
                             )
                           )}
@@ -688,11 +686,11 @@ export default function ClientModelPage() {
                             v.map((item, i) =>
                               i === cmdIndex
                                 ? {
-                                    ...item,
-                                    variants: item.variants.map((v, j) =>
-                                      j === varIndex ? { ...v, qte_variante: Number(e.target.value) } : v
-                                    )
-                                  }
+                                  ...item,
+                                  variants: item.variants.map((v, j) =>
+                                    j === varIndex ? { ...v, qte_variante: Number(e.target.value) } : v
+                                  )
+                                }
                                 : item
                             )
                           )}
@@ -704,9 +702,9 @@ export default function ClientModelPage() {
                             v.map((item, i) =>
                               i === cmdIndex
                                 ? {
-                                    ...item,
-                                    variants: item.variants.filter((_, j) => j !== varIndex)
-                                  }
+                                  ...item,
+                                  variants: item.variants.filter((_, j) => j !== varIndex)
+                                }
                                 : item
                             )
                           )}
@@ -721,8 +719,8 @@ export default function ClientModelPage() {
               </div>
 
               <div className="modal-action flex flex-col sm:flex-row gap-2">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn w-full sm:w-auto"
                   onClick={() => {
                     setIsModalOpen(false);
@@ -745,8 +743,8 @@ export default function ClientModelPage() {
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary w-full sm:w-auto"
                   disabled={uploading}
                 >
